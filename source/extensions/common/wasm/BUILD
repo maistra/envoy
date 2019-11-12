@@ -62,6 +62,9 @@ envoy_cc_library(
 
 envoy_cc_library(
     name = "wasm_interoperation_lib",
+    srcs = [
+        "wasm_state.cc",
+    ],
     hdrs = [
         "wasm_state.h",
     ],
