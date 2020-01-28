@@ -76,6 +76,7 @@ public:
 
 private:
   friend class RequestWrapper;
+  friend class ResponseWrapper;
   const Http::HeaderMap* value_;
 };
 
