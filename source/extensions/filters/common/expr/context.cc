@@ -131,6 +131,9 @@ absl::optional<CelValue> ResponseWrapper::operator[](CelValue key) const {
     return CelValue::CreateMap(&trailers_);
   } else if (value == Flags) {
     return CelValue::CreateInt64(info_.responseFlags());
+  } else if (value == TotalSize) {
+    return CelValue::CreateInt64(info_.bytesSent() + headers_.value_->byteSize().value() +
+                                 trailers_.value_->byteSize().value());
   }
   return {};
 }
