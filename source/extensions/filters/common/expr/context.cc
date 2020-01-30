@@ -77,6 +77,9 @@ absl::optional<CelValue> RequestWrapper::operator[](CelValue key) const {
     } else {
       return CelValue::CreateInt64(info_.bytesReceived());
     }
+  } else if (value == TotalSize) {
+    return CelValue::CreateInt64(info_.bytesReceived() +
+                                 (headers_.value_ ? headers_.value_->byteSize().value() : 0));
   } else if (value == Duration) {
     auto duration = info_.requestComplete();
     if (duration.has_value()) {
@@ -106,8 +109,6 @@ absl::optional<CelValue> RequestWrapper::operator[](CelValue key) const {
       return convertHeaderEntry(headers_.value_->RequestId());
     } else if (value == UserAgent) {
       return convertHeaderEntry(headers_.value_->UserAgent());
-    } else if (value == TotalSize) {
-      return CelValue::CreateInt64(info_.bytesReceived() + headers_.value_->byteSize().value());
     }
   }
   return {};
@@ -132,8 +133,9 @@ absl::optional<CelValue> ResponseWrapper::operator[](CelValue key) const {
   } else if (value == Flags) {
     return CelValue::CreateInt64(info_.responseFlags());
   } else if (value == TotalSize) {
-    return CelValue::CreateInt64(info_.bytesSent() + headers_.value_->byteSize().value() +
-                                 trailers_.value_->byteSize().value());
+    return CelValue::CreateInt64(info_.bytesSent() +
+                                 (headers_.value_ ? headers_.value_->byteSize().value() : 0) +
+                                 (trailers_.value_ ? trailers_.value_->byteSize().value() : 0));
   }
   return {};
 }
