@@ -6,7 +6,7 @@
 // consumed or referenced directly by other Envoy code. It serves purely as a
 // porting layer for QUICHE.
 
-#include "openssl/base.h"
+#include "opensslcbs/cbs.h"
 #include "quiche/quic/platform/api/quic_string_piece.h"
 
 namespace quic {

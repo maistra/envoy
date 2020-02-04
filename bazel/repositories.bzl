@@ -114,12 +114,12 @@ def envoy_dependencies(skip_targets = []):
     # Binding to an alias pointing to the selected version of BoringSSL:
     # - BoringSSL FIPS from @boringssl_fips//:ssl,
     # - non-FIPS BoringSSL from @boringssl//:ssl.
-    _boringssl()
-    _boringssl_fips()
-    native.bind(
-        name = "ssl",
-        actual = "@envoy//bazel:boringssl",
-    )
+
+    # EXTERNAL OPENSSL
+    _openssl()
+    _bssl_wrapper()
+    _openssl_cbs()
+
 
     # The long repo names (`com_github_fmtlib_fmt` instead of `fmtlib`) are
     # semi-standard in the Bazel community, intended to avoid both duplicate
@@ -184,22 +184,29 @@ def envoy_dependencies(skip_targets = []):
         actual = "@bazel_tools//tools/cpp/runfiles",
     )
 
-def _boringssl():
-    _repository_impl(
-        name = "boringssl",
-        patch_args = ["-p1"],
-        patches = ["@envoy//bazel:boringssl_static.patch"],
+#EXTERNAL OPENSSL
+def _openssl():
+    native.bind(
+        name = "ssl",
+        actual = "@openssl//:openssl-lib",
+)
+
+#EXTERNAL OPENSSL
+def _bssl_wrapper():
+    _repository_impl("bssl_wrapper")
+    native.bind(
+        name = "bssl_wrapper_lib",
+        actual = "@bssl_wrapper//:bssl_wrapper_lib",
     )
 
-def _boringssl_fips():
-    location = REPOSITORY_LOCATIONS["boringssl_fips"]
-    genrule_repository(
-        name = "boringssl_fips",
-        urls = location["urls"],
-        sha256 = location["sha256"],
-        genrule_cmd_file = "@envoy//bazel/external:boringssl_fips.genrule_cmd",
-        build_file = "@envoy//bazel/external:boringssl_fips.BUILD",
+#EXTERNAL OPENSSL
+def _openssl_cbs():
+    _repository_impl("openssl_cbs")
+    native.bind(
+        name = "openssl_cbs_lib",
+        actual = "@openssl_cbs//:openssl_cbs_lib",
     )
+
 
 def _com_github_circonus_labs_libcircllhist():
     _repository_impl(

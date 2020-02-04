@@ -193,6 +193,7 @@ envoy_cc_library(
         "abseil_synchronization",
         "abseil_time",
         "ssl",
+        "openssl_cbs_lib",
     ],
     tags = ["nofips"],
     visibility = ["//visibility:public"],

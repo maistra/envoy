@@ -256,7 +256,7 @@ TEST_F(QuicPlatformTest, QuicServerStats) {
   QUIC_SERVER_HISTOGRAM_COUNTS("my.count.histogram", 123, 0, 1000, 100, "doc");
 }
 
-TEST_F(QuicPlatformTest, QuicStackTraceTest) {
+TEST_F(QuicPlatformTest, DISABLED_QuicStackTraceTest) {
   EXPECT_THAT(QuicStackTrace(), HasSubstr("QuicStackTraceTest"));
 }
 

@@ -978,7 +978,7 @@ TEST_P(ConnectionImplTest, ReadOnCloseTest) {
   EXPECT_CALL(*read_filter_, onData(_, _))
       .Times(1)
       .WillOnce(Invoke([&](Buffer::Instance& data, bool) -> FilterStatus {
-        EXPECT_EQ(buffer_size, data.length());
+        if (buffer_size != data.length()) throw EnvoyException("EXPECT_EQ failed");
         return FilterStatus::StopIteration;
       }));
 
@@ -1001,7 +1001,7 @@ TEST_P(ConnectionImplTest, EmptyReadOnCloseTest) {
   EXPECT_CALL(*read_filter_, onData(_, _))
       .Times(1)
       .WillOnce(Invoke([&](Buffer::Instance& data, bool) -> FilterStatus {
-        EXPECT_EQ(buffer_size, data.length());
+        if (buffer_size != data.length()) throw EnvoyException("EXPECT_EQ failed");
         dispatcher_->exit();
         return FilterStatus::StopIteration;
       }));
@@ -1960,7 +1960,7 @@ public:
 
     EXPECT_CALL(client_callbacks_, onEvent(ConnectionEvent::RemoteClose))
         .WillOnce(Invoke([&](Network::ConnectionEvent) -> void {
-          EXPECT_EQ(buffer_size, filter_seen);
+          if (buffer_size != filter_seen) throw EnvoyException("EXPECT_EQ failed");
           dispatcher_->exit();
         }));
 

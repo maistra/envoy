@@ -181,29 +181,6 @@ envoy_cc_test(
 
 exports_files(["test_utility.sh"])
 
-envoy_sh_test(
-    name = "hotrestart_test",
-    srcs = envoy_select_hot_restart([
-        "hotrestart_test.sh",
-    ]),
-    data = [
-        "test_utility.sh",
-        "//source/exe:envoy-static",
-        "//test/config/integration:server_config_files",
-        "//tools:socket_passing",
-    ],
-)
-
-envoy_sh_test(
-    name = "run_envoy_test",
-    srcs = ["run_envoy_test.sh"],
-    data = [
-        "test_utility.sh",
-        "//source/exe:envoy-static",
-        "//test/config/integration:server_config_files",
-    ],
-)
-
 envoy_cc_test(
     name = "header_integration_test",
     srcs = [
@@ -658,30 +635,6 @@ envoy_cc_test(
         "//source/common/http:codec_client_lib",
         "//source/extensions/filters/listener/proxy_protocol:config",
         "//test/test_common:utility_lib",
-    ],
-)
-
-envoy_cc_test(
-    name = "ratelimit_integration_test",
-    srcs = ["ratelimit_integration_test.cc"],
-    deps = [
-        ":http_integration_lib",
-        "//source/common/buffer:zero_copy_input_stream_lib",
-        "//source/common/grpc:codec_lib",
-        "//source/common/grpc:common_lib",
-        "//source/extensions/filters/http/ratelimit:config",
-        "//test/common/grpc:grpc_client_integration_lib",
-        "@envoy_api//envoy/service/ratelimit/v2:pkg_cc_proto",
-    ],
-)
-
-envoy_cc_test(
-    name = "rtds_integration_test",
-    srcs = ["rtds_integration_test.cc"],
-    deps = [
-        ":http_integration_lib",
-        "//test/common/grpc:grpc_client_integration_lib",
-        "@envoy_api//envoy/service/discovery/v2:pkg_cc_proto",
     ],
 )
 

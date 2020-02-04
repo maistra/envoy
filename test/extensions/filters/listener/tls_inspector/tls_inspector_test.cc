@@ -12,11 +12,13 @@
 #include "openssl/ssl.h"
 
 using testing::_;
+using testing::AtLeast;
 using testing::Eq;
 using testing::InSequence;
 using testing::Invoke;
 using testing::InvokeWithoutArgs;
 using testing::NiceMock;
+using testing::Return;
 using testing::ReturnNew;
 using testing::ReturnRef;
 using testing::SaveArg;
@@ -25,29 +27,21 @@ namespace Envoy {
 namespace Extensions {
 namespace ListenerFilters {
 namespace TlsInspector {
-namespace {
 
 class TlsInspectorTest : public testing::Test {
 public:
   TlsInspectorTest()
-      : cfg_(std::make_shared<Config>(store_)),
-        io_handle_(std::make_unique<Network::IoSocketHandleImpl>(42)) {}
-  ~TlsInspectorTest() override { io_handle_->close(); }
+	  : cfg_(std::make_shared<Config>(store_)),
+	    io_handle_(std::make_unique<Network::IoSocketHandleImpl>(42)) {}
+  ~TlsInspectorTest() { io_handle_->close(); }
 
   void init() {
     filter_ = std::make_unique<Filter>(cfg_);
 
-    EXPECT_CALL(cb_, socket()).WillRepeatedly(ReturnRef(socket_));
-    EXPECT_CALL(cb_, dispatcher()).WillRepeatedly(ReturnRef(dispatcher_));
-    EXPECT_CALL(socket_, ioHandle()).WillRepeatedly(ReturnRef(*io_handle_));
+	EXPECT_CALL(cb_, socket()).WillRepeatedly(ReturnRef(socket_));
+	EXPECT_CALL(cb_, dispatcher()).WillRepeatedly(ReturnRef(dispatcher_));
+	EXPECT_CALL(socket_, ioHandle()).WillRepeatedly(ReturnRef(*io_handle_));
 
-    // Prepare the first recv attempt during
-    EXPECT_CALL(os_sys_calls_, recv(42, _, _, MSG_PEEK))
-        .WillOnce(
-            Invoke([](int fd, void* buffer, size_t length, int flag) -> Api::SysCallSizeResult {
-              ENVOY_LOG_MISC(error, "In mock syscall recv {} {} {} {}", fd, buffer, length, flag);
-              return Api::SysCallSizeResult{static_cast<ssize_t>(0), 0};
-            }));
     EXPECT_CALL(dispatcher_,
                 createFileEvent_(_, _, Event::FileTriggerType::Edge,
                                  Event::FileReadyType::Read | Event::FileReadyType::Closed))
@@ -97,7 +91,8 @@ TEST_F(TlsInspectorTest, ReadError) {
 TEST_F(TlsInspectorTest, SniRegistered) {
   init();
   const std::string servername("example.com");
-  std::vector<uint8_t> client_hello = Tls::Test::generateClientHello(servername, "");
+  std::vector<uint8_t> client_hello =
+      Envoy::Extensions::ListenerFilters::TlsInspector::Test::generateClientHello(servername, "");
   EXPECT_CALL(os_sys_calls_, recv(42, _, _, MSG_PEEK))
       .WillOnce(
           Invoke([&client_hello](int, void* buffer, size_t length, int) -> Api::SysCallSizeResult {
@@ -106,7 +101,8 @@ TEST_F(TlsInspectorTest, SniRegistered) {
             return Api::SysCallSizeResult{ssize_t(client_hello.size()), 0};
           }));
   EXPECT_CALL(socket_, setRequestedServerName(Eq(servername)));
-  EXPECT_CALL(socket_, setRequestedApplicationProtocols(_)).Times(0);
+// Not valid for ALPN "istio" application protocol hack for openssl
+  EXPECT_CALL(socket_, setRequestedApplicationProtocols(_)).Times(1);
   EXPECT_CALL(socket_, setDetectedTransportProtocol(absl::string_view("tls")));
   EXPECT_CALL(cb_, continueFilterChain(true));
   file_event_callback_(Event::FileReadyType::Read);
@@ -120,7 +116,9 @@ TEST_F(TlsInspectorTest, AlpnRegistered) {
   init();
   const std::vector<absl::string_view> alpn_protos = {absl::string_view("h2"),
                                                       absl::string_view("http/1.1")};
-  std::vector<uint8_t> client_hello = Tls::Test::generateClientHello("", "\x02h2\x08http/1.1");
+  std::vector<uint8_t> client_hello =
+      Envoy::Extensions::ListenerFilters::TlsInspector::Test::generateClientHello("",
+                                                                            "\x02h2\x08http/1.1");
   EXPECT_CALL(os_sys_calls_, recv(42, _, _, MSG_PEEK))
       .WillOnce(
           Invoke([&client_hello](int, void* buffer, size_t length, int) -> Api::SysCallSizeResult {
@@ -143,7 +141,8 @@ TEST_F(TlsInspectorTest, MultipleReads) {
   init();
   const std::vector<absl::string_view> alpn_protos = {absl::string_view("h2")};
   const std::string servername("example.com");
-  std::vector<uint8_t> client_hello = Tls::Test::generateClientHello(servername, "\x02h2");
+  std::vector<uint8_t> client_hello =
+      Envoy::Extensions::ListenerFilters::TlsInspector::Test::generateClientHello(servername, "\x02h2");
   {
     InSequence s;
     EXPECT_CALL(os_sys_calls_, recv(42, _, _, MSG_PEEK))
@@ -179,7 +178,8 @@ TEST_F(TlsInspectorTest, MultipleReads) {
 // Test that the filter correctly handles a ClientHello with no extensions present.
 TEST_F(TlsInspectorTest, NoExtensions) {
   init();
-  std::vector<uint8_t> client_hello = Tls::Test::generateClientHello("", "");
+  std::vector<uint8_t> client_hello =
+      Envoy::Extensions::ListenerFilters::TlsInspector::Test::generateClientHello("", "");
   EXPECT_CALL(os_sys_calls_, recv(42, _, _, MSG_PEEK))
       .WillOnce(
           Invoke([&client_hello](int, void* buffer, size_t length, int) -> Api::SysCallSizeResult {
@@ -188,7 +188,8 @@ TEST_F(TlsInspectorTest, NoExtensions) {
             return Api::SysCallSizeResult{ssize_t(client_hello.size()), 0};
           }));
   EXPECT_CALL(socket_, setRequestedServerName(_)).Times(0);
-  EXPECT_CALL(socket_, setRequestedApplicationProtocols(_)).Times(0);
+// 0 times not valid for ALPN "istio" application protocol hack for openssl
+  EXPECT_CALL(socket_, setRequestedApplicationProtocols(_)).Times(1);
   EXPECT_CALL(socket_, setDetectedTransportProtocol(absl::string_view("tls")));
   EXPECT_CALL(cb_, continueFilterChain(true));
   file_event_callback_(Event::FileReadyType::Read);
@@ -202,7 +203,8 @@ TEST_F(TlsInspectorTest, NoExtensions) {
 TEST_F(TlsInspectorTest, ClientHelloTooBig) {
   const size_t max_size = 50;
   cfg_ = std::make_shared<Config>(store_, max_size);
-  std::vector<uint8_t> client_hello = Tls::Test::generateClientHello("example.com", "");
+  std::vector<uint8_t> client_hello =
+      Envoy::Extensions::ListenerFilters::TlsInspector::Test::generateClientHello("example.com", "");
   ASSERT(client_hello.size() > max_size);
   init();
   EXPECT_CALL(os_sys_calls_, recv(42, _, _, MSG_PEEK))
@@ -236,37 +238,6 @@ TEST_F(TlsInspectorTest, NotSsl) {
   EXPECT_EQ(1, cfg_->stats().tls_not_found_.value());
 }
 
-TEST_F(TlsInspectorTest, InlineReadSucceed) {
-  filter_ = std::make_unique<Filter>(cfg_);
-
-  EXPECT_CALL(cb_, socket()).WillRepeatedly(ReturnRef(socket_));
-  EXPECT_CALL(cb_, dispatcher()).WillRepeatedly(ReturnRef(dispatcher_));
-  EXPECT_CALL(socket_, ioHandle()).WillRepeatedly(ReturnRef(*io_handle_));
-  const std::vector<absl::string_view> alpn_protos = {absl::string_view("h2")};
-  const std::string servername("example.com");
-  std::vector<uint8_t> client_hello = Tls::Test::generateClientHello(servername, "\x02h2");
-
-  EXPECT_CALL(os_sys_calls_, recv(42, _, _, MSG_PEEK))
-      .WillOnce(Invoke(
-          [&client_hello](int fd, void* buffer, size_t length, int flag) -> Api::SysCallSizeResult {
-            ENVOY_LOG_MISC(trace, "In mock syscall recv {} {} {} {}", fd, buffer, length, flag);
-            ASSERT(length >= client_hello.size());
-            memcpy(buffer, client_hello.data(), client_hello.size());
-            return Api::SysCallSizeResult{ssize_t(client_hello.size()), 0};
-          }));
-
-  // No event is created if the inline recv parse the hello.
-  EXPECT_CALL(dispatcher_,
-              createFileEvent_(_, _, Event::FileTriggerType::Edge,
-                               Event::FileReadyType::Read | Event::FileReadyType::Closed))
-      .Times(0);
-
-  EXPECT_CALL(socket_, setRequestedServerName(Eq(servername)));
-  EXPECT_CALL(socket_, setRequestedApplicationProtocols(alpn_protos));
-  EXPECT_CALL(socket_, setDetectedTransportProtocol(absl::string_view("tls")));
-  EXPECT_EQ(Network::FilterStatus::Continue, filter_->onAccept(cb_));
-}
-} // namespace
 } // namespace TlsInspector
 } // namespace ListenerFilters
 } // namespace Extensions

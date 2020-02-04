@@ -17,6 +17,7 @@ namespace Tls {
 class SslSocketConfigFactory : public virtual Server::Configuration::TransportSocketConfigFactory {
 public:
   ~SslSocketConfigFactory() override = default;
+
   std::string name() const override { return TransportSocketNames::get().Tls; }
 };
 
@@ -24,8 +25,9 @@ class UpstreamSslSocketFactory : public Server::Configuration::UpstreamTransport
                                  public SslSocketConfigFactory {
 public:
   Network::TransportSocketFactoryPtr createTransportSocketFactory(
-      const Protobuf::Message& config,
-      Server::Configuration::TransportSocketFactoryContext& context) override;
+      const Protobuf::Message &config,
+      Server::Configuration::TransportSocketFactoryContext &context) override;
+
   ProtobufTypes::MessagePtr createEmptyConfigProto() override;
 };
 
@@ -36,9 +38,10 @@ class DownstreamSslSocketFactory
       public SslSocketConfigFactory {
 public:
   Network::TransportSocketFactoryPtr
-  createTransportSocketFactory(const Protobuf::Message& config,
-                               Server::Configuration::TransportSocketFactoryContext& context,
-                               const std::vector<std::string>& server_names) override;
+  createTransportSocketFactory(const Protobuf::Message &config,
+                               Server::Configuration::TransportSocketFactoryContext &context,
+                               const std::vector<std::string> &server_names) override;
+
   ProtobufTypes::MessagePtr createEmptyConfigProto() override;
 };
 
@@ -46,7 +49,7 @@ DECLARE_FACTORY(DownstreamSslSocketFactory);
 
 class SslContextManagerFactory : public Ssl::ContextManagerFactory {
 public:
-  Ssl::ContextManagerPtr createContextManager(TimeSource& time_source) override;
+  Ssl::ContextManagerPtr createContextManager(TimeSource &time_source) override;
 };
 
 DECLARE_FACTORY(SslContextManagerFactory);

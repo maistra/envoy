@@ -103,6 +103,9 @@ public:
       const envoy::api::v2::auth::UpstreamTlsContext& config,
       Server::Configuration::TransportSocketFactoryContext& secret_provider_context)
       : ClientContextConfigImpl(config, "", secret_provider_context) {}
+  ClientContextConfigImpl(
+      const Json::Object& config,
+      Server::Configuration::TransportSocketFactoryContext& secret_provider_context);
 
   // Ssl::ClientContextConfig
   const std::string& serverNameIndication() const override { return server_name_indication_; }
@@ -127,22 +130,15 @@ public:
   ServerContextConfigImpl(
       const envoy::api::v2::auth::DownstreamTlsContext& config,
       Server::Configuration::TransportSocketFactoryContext& secret_provider_context);
-  ~ServerContextConfigImpl() override;
+  ServerContextConfigImpl(
+      const Json::Object& config,
+      Server::Configuration::TransportSocketFactoryContext& secret_provider_context);
 
   // Ssl::ServerContextConfig
   bool requireClientCertificate() const override { return require_client_certificate_; }
   const std::vector<SessionTicketKey>& sessionTicketKeys() const override {
     return session_ticket_keys_;
   }
-
-  bool isReady() const override {
-    const bool parent_is_ready = ContextConfigImpl::isReady();
-    const bool session_ticket_keys_are_ready =
-        (session_ticket_keys_provider_ == nullptr || !session_ticket_keys_.empty());
-    return parent_is_ready && session_ticket_keys_are_ready;
-  }
-
-  void setSecretUpdateCallback(std::function<void()> callback) override;
 
 private:
   static const unsigned DEFAULT_MIN_VERSION;
@@ -151,14 +147,10 @@ private:
   static const std::string DEFAULT_CURVES;
 
   const bool require_client_certificate_;
-  std::vector<SessionTicketKey> session_ticket_keys_;
-  const Secret::TlsSessionTicketKeysConfigProviderSharedPtr session_ticket_keys_provider_;
-  Common::CallbackHandle* stk_update_callback_handle_{};
-  Common::CallbackHandle* stk_validation_callback_handle_{};
+  const std::vector<SessionTicketKey> session_ticket_keys_;
 
-  std::vector<ServerContextConfig::SessionTicketKey>
-  getSessionTicketKeys(const envoy::api::v2::auth::TlsSessionTicketKeys& keys);
-  ServerContextConfig::SessionTicketKey getSessionTicketKey(const std::string& key_data);
+  static void validateAndAppendKey(std::vector<ServerContextConfig::SessionTicketKey>& keys,
+                                   const std::string& key_data);
 };
 
 } // namespace Tls

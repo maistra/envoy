@@ -14,6 +14,7 @@
 #include "common/api/os_sys_calls_impl.h"
 #include "common/common/assert.h"
 
+#include "extensions/filters/listener/tls_inspector/openssl_impl.h"
 #include "extensions/transport_sockets/well_known_names.h"
 
 #include "openssl/ssl.h"
@@ -25,9 +26,9 @@ namespace TlsInspector {
 
 Config::Config(Stats::Scope& scope, uint32_t max_client_hello_size)
     : stats_{ALL_TLS_INSPECTOR_STATS(POOL_COUNTER_PREFIX(scope, "tls_inspector."))},
-      ssl_ctx_(SSL_CTX_new(TLS_with_buffers_method())),
+      ssl_ctx_(
+          SSL_CTX_new(Envoy::Extensions::ListenerFilters::TlsInspector::TLS_with_buffers_method())),
       max_client_hello_size_(max_client_hello_size) {
-
   if (max_client_hello_size_ > TLS_MAX_CLIENT_HELLO) {
     throw EnvoyException(fmt::format("max_client_hello_size of {} is greater than maximum of {}.",
                                      max_client_hello_size_, size_t(TLS_MAX_CLIENT_HELLO)));
@@ -35,26 +36,49 @@ Config::Config(Stats::Scope& scope, uint32_t max_client_hello_size)
 
   SSL_CTX_set_options(ssl_ctx_.get(), SSL_OP_NO_TICKET);
   SSL_CTX_set_session_cache_mode(ssl_ctx_.get(), SSL_SESS_CACHE_OFF);
-  SSL_CTX_set_select_certificate_cb(
-      ssl_ctx_.get(), [](const SSL_CLIENT_HELLO* client_hello) -> ssl_select_cert_result_t {
-        const uint8_t* data;
-        size_t len;
-        if (SSL_early_callback_ctx_extension_get(
-                client_hello, TLSEXT_TYPE_application_layer_protocol_negotiation, &data, &len)) {
-          Filter* filter = static_cast<Filter*>(SSL_get_app_data(client_hello->ssl));
-          filter->onALPN(data, len);
-        }
-        return ssl_select_cert_success;
-      });
-  SSL_CTX_set_tlsext_servername_callback(
-      ssl_ctx_.get(), [](SSL* ssl, int* out_alert, void*) -> int {
-        Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
-        filter->onServername(SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name));
 
-        // Return an error to stop the handshake; we have what we wanted already.
-        *out_alert = SSL_AD_USER_CANCELLED;
-        return SSL_TLSEXT_ERR_ALERT_FATAL;
-      });
+  Envoy::Extensions::ListenerFilters::TlsInspector::set_certificate_cb(ssl_ctx_.get());
+
+  /* 
+   * MAISTRA
+   * Application protocol hack part 1. When the endpoint is determined to be TLS then the "istio" application protocol is required in order to enable the
+   * proper TLS filter. BoringSSL has the ability to peek ahead to obtain information during the SSL handshake that is not supposed to be available until
+   * a later callback. During the certificate callback BoringSSL peeks head and obtains the application protocols that is only available during the later
+   * ALPN callback in OpenSSL. The BoringSSL code then terminates the filter before the ALPN callback is ever called. BoringSSL can get away with this since
+   * it has this peek ahead functionality not available in OpenSSL. The following hack simulates this behavior: when there is a TLS endpoint the endpoint
+   * hostname will contain "outbound_" so that is used as a trigger to add the "istio" application protocol. If the endpoint is not TLS then the servername
+   * will not contain "outbound_". One issue, of course, is that if the actual endpoint servername contains "outbound_" then this logic will incorrectly
+   * identify the endpoint as TLS. 
+   */
+  auto tlsext_servername_cb = +[](SSL* ssl, int* out_alert, void* arg) -> int {
+    Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
+    absl::string_view servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+    filter->onServername(servername);
+    if (servername.rfind("outbound_") != std::string::npos) {
+      filter->setIstioApplicationProtocol();
+    }
+
+    return Envoy::Extensions::ListenerFilters::TlsInspector::getServernameCallbackReturn(out_alert);
+  };
+  SSL_CTX_set_tlsext_servername_callback(ssl_ctx_.get(), tlsext_servername_cb);
+
+  auto alpn_cb = [](SSL* ssl, const unsigned char** out, unsigned char* outlen,
+                    const unsigned char* in, unsigned int inlen, void* arg) -> int {
+    Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
+    filter->onALPN(in, inlen);
+
+    return SSL_TLSEXT_ERR_OK;
+  };
+  SSL_CTX_set_alpn_select_cb(ssl_ctx_.get(), alpn_cb, nullptr);
+
+  auto cert_cb = [](SSL* ssl, void* arg) -> int {
+    Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
+    filter->onCert();    
+
+    return SSL_TLSEXT_ERR_OK;
+  };
+  SSL_CTX_set_cert_cb(ssl_ctx_.get(), cert_cb, nullptr);
+
 }
 
 bssl::UniquePtr<SSL> Config::newSsl() { return bssl::UniquePtr<SSL>{SSL_new(ssl_ctx_.get())}; }
@@ -72,67 +96,43 @@ Network::FilterStatus Filter::onAccept(Network::ListenerFilterCallbacks& cb) {
   ENVOY_LOG(debug, "tls inspector: new connection accepted");
   Network::ConnectionSocket& socket = cb.socket();
   ASSERT(file_event_ == nullptr);
+
+  file_event_ = cb.dispatcher().createFileEvent(
+	  socket.ioHandle().fd(),
+      [this](uint32_t events) {
+        if (events & Event::FileReadyType::Closed) {
+          config_->stats().connection_closed_.inc();
+          done(false);
+          return;
+        }
+
+        ASSERT(events == Event::FileReadyType::Read);
+        onRead();
+      },
+      Event::FileTriggerType::Edge, Event::FileReadyType::Read | Event::FileReadyType::Closed);
+
   cb_ = &cb;
-
-  ParseState parse_state = onRead();
-  switch (parse_state) {
-  case ParseState::Error:
-    // As per discussion in https://github.com/envoyproxy/envoy/issues/7864
-    // we don't add new enum in FilterStatus so we have to signal the caller
-    // the new condition.
-    cb.socket().close();
-    return Network::FilterStatus::StopIteration;
-  case ParseState::Done:
-    return Network::FilterStatus::Continue;
-  case ParseState::Continue:
-    // do nothing but create the event
-    file_event_ = cb.dispatcher().createFileEvent(
-        socket.ioHandle().fd(),
-        [this](uint32_t events) {
-          if (events & Event::FileReadyType::Closed) {
-            config_->stats().connection_closed_.inc();
-            done(false);
-            return;
-          }
-
-          ASSERT(events == Event::FileReadyType::Read);
-          ParseState parse_state = onRead();
-          switch (parse_state) {
-          case ParseState::Error:
-            done(false);
-            break;
-          case ParseState::Done:
-            done(true);
-            break;
-          case ParseState::Continue:
-            // do nothing but wait for the next event
-            break;
-          }
-        },
-        Event::FileTriggerType::Edge, Event::FileReadyType::Read | Event::FileReadyType::Closed);
-    return Network::FilterStatus::StopIteration;
-  }
-  NOT_REACHED_GCOVR_EXCL_LINE;
+  return Network::FilterStatus::StopIteration;
 }
 
 void Filter::onALPN(const unsigned char* data, unsigned int len) {
-  CBS wire, list;
-  CBS_init(&wire, reinterpret_cast<const uint8_t*>(data), static_cast<size_t>(len));
-  if (!CBS_get_u16_length_prefixed(&wire, &list) || CBS_len(&wire) != 0 || CBS_len(&list) < 2) {
-    // Don't produce errors, let the real TLS stack do it.
-    return;
-  }
-  CBS name;
-  std::vector<absl::string_view> protocols;
-  while (CBS_len(&list) > 0) {
-    if (!CBS_get_u8_length_prefixed(&list, &name) || CBS_len(&name) == 0) {
-      // Don't produce errors, let the real TLS stack do it.
-      return;
-    }
-    protocols.emplace_back(reinterpret_cast<const char*>(CBS_data(&name)), CBS_len(&name));
-  }
+  std::vector<absl::string_view> protocols =
+      Envoy::Extensions::ListenerFilters::TlsInspector::getAlpnProtocols(data, len);
   cb_->socket().setRequestedApplicationProtocols(protocols);
   alpn_found_ = true;
+}
+
+/* 
+ * MAISTRA
+ * Application protocol hack part 2. If determined that the "istio" application protocol needs to be added (i.e. endpoint is TLS)
+ * then add it to the application protocol list as part of the certificate callback.
+ */
+void Filter::onCert() {
+  std::vector<absl::string_view> protocols;
+  if (istio_protocol_required_) {
+    protocols.emplace_back("istio");
+  }
+  cb_->socket().setRequestedApplicationProtocols(protocols);
 }
 
 void Filter::onServername(absl::string_view name) {
@@ -146,15 +146,20 @@ void Filter::onServername(absl::string_view name) {
   clienthello_success_ = true;
 }
 
-ParseState Filter::onRead() {
+void Filter::setIstioApplicationProtocol() {
+  istio_protocol_required_ = true;
+}
+
+void Filter::onRead() {
+	
   // This receive code is somewhat complicated, because it must be done as a MSG_PEEK because
   // there is no way for a listener-filter to pass payload data to the ConnectionImpl and filters
   // that get created later.
   //
-  // The file_event_ in this class gets events every time new data is available on the socket,
+  // The file_event_ in this class gets events everytime new data is available on the socket,
   // even if previous data has not been read, which is always the case due to MSG_PEEK. When
   // the TlsInspector completes and passes the socket along, a new FileEvent is created for the
-  // socket, so that new event is immediately signaled as readable because it is new and the socket
+  // socket, so that new event is immediately signalled as readable because it is new and the socket
   // is readable, even though no new events have occurred.
   //
   // TODO(ggreenway): write an integration test to ensure the events work as expected on all
@@ -165,10 +170,11 @@ ParseState Filter::onRead() {
   ENVOY_LOG(trace, "tls inspector: recv: {}", result.rc_);
 
   if (result.rc_ == -1 && result.errno_ == EAGAIN) {
-    return ParseState::Continue;
+    return;
   } else if (result.rc_ < 0) {
     config_->stats().read_error_.inc();
-    return ParseState::Error;
+    done(false);
+    return;
   }
 
   // Because we're doing a MSG_PEEK, data we've seen before gets returned every time, so
@@ -177,18 +183,17 @@ ParseState Filter::onRead() {
     const uint8_t* data = buf_ + read_;
     const size_t len = result.rc_ - read_;
     read_ = result.rc_;
-    return parseClientHello(data, len);
+    parseClientHello(data, len);
   }
-  return ParseState::Continue;
 }
 
 void Filter::done(bool success) {
   ENVOY_LOG(trace, "tls inspector: done: {}", success);
   file_event_.reset();
-  cb_->continueFilterChain(success);
+  cb_->continueFilterChain(success); 
 }
 
-ParseState Filter::parseClientHello(const void* data, size_t len) {
+void Filter::parseClientHello(const void* data, size_t len) {
   // Ownership is passed to ssl_ in SSL_set_bio()
   bssl::UniquePtr<BIO> bio(BIO_new_mem_buf(data, len));
 
@@ -209,9 +214,9 @@ ParseState Filter::parseClientHello(const void* data, size_t len) {
       // We've hit the specified size limit. This is an unreasonably large ClientHello;
       // indicate failure.
       config_->stats().client_hello_too_large_.inc();
-      return ParseState::Error;
+      done(false);
     }
-    return ParseState::Continue;
+    break;
   case SSL_ERROR_SSL:
     if (clienthello_success_) {
       config_->stats().tls_found_.inc();
@@ -220,14 +225,15 @@ ParseState Filter::parseClientHello(const void* data, size_t len) {
       } else {
         config_->stats().alpn_not_found_.inc();
       }
-      cb_->socket().setDetectedTransportProtocol(
-          TransportSockets::TransportProtocolNames::get().Tls);
+      cb_->socket().setDetectedTransportProtocol(TransportSockets::TransportSocketNames::get().Tls);
     } else {
       config_->stats().tls_not_found_.inc();
     }
-    return ParseState::Done;
+    done(true);
+    break;
   default:
-    return ParseState::Error;
+    done(false);
+    break;
   }
 }
 

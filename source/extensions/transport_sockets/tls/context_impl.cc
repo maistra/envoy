@@ -18,8 +18,10 @@
 #include "common/network/address_impl.h"
 #include "common/protobuf/utility.h"
 
+#include "extensions/transport_sockets/tls/openssl_impl.h"
 #include "extensions/transport_sockets/tls/utility.h"
 
+#include "openssl/err.h"
 #include "openssl/evp.h"
 #include "openssl/hmac.h"
 #include "openssl/rand.h"
@@ -30,39 +32,12 @@ namespace Extensions {
 namespace TransportSockets {
 namespace Tls {
 
-namespace {
-
-bool cbsContainsU16(CBS& cbs, uint16_t n) {
-  while (CBS_len(&cbs) > 0) {
-    uint16_t v;
-    if (!CBS_get_u16(&cbs, &v)) {
-      return false;
-    }
-    if (v == n) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-} // namespace
-
 ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& config,
                          TimeSource& time_source)
     : scope_(scope), stats_(generateStats(scope)), time_source_(time_source),
-      tls_max_version_(config.maxProtocolVersion()),
-      stat_name_set_(scope.symbolTable().makeSet("TransportSockets::Tls")),
-      unknown_ssl_cipher_(stat_name_set_->add("unknown_ssl_cipher")),
-      unknown_ssl_curve_(stat_name_set_->add("unknown_ssl_curve")),
-      unknown_ssl_algorithm_(stat_name_set_->add("unknown_ssl_algorithm")),
-      unknown_ssl_version_(stat_name_set_->add("unknown_ssl_version")),
-      ssl_ciphers_(stat_name_set_->add("ssl.ciphers")),
-      ssl_versions_(stat_name_set_->add("ssl.versions")),
-      ssl_curves_(stat_name_set_->add("ssl.curves")),
-      ssl_sigalgs_(stat_name_set_->add("ssl.sigalgs")) {
+      tls_max_version_(config.maxProtocolVersion()) {
   const auto tls_certificates = config.tlsCertificates();
-  tls_contexts_.resize(std::max(static_cast<size_t>(1), tls_certificates.size()));
+  tls_contexts_.resize(std::max(1UL, tls_certificates.size()));
 
   for (auto& ctx : tls_contexts_) {
     ctx.ssl_ctx_.reset(SSL_CTX_new(TLS_method()));
@@ -76,14 +51,19 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
     rc = SSL_CTX_set_max_proto_version(ctx.ssl_ctx_.get(), config.maxProtocolVersion());
     RELEASE_ASSERT(rc == 1, "");
 
-    if (!SSL_CTX_set_strict_cipher_list(ctx.ssl_ctx_.get(), config.cipherSuites().c_str())) {
-      std::vector<absl::string_view> ciphers =
-          StringUtil::splitToken(config.cipherSuites(), ":+-![|]", false);
+    if (!Envoy::Extensions::TransportSockets::Tls::set_strict_cipher_list(
+            ctx.ssl_ctx_.get(), config.cipherSuites().c_str())) {
+       std::vector<absl::string_view> ciphers =
+          StringUtil::splitToken(config.cipherSuites(), ":+![|]", false);
+
       std::vector<std::string> bad_ciphers;
       for (const auto& cipher : ciphers) {
         std::string cipher_str(cipher);
-        if (!SSL_CTX_set_strict_cipher_list(ctx.ssl_ctx_.get(), cipher_str.c_str())) {
-          bad_ciphers.push_back(cipher_str);
+        if (cipher_str.compare("-ALL") && cipher_str.compare("ALL")) {
+          if (!Envoy::Extensions::TransportSockets::Tls::set_strict_cipher_list(
+                  ctx.ssl_ctx_.get(), cipher_str.c_str())) {
+            bad_ciphers.push_back(cipher_str);
+          }
         }
       }
       throw EnvoyException(fmt::format("Failed to initialize cipher suites {}. The following "
@@ -127,7 +107,11 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
           X509_STORE_add_crl(store, item->crl);
           has_crl = true;
         }
+
+        Envoy::Extensions::TransportSockets::Tls::ssl_ctx_add_client_CA(ctx.ssl_ctx_.get(),
+                                                                        item->x509);
       }
+
       if (ca_cert_ == nullptr) {
         throw EnvoyException(fmt::format("Failed to load trusted CA certificates from {}",
                                          config.certificateValidationContext()->caCertPath()));
@@ -291,84 +275,25 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
       // Since we checked the key type above, this should be valid.
       ASSERT(rsa_public_key != nullptr);
       const unsigned rsa_key_length = RSA_size(rsa_public_key);
-#ifdef BORINGSSL_FIPS
-      if (rsa_key_length != 2048 / 8 && rsa_key_length != 3072 / 8) {
-        throw EnvoyException(
-            fmt::format("Failed to load certificate chain from {}, only RSA certificates with "
-                        "2048-bit or 3072-bit keys are supported in FIPS mode",
-                        ctx.cert_chain_file_path_));
-      }
-#else
       if (rsa_key_length < 2048 / 8) {
         throw EnvoyException(fmt::format("Failed to load certificate chain from {}, only RSA "
                                          "certificates with 2048-bit or larger keys are supported",
                                          ctx.cert_chain_file_path_));
       }
-#endif
     } break;
-#ifdef BORINGSSL_FIPS
-    default:
-      throw EnvoyException(fmt::format("Failed to load certificate chain from {}, only RSA and "
-                                       "ECDSA certificates are supported in FIPS mode",
-                                       ctx.cert_chain_file_path_));
-#endif
     }
 
-    Envoy::Ssl::PrivateKeyMethodProviderSharedPtr private_key_method_provider =
-        tls_certificate.privateKeyMethod();
-    // We either have a private key or a BoringSSL private key method provider.
-    if (private_key_method_provider) {
-      ctx.private_key_method_provider_ = private_key_method_provider;
-      // The provider has a reference to the private key method for the context lifetime.
-      Ssl::BoringSslPrivateKeyMethodSharedPtr private_key_method =
-          private_key_method_provider->getBoringSslPrivateKeyMethod();
-      if (private_key_method == nullptr) {
-        throw EnvoyException(
-            fmt::format("Failed to get BoringSSL private key method from provider"));
-      }
-#ifdef BORINGSSL_FIPS
-      if (!ctx.private_key_method_provider_->checkFips()) {
-        throw EnvoyException(
-            fmt::format("Private key method doesn't support FIPS mode with current parameters"));
-      }
-#endif
-      SSL_CTX_set_private_key_method(ctx.ssl_ctx_.get(), private_key_method.get());
-    } else {
-      // Load private key.
-      bio.reset(BIO_new_mem_buf(const_cast<char*>(tls_certificate.privateKey().data()),
-                                tls_certificate.privateKey().size()));
-      RELEASE_ASSERT(bio != nullptr, "");
-      bssl::UniquePtr<EVP_PKEY> pkey(
-          PEM_read_bio_PrivateKey(bio.get(), nullptr, nullptr,
-                                  !tls_certificate.password().empty()
-                                      ? const_cast<char*>(tls_certificate.password().c_str())
-                                      : nullptr));
-      if (pkey == nullptr || !SSL_CTX_use_PrivateKey(ctx.ssl_ctx_.get(), pkey.get())) {
-        throw EnvoyException(
-            fmt::format("Failed to load private key from {}", tls_certificate.privateKeyPath()));
-      }
-
-#ifdef BORINGSSL_FIPS
-      // Verify that private keys are passing FIPS pairwise consistency tests.
-      switch (pkey_id) {
-      case EVP_PKEY_EC: {
-        const EC_KEY* ecdsa_private_key = EVP_PKEY_get0_EC_KEY(pkey.get());
-        if (!EC_KEY_check_fips(ecdsa_private_key)) {
-          throw EnvoyException(fmt::format("Failed to load private key from {}, ECDSA key failed "
-                                           "pairwise consistency test required in FIPS mode",
-                                           tls_certificate.privateKeyPath()));
-        }
-      } break;
-      case EVP_PKEY_RSA: {
-        RSA* rsa_private_key = EVP_PKEY_get0_RSA(pkey.get());
-        if (!RSA_check_fips(rsa_private_key)) {
-          throw EnvoyException(fmt::format("Failed to load private key from {}, RSA key failed "
-                                           "pairwise consistency test required in FIPS mode",
-                                           tls_certificate.privateKeyPath()));
-        }
-      } break;
-      }
-#endif
+    // Load private key.
+    bio.reset(BIO_new_mem_buf(const_cast<char*>(tls_certificate.privateKey().data()),
+                              tls_certificate.privateKey().size()));
+    RELEASE_ASSERT(bio != nullptr, "");
+    bssl::UniquePtr<EVP_PKEY> pkey(PEM_read_bio_PrivateKey(
+        bio.get(), nullptr, nullptr,
+        !tls_certificate.password().empty() ? const_cast<char*>(tls_certificate.password().c_str())
+                                            : nullptr));
+    if (pkey == nullptr || !SSL_CTX_use_PrivateKey(ctx.ssl_ctx_.get(), pkey.get())) {
+      throw EnvoyException(
+          fmt::format("Failed to load private key from {}", tls_certificate.privateKeyPath()));
     }
   }
 
@@ -378,34 +303,6 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
   }
 
   parsed_alpn_protocols_ = parseAlpnProtocols(config.alpnProtocols());
-
-  // To enumerate the required builtin ciphers, curves, algorithms, and
-  // versions, uncomment '#define LOG_BUILTIN_STAT_NAMES' below, and run
-  //  bazel test //test/extensions/transport_sockets/tls/... --test_output=streamed
-  //      | grep " Builtin ssl." | sort | uniq
-  // #define LOG_BUILTIN_STAT_NAMES
-  //
-  // TODO(#8035): improve tooling to find any other built-ins needed to avoid
-  // contention.
-
-  // Ciphers
-  stat_name_set_->rememberBuiltin("AEAD-AES128-GCM-SHA256");
-  stat_name_set_->rememberBuiltin("ECDHE-ECDSA-AES128-GCM-SHA256");
-  stat_name_set_->rememberBuiltin("ECDHE-RSA-AES128-GCM-SHA256");
-  stat_name_set_->rememberBuiltin("ECDHE-RSA-AES128-SHA");
-  stat_name_set_->rememberBuiltin("ECDHE-RSA-CHACHA20-POLY1305");
-  stat_name_set_->rememberBuiltin("TLS_AES_128_GCM_SHA256");
-
-  // Curves from
-  // https://github.com/google/boringssl/blob/f4d8b969200f1ee2dd872ffb85802e6a0976afe7/ssl/ssl_key_share.cc#L384
-  stat_name_set_->rememberBuiltins(
-      {"P-224", "P-256", "P-384", "P-521", "X25519", "CECPQ2", "CECPQ2b"});
-
-  // Algorithms
-  stat_name_set_->rememberBuiltins({"ecdsa_secp256r1_sha256", "rsa_pss_rsae_sha256"});
-
-  // Versions
-  stat_name_set_->rememberBuiltins({"TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"});
 }
 
 int ServerContextImpl::alpnSelectCallback(const unsigned char** out, unsigned char* outlen,
@@ -478,17 +375,16 @@ int ContextImpl::verifyCallback(X509_STORE_CTX* store_ctx, void* arg) {
     }
   }
 
+  X509* cert = Envoy::Extensions::TransportSockets::Tls::getVerifyCallbackCert(store_ctx, arg);
   SSL* ssl = reinterpret_cast<SSL*>(
       X509_STORE_CTX_get_ex_data(store_ctx, SSL_get_ex_data_X509_STORE_CTX_idx()));
-  bssl::UniquePtr<X509> cert(SSL_get_peer_certificate(ssl));
-
   const Network::TransportSocketOptions* transport_socket_options =
       static_cast<const Network::TransportSocketOptions*>(SSL_get_app_data(ssl));
-  return impl->verifyCertificate(
-      cert.get(), transport_socket_options &&
-                          !transport_socket_options->verifySubjectAltNameListOverride().empty()
-                      ? transport_socket_options->verifySubjectAltNameListOverride()
-                      : impl->verify_subject_alt_name_list_);
+
+  return impl->verifyCertificate(cert, transport_socket_options &&
+                                       !transport_socket_options->verifySubjectAltNameListOverride().empty()
+                                       ? transport_socket_options->verifySubjectAltNameListOverride()
+                                       : impl->verify_subject_alt_name_list_);
 }
 
 int ContextImpl::verifyCertificate(X509* cert, const std::vector<std::string>& verify_san_list) {
@@ -514,19 +410,6 @@ int ContextImpl::verifyCertificate(X509* cert, const std::vector<std::string>& v
   return 1;
 }
 
-void ContextImpl::incCounter(const Stats::StatName name, absl::string_view value,
-                             const Stats::StatName fallback) const {
-  Stats::SymbolTable& symbol_table = scope_.symbolTable();
-  Stats::SymbolTable::StoragePtr storage =
-      symbol_table.join({name, stat_name_set_->getBuiltin(value, fallback)});
-  scope_.counterFromStatName(Stats::StatName(storage.get())).inc();
-
-#ifdef LOG_BUILTIN_STAT_NAMES
-  std::cerr << absl::StrCat("Builtin ", symbol_table.toString(name), ": ", value, "\n")
-            << std::flush;
-#endif
-}
-
 void ContextImpl::logHandshake(SSL* ssl) const {
   stats_.handshake_.inc();
 
@@ -534,37 +417,46 @@ void ContextImpl::logHandshake(SSL* ssl) const {
     stats_.session_reused_.inc();
   }
 
-  incCounter(ssl_ciphers_, SSL_get_cipher_name(ssl), unknown_ssl_cipher_);
-  incCounter(ssl_versions_, SSL_get_version(ssl), unknown_ssl_version_);
+  const char* cipher = SSL_get_cipher_name(ssl);
+  scope_.counter(fmt::format("ssl.ciphers.{}", std::string{cipher})).inc();
 
-  uint16_t curve_id = SSL_get_curve_id(ssl);
-  if (curve_id) {
-    incCounter(ssl_curves_, SSL_get_curve_name(curve_id), unknown_ssl_curve_);
+  const char* version = SSL_get_version(ssl);
+  scope_.counter(fmt::format("ssl.versions.{}", std::string{version})).inc();
+
+  int group = SSL_get_shared_group(ssl, NULL);
+
+  if (group > 0) {
+    switch (group) {
+    case NID_X25519: {
+      scope_.counter(fmt::format("ssl.curves.{}", "X25519")).inc();
+    } break;
+    case NID_X9_62_prime256v1: {
+      scope_.counter(fmt::format("ssl.curves.{}", "P-256")).inc();
+    } break;
+      // case NID_secp384r1: {
+      //	scope_.counter(fmt::format("ssl.curves.{}", "P-384")).inc();
+      //} break;
+    }
   }
 
-  uint16_t sigalg_id = SSL_get_peer_signature_algorithm(ssl);
-  if (sigalg_id) {
-    const char* sigalg = SSL_get_signature_algorithm_name(sigalg_id, 1 /* include curve */);
-    incCounter(ssl_sigalgs_, sigalg, unknown_ssl_algorithm_);
-  }
+  // int EC_GROUP_get_curve_name(const EC_GROUP *group);
+
+  //  uint16_t curve_id = SSL_get_curve_id(ssl);
+  //  if (curve_id) {
+  //    const char* curve = SSL_get_curve_name(curve_id);
+  //    scope_.counter(fmt::format("ssl.curves.{}", std::string{curve})).inc();
+  //  }
+
+  // uint16_t sigalg_id = SSL_get_peer_signature_algorithm(ssl);
+  // if (sigalg_id) {
+  //   const char* sigalg = SSL_get_signature_algorithm_name(sigalg_id, 1 /* include curve */);
+  //   scope_.counter(fmt::format("ssl.sigalgs.{}", std::string{sigalg})).inc();
+  // }
 
   bssl::UniquePtr<X509> cert(SSL_get_peer_certificate(ssl));
   if (!cert.get()) {
     stats_.no_certificate_.inc();
   }
-}
-
-std::vector<Ssl::PrivateKeyMethodProviderSharedPtr> ContextImpl::getPrivateKeyMethodProviders() {
-  std::vector<Envoy::Ssl::PrivateKeyMethodProviderSharedPtr> providers;
-
-  for (auto& tls_context : tls_contexts_) {
-    Envoy::Ssl::PrivateKeyMethodProviderSharedPtr provider =
-        tls_context.getPrivateKeyMethodProvider();
-    if (provider) {
-      providers.push_back(provider);
-    }
-  }
-  return providers;
 }
 
 bool ContextImpl::verifySubjectAltName(X509* cert,
@@ -580,7 +472,7 @@ bool ContextImpl::verifySubjectAltName(X509* cert,
       ASN1_STRING* str = san->d.dNSName;
       const char* dns_name = reinterpret_cast<const char*>(ASN1_STRING_data(str));
       for (auto& config_san : subject_alt_names) {
-        if (dnsNameMatch(config_san, dns_name)) {
+        if (dNSNameMatch(config_san, dns_name)) {
           return true;
         }
       }
@@ -627,16 +519,16 @@ bool ContextImpl::verifySubjectAltName(X509* cert,
   return false;
 }
 
-bool ContextImpl::dnsNameMatch(const std::string& dns_name, const char* pattern) {
-  if (dns_name == pattern) {
+bool ContextImpl::dNSNameMatch(const std::string& dNSName, const char* pattern) {
+  if (dNSName == pattern) {
     return true;
   }
 
   size_t pattern_len = strlen(pattern);
   if (pattern_len > 1 && pattern[0] == '*' && pattern[1] == '.') {
-    if (dns_name.length() > pattern_len - 1) {
-      size_t off = dns_name.length() - pattern_len + 1;
-      return dns_name.compare(off, pattern_len - 1, pattern + 1) == 0;
+    if (dNSName.length() > pattern_len - 1) {
+      size_t off = dNSName.length() - pattern_len + 1;
+      return dNSName.compare(off, pattern_len - 1, pattern + 1) == 0;
     }
   }
 
@@ -752,6 +644,7 @@ ClientContextImpl::ClientContextImpl(Stats::Scope& scope,
       server_name_indication_(config.serverNameIndication()),
       allow_renegotiation_(config.allowRenegotiation()),
       max_session_keys_(config.maxSessionKeys()) {
+
   // This should be guaranteed during configuration ingestion for client contexts.
   ASSERT(tls_contexts_.size() == 1);
   if (!parsed_alpn_protocols_.empty()) {
@@ -763,11 +656,8 @@ ClientContextImpl::ClientContextImpl(Stats::Scope& scope,
   }
 
   if (!config.signingAlgorithmsForTest().empty()) {
-    const uint16_t sigalgs = parseSigningAlgorithmsForTest(config.signingAlgorithmsForTest());
-    RELEASE_ASSERT(sigalgs != 0, "");
-
     for (auto& ctx : tls_contexts_) {
-      int rc = SSL_CTX_set_verify_algorithm_prefs(ctx.ssl_ctx_.get(), &sigalgs, 1);
+      int rc = SSL_CTX_set1_sigalgs_list(ctx.ssl_ctx_.get(), config.signingAlgorithmsForTest().c_str());
       RELEASE_ASSERT(rc == 1, "");
     }
   }
@@ -783,14 +673,28 @@ ClientContextImpl::ClientContextImpl(Stats::Scope& scope,
           return client_context_impl->newSessionKey(session);
         });
   }
+
+  auto cert_cb = +[](SSL* ssl, void* param) -> int {
+    std::vector<TlsContext>* tls_contexts = (std::vector<TlsContext>*)param;
+
+    std::vector<TlsContext>& contexts = *tls_contexts;
+
+    int group = SSL_get_shared_group(ssl, NULL);
+
+    SSL_set_SSL_CTX(ssl, contexts[0].ssl_ctx_.get());
+
+    return 1;
+  };
+  // This one gets called
+  // SSL_CTX_set_cert_cb(tls_contexts_[0].ssl_ctx_.get(), cert_cb, &tls_contexts_);
 }
 
 bssl::UniquePtr<SSL> ClientContextImpl::newSsl(const Network::TransportSocketOptions* options) {
   bssl::UniquePtr<SSL> ssl_con(ContextImpl::newSsl(options));
 
   const std::string server_name_indication = options && options->serverNameOverride().has_value()
-                                                 ? options->serverNameOverride().value()
-                                                 : server_name_indication_;
+      ? options->serverNameOverride().value()
+      : server_name_indication_;
 
   if (!server_name_indication.empty()) {
     int rc = SSL_set_tlsext_host_name(ssl_con.get(), server_name_indication.c_str());
@@ -802,23 +706,14 @@ bssl::UniquePtr<SSL> ClientContextImpl::newSsl(const Network::TransportSocketOpt
     SSL_set_verify(ssl_con.get(), SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, nullptr);
   }
 
-  if (options && !options->applicationProtocolListOverride().empty()) {
-    std::vector<uint8_t> parsed_override_alpn =
-        parseAlpnProtocols(absl::StrJoin(options->applicationProtocolListOverride(), ","));
-    if (!parsed_override_alpn.empty()) {
-      int rc = SSL_set_alpn_protos(ssl_con.get(), parsed_override_alpn.data(),
-                                   parsed_override_alpn.size());
-      RELEASE_ASSERT(rc == 0, "");
-    }
-  }
-
   if (allow_renegotiation_) {
-    SSL_set_renegotiate_mode(ssl_con.get(), ssl_renegotiate_freely);
+    Envoy::Extensions::TransportSockets::Tls::allowRenegotiation(ssl_con.get());
   }
 
   if (max_session_keys_ > 0) {
     if (session_keys_single_use_) {
-      // Stored single-use session keys, use write/write locks.
+      // Stored single-use session keys, use writeSSL_SESSION_should_be_single_use(session)/write
+      // locks.
       absl::WriterMutexLock l(&session_keys_mu_);
       if (!session_keys_.empty()) {
         // Use the most recently stored session key, since it has the highest
@@ -826,7 +721,7 @@ bssl::UniquePtr<SSL> ClientContextImpl::newSsl(const Network::TransportSocketOpt
         SSL_SESSION* session = session_keys_.front().get();
         SSL_set_session(ssl_con.get(), session);
         // Remove single-use session key (TLS 1.3) after first use.
-        if (SSL_SESSION_should_be_single_use(session)) {
+        if (Envoy::Extensions::TransportSockets::Tls::should_be_single_use(session)) {
           session_keys_.pop_front();
         }
       }
@@ -848,7 +743,7 @@ bssl::UniquePtr<SSL> ClientContextImpl::newSsl(const Network::TransportSocketOpt
 int ClientContextImpl::newSessionKey(SSL_SESSION* session) {
   // In case we ever store single-use session key (TLS 1.3),
   // we need to switch to using write/write locks.
-  if (SSL_SESSION_should_be_single_use(session)) {
+  if (Envoy::Extensions::TransportSockets::Tls::should_be_single_use(session)) {
     session_keys_single_use_ = true;
   }
   absl::WriterMutexLock l(&session_keys_mu_);
@@ -861,15 +756,39 @@ int ClientContextImpl::newSessionKey(SSL_SESSION* session) {
   return 1; // Tell BoringSSL that we took ownership of the session.
 }
 
-uint16_t ClientContextImpl::parseSigningAlgorithmsForTest(const std::string& sigalgs) {
-  // This is used only when testing RSA/ECDSA certificate selection, so only the signing algorithms
-  // used in tests are supported here.
-  if (sigalgs == "rsa_pss_rsae_sha256") {
-    return SSL_SIGN_RSA_PSS_RSAE_SHA256;
-  } else if (sigalgs == "ecdsa_secp256r1_sha256") {
-    return SSL_SIGN_ECDSA_SECP256R1_SHA256;
+static bool isClientEcdsaCapable(SSL* ssl) {
+
+  X509* x509 = SSL_get_peer_certificate(ssl);
+
+  STACK_OF(X509_NAME)* x509_name_stack = SSL_get_client_CA_list(ssl);
+
+  for (int i = 0; i < sk_X509_NAME_num(x509_name_stack); i++) {
+    const X509_NAME* x509_name = sk_X509_NAME_value(x509_name_stack, i);
   }
-  return 0;
+
+  int pnid;
+  int nidresult = SSL_get_peer_signature_type_nid(ssl, &pnid);
+
+  STACK_OF(SSL_CIPHER)* cipher_stack = SSL_get_client_ciphers(ssl);
+
+  for (int i = 0; i < sk_SSL_CIPHER_num(cipher_stack); i++) {
+    const SSL_CIPHER* cipher = sk_SSL_CIPHER_value(cipher_stack, i);
+    int nid = SSL_CIPHER_get_cipher_nid(cipher);
+  }
+
+  STACK_OF(X509)* x509_stack = SSL_get_peer_cert_chain(ssl);
+
+  for (int i = 0; i < sk_X509_num(x509_stack); i++) {
+    const X509* x509 = sk_X509_value(x509_stack, i);
+  }
+
+  int version_num = SSL_client_version(ssl);
+  const char* version = SSL_get_version(ssl);
+
+  SSL_SESSION* session = SSL_get_session(ssl);
+  x509 = SSL_SESSION_get0_peer(session);
+
+  return false;
 }
 
 ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
@@ -877,19 +796,86 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
                                      const std::vector<std::string>& server_names,
                                      TimeSource& time_source)
     : ContextImpl(scope, config, time_source), session_ticket_keys_(config.sessionTicketKeys()) {
+
   if (config.tlsCertificates().empty()) {
     throw EnvoyException("Server TlsCertificates must have a certificate specified");
   }
-  // First, configure the base context for ClientHello interception.
-  // TODO(htuch): replace with SSL_IDENTITY when we have this as a means to do multi-cert in
-  // BoringSSL.
-  SSL_CTX_set_select_certificate_cb(
-      tls_contexts_[0].ssl_ctx_.get(),
-      [](const SSL_CLIENT_HELLO* client_hello) -> ssl_select_cert_result_t {
-        return static_cast<ServerContextImpl*>(
-                   SSL_CTX_get_app_data(SSL_get_SSL_CTX(client_hello->ssl)))
-            ->selectTlsContext(client_hello);
-      });
+
+  auto cert_cb = +[](SSL* ssl, void* param) -> int {
+    std::vector<TlsContext>* tls_contexts = (std::vector<TlsContext>*)param;
+
+    std::vector<TlsContext>& contexts = *tls_contexts;
+
+    int group = SSL_get_shared_group(ssl, NULL);
+
+    // const unsigned char *cipher_suites;
+    const SSL_CIPHER* cipher;
+    size_t len;
+    const uint8_t* cipher_suites;
+
+    len = SSL_client_hello_get0_ciphers(ssl, &cipher_suites);
+
+    if (len % 2 == 0) {
+      for (; len != 0; len -= 2, cipher_suites += 2) {
+        cipher = SSL_CIPHER_find(ssl, cipher_suites);
+        int nid = SSL_CIPHER_get_cipher_nid(cipher);
+      }
+    }
+
+    const bool client_ecdsa_capable = isClientEcdsaCapable(ssl);
+
+    for (const auto& ctx : contexts) {
+      if (ctx.is_ecdsa_ && !client_ecdsa_capable) {
+        return 0;
+      }
+    }
+
+    SSL_set_SSL_CTX(ssl, contexts[0].ssl_ctx_.get());
+
+    return 1;
+  };
+  // SSL_CTX_set_cert_cb(tls_contexts_[0].ssl_ctx_.get(), cert_cb, &tls_contexts_);
+
+  auto client_hello_cb = +[](SSL* ssl, int* al, void* arg) -> int {
+    int* extout;
+    size_t extoutlen;
+
+    int present = SSL_client_hello_get1_extensions_present(ssl, &extout, &extoutlen);
+
+    const unsigned char* sessionout;
+    size_t sessionresult = SSL_client_hello_get0_session_id(ssl, &sessionout);
+
+    X509* x509 = SSL_get_peer_certificate(ssl);
+
+    int pnid;
+    int nidresult = SSL_get_peer_signature_type_nid(ssl, &pnid);
+
+    // const unsigned char *cipher_suites;
+    const SSL_CIPHER* cipher;
+    size_t len;
+    const uint8_t* cipher_suites;
+
+    len = SSL_client_hello_get0_ciphers(ssl, &cipher_suites);
+
+    if (len % 2 == 0) {
+      for (; len != 0; len -= 2, cipher_suites += 2) {
+        cipher = SSL_CIPHER_find(ssl, cipher_suites);
+        int nid = SSL_CIPHER_get_cipher_nid(cipher);
+      }
+    }
+
+    STACK_OF(X509)* x509_stack = SSL_get_peer_cert_chain(ssl);
+
+    for (int i = 0; i < sk_X509_num(x509_stack); i++) {
+      const X509* x509 = sk_X509_value(x509_stack, i);
+    }
+
+    return 1;
+  };
+  // SSL_CTX_set_client_hello_cb(tls_contexts_[0].ssl_ctx_.get(), client_hello_cb, &tls_contexts_);
+
+  // Envoy::Extensions::TransportSockets::Tls::set_select_certificate_cb();
+
   // Compute the session context ID hash. We use all the certificate identities,
   // since we should have a common ID for session resumption no matter what cert
   // is used.
@@ -904,27 +890,27 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
     }
 
     if (!parsed_alpn_protocols_.empty()) {
-      SSL_CTX_set_alpn_select_cb(
-          ctx.ssl_ctx_.get(),
-          [](SSL*, const unsigned char** out, unsigned char* outlen, const unsigned char* in,
-             unsigned int inlen, void* arg) -> int {
-            return static_cast<ServerContextImpl*>(arg)->alpnSelectCallback(out, outlen, in, inlen);
-          },
-          this);
+      SSL_CTX_set_alpn_select_cb(ctx.ssl_ctx_.get(),
+                                 [](SSL*, const unsigned char** out, unsigned char* outlen,
+                                    const unsigned char* in, unsigned int inlen, void* arg) -> int {
+                                   return static_cast<ServerContextImpl*>(arg)->alpnSelectCallback(
+                                       out, outlen, in, inlen);
+                                 },
+                                 this);
     }
 
+    auto ssl_tlsext_ticket_key_cb =
+        +[](SSL* ssl, unsigned char key_name[16], unsigned char* iv, EVP_CIPHER_CTX* ctx,
+            HMAC_CTX* hmac_ctx, int encrypt) -> int {
+      ContextImpl* context_impl =
+          static_cast<ContextImpl*>(SSL_CTX_get_app_data(SSL_get_SSL_CTX(ssl)));
+      ServerContextImpl* server_context_impl = dynamic_cast<ServerContextImpl*>(context_impl);
+      RELEASE_ASSERT(server_context_impl != nullptr, ""); // for Coverity
+      return server_context_impl->sessionTicketProcess(ssl, key_name, iv, ctx, hmac_ctx, encrypt);
+    };
+
     if (!session_ticket_keys_.empty()) {
-      SSL_CTX_set_tlsext_ticket_key_cb(
-          ctx.ssl_ctx_.get(),
-          [](SSL* ssl, uint8_t* key_name, uint8_t* iv, EVP_CIPHER_CTX* ctx, HMAC_CTX* hmac_ctx,
-             int encrypt) -> int {
-            ContextImpl* context_impl =
-                static_cast<ContextImpl*>(SSL_CTX_get_app_data(SSL_get_SSL_CTX(ssl)));
-            ServerContextImpl* server_context_impl = dynamic_cast<ServerContextImpl*>(context_impl);
-            RELEASE_ASSERT(server_context_impl != nullptr, ""); // for Coverity
-            return server_context_impl->sessionTicketProcess(ssl, key_name, iv, ctx, hmac_ctx,
-                                                             encrypt);
-          });
+      SSL_CTX_set_tlsext_ticket_key_cb(ctx.ssl_ctx_.get(), ssl_tlsext_ticket_key_cb);
     }
 
     int rc = SSL_CTX_set_session_id_context(ctx.ssl_ctx_.get(), session_context_buf,
@@ -936,8 +922,8 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
 void ServerContextImpl::generateHashForSessionContexId(const std::vector<std::string>& server_names,
                                                        uint8_t* session_context_buf,
                                                        unsigned& session_context_len) {
-  EVP_MD_CTX md;
-  int rc = EVP_DigestInit(&md, EVP_sha256());
+  EVP_MD_CTX* md = Envoy::Extensions::TransportSockets::Tls::newEVP_MD_CTX();
+  int rc = EVP_DigestInit(md, EVP_sha256());
   RELEASE_ASSERT(rc == 1, "");
 
   // Hash the CommonName/SANs of all the server certificates. This makes sure that sessions can only
@@ -957,7 +943,7 @@ void ServerContextImpl::generateHashForSessionContexId(const std::vector<std::st
       RELEASE_ASSERT(cn_entry != nullptr, "");
       ASN1_STRING* cn_asn1 = X509_NAME_ENTRY_get_data(cn_entry);
       RELEASE_ASSERT(ASN1_STRING_length(cn_asn1) > 0, "");
-      rc = EVP_DigestUpdate(&md, ASN1_STRING_data(cn_asn1), ASN1_STRING_length(cn_asn1));
+      rc = EVP_DigestUpdate(md, ASN1_STRING_data(cn_asn1), ASN1_STRING_length(cn_asn1));
       RELEASE_ASSERT(rc == 1, "");
     }
 
@@ -966,7 +952,7 @@ void ServerContextImpl::generateHashForSessionContexId(const std::vector<std::st
     if (san_names != nullptr) {
       for (const GENERAL_NAME* san : san_names.get()) {
         if (san->type == GEN_DNS || san->type == GEN_URI) {
-          rc = EVP_DigestUpdate(&md, ASN1_STRING_data(san->d.ia5), ASN1_STRING_length(san->d.ia5));
+          rc = EVP_DigestUpdate(md, ASN1_STRING_data(san->d.ia5), ASN1_STRING_length(san->d.ia5));
           RELEASE_ASSERT(rc == 1, "");
         }
       }
@@ -979,7 +965,7 @@ void ServerContextImpl::generateHashForSessionContexId(const std::vector<std::st
     rc =
         X509_NAME_digest(cert_issuer_name, EVP_sha256(), session_context_buf, &session_context_len);
     RELEASE_ASSERT(rc == 1 && session_context_len == SHA256_DIGEST_LENGTH, "");
-    rc = EVP_DigestUpdate(&md, session_context_buf, session_context_len);
+    rc = EVP_DigestUpdate(md, session_context_buf, session_context_len);
     RELEASE_ASSERT(rc == 1, "");
   }
 
@@ -990,25 +976,25 @@ void ServerContextImpl::generateHashForSessionContexId(const std::vector<std::st
   if (ca_cert_ != nullptr) {
     rc = X509_digest(ca_cert_.get(), EVP_sha256(), session_context_buf, &session_context_len);
     RELEASE_ASSERT(rc == 1 && session_context_len == SHA256_DIGEST_LENGTH, "");
-    rc = EVP_DigestUpdate(&md, session_context_buf, session_context_len);
+    rc = EVP_DigestUpdate(md, session_context_buf, session_context_len);
     RELEASE_ASSERT(rc == 1, "");
 
     // verify_subject_alt_name_list_ can only be set with a ca_cert
     for (const std::string& name : verify_subject_alt_name_list_) {
-      rc = EVP_DigestUpdate(&md, name.data(), name.size());
+      rc = EVP_DigestUpdate(md, name.data(), name.size());
       RELEASE_ASSERT(rc == 1, "");
     }
   }
 
   for (const auto& hash : verify_certificate_hash_list_) {
-    rc = EVP_DigestUpdate(&md, hash.data(),
+    rc = EVP_DigestUpdate(md, hash.data(),
                           hash.size() *
                               sizeof(std::remove_reference<decltype(hash)>::type::value_type));
     RELEASE_ASSERT(rc == 1, "");
   }
 
   for (const auto& hash : verify_certificate_spki_list_) {
-    rc = EVP_DigestUpdate(&md, hash.data(),
+    rc = EVP_DigestUpdate(md, hash.data(),
                           hash.size() *
                               sizeof(std::remove_reference<decltype(hash)>::type::value_type));
     RELEASE_ASSERT(rc == 1, "");
@@ -1017,12 +1003,14 @@ void ServerContextImpl::generateHashForSessionContexId(const std::vector<std::st
   // Hash configured SNIs for this context, so that sessions cannot be resumed across different
   // filter chains, even when using the same server certificate.
   for (const auto& name : server_names) {
-    rc = EVP_DigestUpdate(&md, name.data(), name.size());
+    rc = EVP_DigestUpdate(md, name.data(), name.size());
     RELEASE_ASSERT(rc == 1, "");
   }
 
-  rc = EVP_DigestFinal(&md, session_context_buf, &session_context_len);
+  rc = EVP_DigestFinal(md, session_context_buf, &session_context_len);
   RELEASE_ASSERT(rc == 1, "");
+
+  EVP_MD_CTX_free(md);
 }
 
 int ServerContextImpl::sessionTicketProcess(SSL*, uint8_t* key_name, uint8_t* iv,
@@ -1032,7 +1020,7 @@ int ServerContextImpl::sessionTicketProcess(SSL*, uint8_t* key_name, uint8_t* iv
 
   if (encrypt == 1) {
     // Encrypt
-    RELEASE_ASSERT(!session_ticket_keys_.empty(), "");
+    RELEASE_ASSERT(session_ticket_keys_.size() >= 1, "");
     // TODO(ggreenway): validate in SDS that session_ticket_keys_ cannot be empty,
     // or if we allow it to be emptied, reconfigure the context so this callback
     // isn't set.
@@ -1045,7 +1033,6 @@ int ServerContextImpl::sessionTicketProcess(SSL*, uint8_t* key_name, uint8_t* iv
 
     int rc = RAND_bytes(iv, EVP_CIPHER_iv_length(cipher));
     ASSERT(rc);
-
     // This RELEASE_ASSERT is logically a static_assert, but we can't actually get
     // EVP_CIPHER_key_length(cipher) at compile-time
     RELEASE_ASSERT(key.aes_key_.size() == EVP_CIPHER_key_length(cipher), "");
@@ -1085,100 +1072,14 @@ int ServerContextImpl::sessionTicketProcess(SSL*, uint8_t* key_name, uint8_t* iv
   }
 }
 
-bool ServerContextImpl::isClientEcdsaCapable(const SSL_CLIENT_HELLO* ssl_client_hello) {
-  CBS client_hello;
-  CBS_init(&client_hello, ssl_client_hello->client_hello, ssl_client_hello->client_hello_len);
-
-  // This is the TLSv1.3 case (TLSv1.2 on the wire and the supported_versions extensions present).
-  // We just need to look at signature algorithms.
-  const uint16_t client_version = ssl_client_hello->version;
-  if (client_version == TLS1_2_VERSION && tls_max_version_ == TLS1_3_VERSION) {
-    // If the supported_versions extension is found then we assume that the client is competent
-    // enough that just checking the signature_algorithms is sufficient.
-    const uint8_t* supported_versions_data;
-    size_t supported_versions_len;
-    if (SSL_early_callback_ctx_extension_get(ssl_client_hello, TLSEXT_TYPE_supported_versions,
-                                             &supported_versions_data, &supported_versions_len)) {
-      const uint8_t* signature_algorithms_data;
-      size_t signature_algorithms_len;
-      if (SSL_early_callback_ctx_extension_get(ssl_client_hello, TLSEXT_TYPE_signature_algorithms,
-                                               &signature_algorithms_data,
-                                               &signature_algorithms_len)) {
-        CBS signature_algorithms_ext, signature_algorithms;
-        CBS_init(&signature_algorithms_ext, signature_algorithms_data, signature_algorithms_len);
-        if (!CBS_get_u16_length_prefixed(&signature_algorithms_ext, &signature_algorithms) ||
-            CBS_len(&signature_algorithms_ext) != 0) {
-          return false;
-        }
-        if (cbsContainsU16(signature_algorithms, SSL_SIGN_ECDSA_SECP256R1_SHA256)) {
-          return true;
-        }
-      }
-
-      return false;
-    }
-  }
-
-  // Otherwise we are < TLSv1.3 and need to look at both the curves in the supported_groups for
-  // ECDSA and also for a compatible cipher suite. https://tools.ietf.org/html/rfc4492#section-5.1.1
-  const uint8_t* curvelist_data;
-  size_t curvelist_len;
-  if (!SSL_early_callback_ctx_extension_get(ssl_client_hello, TLSEXT_TYPE_supported_groups,
-                                            &curvelist_data, &curvelist_len)) {
-    return false;
-  }
-
-  CBS curvelist;
-  CBS_init(&curvelist, curvelist_data, curvelist_len);
-
-  // We only support P256 ECDSA curves today.
-  if (!cbsContainsU16(curvelist, SSL_CURVE_SECP256R1)) {
-    return false;
-  }
-
-  // The client must have offered an ECDSA ciphersuite that we like.
-  CBS cipher_suites;
-  CBS_init(&cipher_suites, ssl_client_hello->cipher_suites, ssl_client_hello->cipher_suites_len);
-
-  while (CBS_len(&cipher_suites) > 0) {
-    uint16_t cipher_id;
-    if (!CBS_get_u16(&cipher_suites, &cipher_id)) {
-      return false;
-    }
-    // All tls_context_ share the same set of enabled ciphers, so we can just look at the base
-    // context.
-    if (tls_contexts_[0].isCipherEnabled(cipher_id, client_version)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-enum ssl_select_cert_result_t
-ServerContextImpl::selectTlsContext(const SSL_CLIENT_HELLO* ssl_client_hello) {
-  const bool client_ecdsa_capable = isClientEcdsaCapable(ssl_client_hello);
-  // Fallback on first certificate.
-  const TlsContext* selected_ctx = &tls_contexts_[0];
-  for (const auto& ctx : tls_contexts_) {
-    if (client_ecdsa_capable == ctx.is_ecdsa_) {
-      selected_ctx = &ctx;
-      break;
-    }
-  }
-  RELEASE_ASSERT(SSL_set_SSL_CTX(ssl_client_hello->ssl, selected_ctx->ssl_ctx_.get()) != nullptr,
-                 "");
-  return ssl_select_cert_success;
-}
-
 void ServerContextImpl::TlsContext::addClientValidationContext(
     const Envoy::Ssl::CertificateValidationContextConfig& config, bool require_client_cert) {
   bssl::UniquePtr<BIO> bio(
       BIO_new_mem_buf(const_cast<char*>(config.caCert().data()), config.caCert().size()));
   RELEASE_ASSERT(bio != nullptr, "");
   // Based on BoringSSL's SSL_add_file_cert_subjects_to_stack().
-  bssl::UniquePtr<STACK_OF(X509_NAME)> list(sk_X509_NAME_new(
-      [](const X509_NAME** a, const X509_NAME** b) -> int { return X509_NAME_cmp(*a, *b); }));
+  bssl::UniquePtr<STACK_OF(X509_NAME)> list =
+      Envoy::Extensions::TransportSockets::Tls::initX509Names();
   RELEASE_ASSERT(list != nullptr, "");
   for (;;) {
     bssl::UniquePtr<X509> cert(PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr));
@@ -1208,7 +1109,10 @@ void ServerContextImpl::TlsContext::addClientValidationContext(
     throw EnvoyException(
         fmt::format("Failed to load trusted client CA certificates from {}", config.caCertPath()));
   }
-  SSL_CTX_set_client_CA_list(ssl_ctx_.get(), list.release());
+
+  // Envoy::Extensions::TransportSockets::Tls::ssl_ctx_set_client_CA_list(ssl_ctx_.get(), list);
+  if (sk_X509_NAME_num(list.get()) > 0)
+    SSL_CTX_set_client_CA_list(ssl_ctx_.get(), list.release());
 
   // SSL_VERIFY_PEER or stronger mode was already set in ContextImpl::ContextImpl().
   if (require_client_cert) {
@@ -1216,7 +1120,7 @@ void ServerContextImpl::TlsContext::addClientValidationContext(
   }
 }
 
-bool ServerContextImpl::TlsContext::isCipherEnabled(uint16_t cipher_id, uint16_t client_version) {
+/*bool ServerContextImpl::TlsContext::isCipherEnabled(uint16_t cipher_id, uint16_t client_version) {
   const SSL_CIPHER* c = SSL_get_cipher_by_value(cipher_id);
   if (c == nullptr) {
     return false;
@@ -1234,7 +1138,7 @@ bool ServerContextImpl::TlsContext::isCipherEnabled(uint16_t cipher_id, uint16_t
     }
   }
   return false;
-}
+}*/
 
 } // namespace Tls
 } // namespace TransportSockets

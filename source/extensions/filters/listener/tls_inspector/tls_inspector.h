@@ -8,6 +8,7 @@
 
 #include "common/common/logger.h"
 
+#include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/ssl.h"
 
 namespace Envoy {
@@ -22,6 +23,7 @@ namespace TlsInspector {
   COUNTER(connection_closed)                                                                       \
   COUNTER(client_hello_too_large)                                                                  \
   COUNTER(read_error)                                                                              \
+  COUNTER(read_timeout)                                                                            \
   COUNTER(tls_found)                                                                               \
   COUNTER(tls_not_found)                                                                           \
   COUNTER(alpn_found)                                                                              \
@@ -36,14 +38,6 @@ struct TlsInspectorStats {
   ALL_TLS_INSPECTOR_STATS(GENERATE_COUNTER_STRUCT)
 };
 
-enum class ParseState {
-  // Parse result is out. It could be tls or not.
-  Done,
-  // Parser expects more data.
-  Continue,
-  // Parser reports unrecoverable error.
-  Error
-};
 /**
  * Global configuration for TLS inspector.
  */
@@ -63,7 +57,7 @@ private:
   const uint32_t max_client_hello_size_;
 };
 
-using ConfigSharedPtr = std::shared_ptr<Config>;
+typedef std::shared_ptr<Config> ConfigSharedPtr;
 
 /**
  * TLS inspector listener filter.
@@ -74,21 +68,26 @@ public:
 
   // Network::ListenerFilter
   Network::FilterStatus onAccept(Network::ListenerFilterCallbacks& cb) override;
+  void onALPN(const unsigned char* data, unsigned int len);
+  void onCert();
 
 private:
-  ParseState parseClientHello(const void* data, size_t len);
-  ParseState onRead();
+  void parseClientHello(const void* data, size_t len);
+  void onRead();
+  void onTimeout();
   void done(bool success);
-  void onALPN(const unsigned char* data, unsigned int len);
   void onServername(absl::string_view name);
+  void setIstioApplicationProtocol();
 
   ConfigSharedPtr config_;
   Network::ListenerFilterCallbacks* cb_;
   Event::FileEventPtr file_event_;
+  Event::TimerPtr timer_;
 
   bssl::UniquePtr<SSL> ssl_;
   uint64_t read_{0};
   bool alpn_found_{false};
+  bool istio_protocol_required_{false};
   bool clienthello_success_{false};
 
   static thread_local uint8_t buf_[Config::TLS_MAX_CLIENT_HELLO];

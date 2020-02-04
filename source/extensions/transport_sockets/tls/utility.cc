@@ -9,7 +9,6 @@ namespace Envoy {
 namespace Extensions {
 namespace TransportSockets {
 namespace Tls {
-
 namespace {
 
 enum class CertName { Issuer, Subject };
@@ -54,7 +53,7 @@ const ASN1_TIME& epochASN1_Time() {
   static ASN1_TIME* e = []() -> ASN1_TIME* {
     ASN1_TIME* epoch = ASN1_TIME_new();
     const time_t epoch_time = 0;
-    RELEASE_ASSERT(ASN1_TIME_set(epoch, epoch_time) != nullptr, "");
+    RELEASE_ASSERT(ASN1_TIME_set(epoch, epoch_time) != NULL, "");
     return epoch;
   }();
   return *e;
@@ -63,23 +62,12 @@ const ASN1_TIME& epochASN1_Time() {
 inline bssl::UniquePtr<ASN1_TIME> currentASN1_Time(TimeSource& time_source) {
   bssl::UniquePtr<ASN1_TIME> current_asn_time(ASN1_TIME_new());
   const time_t current_time = std::chrono::system_clock::to_time_t(time_source.systemTime());
-  RELEASE_ASSERT(ASN1_TIME_set(current_asn_time.get(), current_time) != nullptr, "");
+  RELEASE_ASSERT(ASN1_TIME_set(current_asn_time.get(), current_time) != NULL, "");
   return current_asn_time;
 }
 
 std::string Utility::getSerialNumberFromCertificate(X509& cert) {
-  ASN1_INTEGER* serial_number = X509_get_serialNumber(&cert);
-  BIGNUM num_bn;
-  BN_init(&num_bn);
-  ASN1_INTEGER_to_BN(serial_number, &num_bn);
-  char* char_serial_number = BN_bn2hex(&num_bn);
-  BN_free(&num_bn);
-  if (char_serial_number != nullptr) {
-    std::string serial_number(char_serial_number);
-    OPENSSL_free(char_serial_number);
-    return serial_number;
-  }
-  return "";
+  return Envoy::Extensions::TransportSockets::Tls::getSerialNumberFromCertificate(&cert);
 }
 
 std::vector<std::string> Utility::getSubjectAltNames(X509& cert, int type) {
@@ -104,7 +92,21 @@ std::string Utility::getIssuerFromCertificate(X509& cert) {
 }
 
 std::string Utility::getSubjectFromCertificate(X509& cert) {
-  return getRFC2253NameFromCertificate(cert, CertName::Subject);
+  bssl::UniquePtr<BIO> buf(BIO_new(BIO_s_mem()));
+  RELEASE_ASSERT(buf != nullptr, "");
+
+  // flags=XN_FLAG_RFC2253 is the documented parameter for single-line output in RFC 2253 format.
+  // Example from the RFC:
+  //   * Single value per Relative Distinguished Name (RDN): CN=Steve Kille,O=Isode Limited,C=GB
+  //   * Multivalue output in first RDN: OU=Sales+CN=J. Smith,O=Widget Inc.,C=US
+  //   * Quoted comma in Organization: CN=L. Eagle,O=Sue\, Grabbit and Runn,C=GB
+  X509_NAME_print_ex(buf.get(), X509_get_subject_name(&cert), 0 /* indent */, XN_FLAG_RFC2253);
+
+  const uint8_t* data;
+  size_t data_len;
+  int rc = BIO_mem_contents(buf.get(), &data, &data_len);
+  ASSERT(rc == 1);
+  return std::string(reinterpret_cast<const char*>(data), data_len);
 }
 
 int32_t Utility::getDaysUntilExpiration(const X509* cert, TimeSource& time_source) {
@@ -133,6 +135,9 @@ SystemTime Utility::getExpirationTime(const X509& cert) {
   return std::chrono::system_clock::from_time_t(days * 24 * 60 * 60 + seconds);
 }
 
+static const std::string cipherSuiteDelimeter() {
+  return ":+-![|]";
+}
 } // namespace Tls
 } // namespace TransportSockets
 } // namespace Extensions

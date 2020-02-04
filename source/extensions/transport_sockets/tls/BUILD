@@ -31,6 +31,7 @@ envoy_cc_library(
         "abseil_optional",
         "abseil_synchronization",
         "ssl",
+        "bssl_wrapper_lib",
     ],
     deps = [
         ":context_config_lib",
@@ -38,8 +39,6 @@ envoy_cc_library(
         ":utility_lib",
         "//include/envoy/network:connection_interface",
         "//include/envoy/network:transport_socket_interface",
-        "//include/envoy/ssl/private_key:private_key_callbacks_interface",
-        "//include/envoy/ssl/private_key:private_key_interface",
         "//include/envoy/stats:stats_macros",
         "//source/common/common:assert_lib",
         "//source/common/common:empty_string",
@@ -86,23 +85,22 @@ envoy_cc_library(
     external_deps = [
         "abseil_synchronization",
         "ssl",
+        "bssl_wrapper_lib",
     ],
     deps = [
+        ":openssl_impl_lib",
         ":utility_lib",
+        "//include/envoy/stats:stats_interface",
+        "//include/envoy/stats:stats_macros",
         "//include/envoy/ssl:context_config_interface",
         "//include/envoy/ssl:context_interface",
         "//include/envoy/ssl:context_manager_interface",
-        "//include/envoy/ssl/private_key:private_key_interface",
-        "//include/envoy/stats:stats_interface",
-        "//include/envoy/stats:stats_macros",
         "//source/common/common:assert_lib",
         "//source/common/common:base64_lib",
         "//source/common/common:hex_lib",
         "//source/common/common:utility_lib",
         "//source/common/network:address_lib",
         "//source/common/protobuf:utility_lib",
-        "//source/common/stats:symbol_table_lib",
-        "//source/extensions/transport_sockets/tls/private_key:private_key_manager_lib",
         "@envoy_api//envoy/admin/v2alpha:pkg_cc_proto",
     ],
 )
@@ -113,9 +111,25 @@ envoy_cc_library(
     hdrs = ["utility.h"],
     external_deps = [
         "ssl",
+        "bssl_wrapper_lib",
     ],
     deps = [
+        ":openssl_impl_lib",
         "//source/common/common:assert_lib",
         "//source/common/common:utility_lib",
+    ],
+)
+
+envoy_cc_library(
+    name = "openssl_impl_lib",
+    srcs = [
+        "openssl_impl.cc",
+    ],
+    hdrs = [
+        "openssl_impl.h",
+    ],
+    external_deps = [
+        "ssl",
+        "bssl_wrapper_lib",
     ],
 )

@@ -22,6 +22,8 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+using testing::Return;
+
 namespace Envoy {
 namespace Ssl {
 
@@ -54,8 +56,10 @@ SslIntegrationTestBase::makeSslClientConnection(const ClientSslTransportOptions&
             " -showcerts -debug -msg -CAfile "
             "{{ test_rundir }}/test/config/integration/certs/cacert.pem "
             "-servername lyft.com -cert "
+            //"{{ test_rundir }}/test/config/integration/certs/client_ecdsacert.pem "
             "{{ test_rundir }}/test/config/integration/certs/clientcert.pem "
             "-key "
+            //"{{ test_rundir }}/test/config/integration/certs/client_ecdsakey.pem ",
             "{{ test_rundir }}/test/config/integration/certs/clientkey.pem ",
         version_);
     ENVOY_LOG_MISC(debug, "Executing {}", s_client_cmd);
@@ -363,7 +367,7 @@ public:
     envoy::config::transport_socket::tap::v2alpha::Tap tap_config =
         createTapConfig(raw_transport_socket);
     tap_config.mutable_transport_socket()->MergeFrom(raw_transport_socket);
-    transport_socket->mutable_typed_config()->PackFrom(tap_config);
+    TestUtility::jsonConvert(tap_config, *transport_socket->mutable_config());
   }
 
   void setupDownstreamTap(envoy::config::bootstrap::v2::Bootstrap& bootstrap) {
@@ -371,14 +375,17 @@ public:
         bootstrap.mutable_static_resources()->mutable_listeners(0)->mutable_filter_chains(0);
     // Configure inner SSL transport socket based on existing config.
     envoy::api::v2::core::TransportSocket ssl_transport_socket;
-    auto* transport_socket = filter_chain->mutable_transport_socket();
-    ssl_transport_socket.Swap(transport_socket);
+    ssl_transport_socket.set_name("tls");
+    TestUtility::jsonConvert(filter_chain->tls_context(), *ssl_transport_socket.mutable_config());
     // Configure outer tap transport socket.
+    auto* transport_socket = filter_chain->mutable_transport_socket();
     transport_socket->set_name("envoy.transport_sockets.tap");
     envoy::config::transport_socket::tap::v2alpha::Tap tap_config =
         createTapConfig(ssl_transport_socket);
     tap_config.mutable_transport_socket()->MergeFrom(ssl_transport_socket);
-    transport_socket->mutable_typed_config()->PackFrom(tap_config);
+    TestUtility::jsonConvert(tap_config, *transport_socket->mutable_config());
+    // Nuke TLS context from legacy location.
+    filter_chain->clear_tls_context();
   }
 
   envoy::config::transport_socket::tap::v2alpha::Tap

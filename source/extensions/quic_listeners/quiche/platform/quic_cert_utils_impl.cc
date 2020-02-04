@@ -6,7 +6,7 @@
 
 #include "extensions/quic_listeners/quiche/platform/quic_cert_utils_impl.h"
 
-#include "openssl/bytestring.h"
+
 
 namespace quic {
 

@@ -17,8 +17,7 @@ Network::TransportSocketFactoryPtr UpstreamSslSocketFactory::createTransportSock
     const Protobuf::Message& message,
     Server::Configuration::TransportSocketFactoryContext& context) {
   auto client_config = std::make_unique<ClientContextConfigImpl>(
-      MessageUtil::downcastAndValidate<const envoy::api::v2::auth::UpstreamTlsContext&>(
-          message, context.messageValidationVisitor()),
+      MessageUtil::downcastAndValidate<const envoy::api::v2::auth::UpstreamTlsContext&>(message),
       context);
   return std::make_unique<ClientSslSocketFactory>(
       std::move(client_config), context.sslContextManager(), context.statsScope());
@@ -29,14 +28,13 @@ ProtobufTypes::MessagePtr UpstreamSslSocketFactory::createEmptyConfigProto() {
 }
 
 REGISTER_FACTORY(UpstreamSslSocketFactory,
-                 Server::Configuration::UpstreamTransportSocketConfigFactory){"tls"};
+                 Server::Configuration::UpstreamTransportSocketConfigFactory);
 
 Network::TransportSocketFactoryPtr DownstreamSslSocketFactory::createTransportSocketFactory(
     const Protobuf::Message& message, Server::Configuration::TransportSocketFactoryContext& context,
     const std::vector<std::string>& server_names) {
   auto server_config = std::make_unique<ServerContextConfigImpl>(
-      MessageUtil::downcastAndValidate<const envoy::api::v2::auth::DownstreamTlsContext&>(
-          message, context.messageValidationVisitor()),
+      MessageUtil::downcastAndValidate<const envoy::api::v2::auth::DownstreamTlsContext&>(message),
       context);
   return std::make_unique<ServerSslSocketFactory>(
       std::move(server_config), context.sslContextManager(), context.statsScope(), server_names);
@@ -47,7 +45,7 @@ ProtobufTypes::MessagePtr DownstreamSslSocketFactory::createEmptyConfigProto() {
 }
 
 REGISTER_FACTORY(DownstreamSslSocketFactory,
-                 Server::Configuration::DownstreamTransportSocketConfigFactory){"tls"};
+                 Server::Configuration::DownstreamTransportSocketConfigFactory);
 
 Ssl::ContextManagerPtr SslContextManagerFactory::createContextManager(TimeSource& time_source) {
   return std::make_unique<ContextManagerImpl>(time_source);

@@ -15,6 +15,9 @@ envoy_cc_library(
     name = "lua_filter_lib",
     srcs = ["lua_filter.cc"],
     hdrs = ["lua_filter.h"],
+    external_deps = [
+      "openssl_cbs_lib",
+    ],
     deps = [
         ":wrappers_lib",
         "//include/envoy/http:codes_interface",

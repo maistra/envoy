@@ -21,21 +21,17 @@ REPOSITORY_LOCATIONS = dict(
         strip_prefix = "envoy-build-tools-a6b28555badcb18d6be924c8fc1bea49971656b8",
         urls = ["https://github.com/envoyproxy/envoy-build-tools/archive/a6b28555badcb18d6be924c8fc1bea49971656b8.tar.gz"],
     ),
-    boringssl = dict(
-        sha256 = "891352824e0f7977bc0c291b8c65076e3ed23630334841b93f346f12d4484b06",
-        strip_prefix = "boringssl-5565939d4203234ddc742c02241ce4523e7b3beb",
-        # To update BoringSSL, which tracks Chromium releases:
-        # 1. Open https://omahaproxy.appspot.com/ and note <current_version> of linux/beta release.
-        # 2. Open https://chromium.googlesource.com/chromium/src/+/refs/tags/<current_version>/DEPS and note <boringssl_revision>.
-        # 3. Find a commit in BoringSSL's "master-with-bazel" branch that merges <boringssl_revision>.
-        #
-        # chromium-78.0.3904.21 (BETA)
-        urls = ["https://github.com/google/boringssl/archive/5565939d4203234ddc742c02241ce4523e7b3beb.tar.gz"],
+    #EXTERNAL OPENSSL
+    bssl_wrapper = dict(
+        sha256 = "81a59d013096015a93269325ee4148d826ffd7a9f019f622850a2b86974b9748",
+        strip_prefix = "bssl_wrapper-2eaed8832e12a0fada8f08a5e23522e035b80784",
+        urls = ["https://github.com/maistra/bssl_wrapper/archive/2eaed8832e12a0fada8f08a5e23522e035b80784.tar.gz"],
     ),
-    boringssl_fips = dict(
-        sha256 = "b12ad676ee533824f698741bd127f6fbc82c46344398a6d78d25e62c6c418c73",
-        # fips-20180730
-        urls = ["https://commondatastorage.googleapis.com/chromium-boringssl-docs/fips/boringssl-66005f41fbc3529ffe8d007708756720529da20d.tar.xz"],
+    #EXTERNAL OPENSSL
+    openssl_cbs = dict(
+        sha256 = "f466ca7bc4b876cfa9edb4870275207e580588f85f8fae268c40277846a6d8de",
+        strip_prefix = "openssl-cbs-dab3282af49f134766abcda5f95cbb19057a53d1",
+        urls = ["https://github.com/maistra/openssl-cbs/archive/dab3282af49f134766abcda5f95cbb19057a53d1.tar.gz"],
     ),
     com_google_absl = dict(
         sha256 = "3df5970908ed9a09ba51388d04661803a6af18c373866f442cede7f381e0b94a",
