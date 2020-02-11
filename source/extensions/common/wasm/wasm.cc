@@ -38,7 +38,7 @@
 #include "eval/eval/field_backed_list_impl.h"
 #include "eval/eval/field_backed_map_impl.h"
 #include "eval/public/cel_value.h"
-#include "openssl/bytestring.h"
+//#include "openssl/bytestring.h"
 #include "openssl/hmac.h"
 #include "openssl/sha.h"
 

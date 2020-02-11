@@ -61,8 +61,8 @@ TEST_F(SocketOptionFactoryTest, TestBuildSocketMarkOptions) {
       .WillOnce(Invoke([type, option](int, int input_type, int input_option, const void* optval,
                                       socklen_t) -> int {
         EXPECT_EQ(100, *static_cast<const int*>(optval));
-        if (type != input_type) throw EnvoyException("EXPECT_EQ failed");
-        if (option != input_option) throw EnvoyException("EXPECT_EQ failed");
+        EXPECT_EQ(type, input_type);
+        EXPECT_EQ(option, input_option);
         return 0;
       }));
 
@@ -85,8 +85,8 @@ TEST_F(SocketOptionFactoryTest, TestBuildIpv4TransparentOptions) {
       .Times(2)
       .WillRepeatedly(Invoke([type, option](int, int input_type, int input_option,
                                             const void* optval, socklen_t) -> int {
-        if (type != input_type) throw EnvoyException("EXPECT_EQ failed");
-        if (option != input_option) throw EnvoyException("EXPECT_EQ failed");
+        EXPECT_EQ(type, input_type);
+        EXPECT_EQ(option, input_option);
         EXPECT_EQ(1, *static_cast<const int*>(optval));
         return 0;
       }));
@@ -112,8 +112,8 @@ TEST_F(SocketOptionFactoryTest, TestBuildIpv6TransparentOptions) {
       .Times(2)
       .WillRepeatedly(Invoke([type, option](int, int input_type, int input_option,
                                             const void* optval, socklen_t) -> int {
-        if (type != input_type) throw EnvoyException("EXPECT_EQ failed");
-        if (option != input_option) throw EnvoyException("EXPECT_EQ failed");
+        EXPECT_EQ(type, input_type);
+        EXPECT_EQ(option, input_option);
         EXPECT_EQ(1, *static_cast<const int*>(optval));
         return 0;
       }));

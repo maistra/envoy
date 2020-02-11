@@ -17,7 +17,7 @@ public:
   }
 
 protected:
-  SslCertsTest() : api_(Api::createApiForTest(store_)) {
+  SslCertsTest() : api_(Api::createApiForTest(store_, time_system_)) {
     ON_CALL(factory_context_, api()).WillByDefault(ReturnRef(*api_));
   }
 

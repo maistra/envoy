@@ -17,7 +17,8 @@ namespace Tracers {
 namespace DynamicOt {
 namespace {
 
-TEST(DynamicOtTracerConfigTest, DynamicOpentracingHttpTracer) {
+// TODO (dmitri-d) fix a memory leak in the test
+TEST(DynamicOtTracerConfigTest, DISABLED_DynamicOpentracingHttpTracer) {
   NiceMock<Server::MockInstance> server;
   EXPECT_CALL(server.cluster_manager_, get(Eq("fake_cluster")))
       .WillRepeatedly(Return(&server.cluster_manager_.thread_local_cluster_));

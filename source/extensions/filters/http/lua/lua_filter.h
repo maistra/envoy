@@ -144,7 +144,6 @@ public:
             {"respond", static_luaRespond},
             {"streamInfo", static_luaStreamInfo},
             {"connection", static_luaConnection},
-            {"importPublicKey", static_luaImportPublicKey},
             {"verifySignature", static_luaVerifySignature}};
   }
 
@@ -232,14 +231,6 @@ private:
    * the second element stores the error message
    */
   DECLARE_LUA_FUNCTION(StreamHandleWrapper, luaVerifySignature);
-
-  /**
-   * Import public key.
-   * @param 1 (string) keyder string
-   * @param 2 (int)    length of keyder string
-   * @return pointer to public key
-   */
-  DECLARE_LUA_FUNCTION(StreamHandleWrapper, luaImportPublicKey);
 
   /**
    * This is the closure/iterator returned by luaBodyChunks() above.

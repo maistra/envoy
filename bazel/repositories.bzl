@@ -142,7 +142,6 @@ def envoy_dependencies(skip_targets = []):
     _io_opencensus_cpp()
     _com_github_curl()
     _com_github_envoyproxy_sqlparser()
-    _com_googlesource_quiche()
     _com_googlesource_chromium_v8()
     _org_llvm_llvm()
     _com_github_wavm_wavm()

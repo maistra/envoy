@@ -38,6 +38,15 @@ struct TlsInspectorStats {
   ALL_TLS_INSPECTOR_STATS(GENERATE_COUNTER_STRUCT)
 };
 
+enum class ParseState {
+  // Parse result is out. It could be tls or not.
+  Done,
+  // Parser expects more data.
+  Continue,
+  // Parser reports unrecoverable error.
+  Error
+};
+
 /**
  * Global configuration for TLS inspector.
  */
@@ -57,7 +66,7 @@ private:
   const uint32_t max_client_hello_size_;
 };
 
-typedef std::shared_ptr<Config> ConfigSharedPtr;
+using ConfigSharedPtr = std::shared_ptr<Config>;
 
 /**
  * TLS inspector listener filter.
@@ -72,8 +81,8 @@ public:
   void onCert();
 
 private:
-  void parseClientHello(const void* data, size_t len);
-  void onRead();
+  ParseState parseClientHello(const void* data, size_t len);
+  ParseState onRead();
   void onTimeout();
   void done(bool success);
   void onServername(absl::string_view name);

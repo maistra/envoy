@@ -17,11 +17,12 @@ namespace Envoy {
 namespace Extensions {
 namespace TransportSockets {
 namespace Tls {
+namespace {
 
 TEST(UtilityTest, TestGetSubjectAlternateNamesWithDNS) {
   bssl::UniquePtr<X509> cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_cert.pem"));
-  const std::vector<std::string>& subject_alt_names = Utility::getSubjectAltNames(*cert, GEN_DNS);
+  const std::vector<std::string> &subject_alt_names = Utility::getSubjectAltNames(*cert, GEN_DNS);
   EXPECT_EQ(1, subject_alt_names.size());
 }
 
@@ -29,21 +30,21 @@ TEST(UtilityTest, TestMultipleGetSubjectAlternateNamesWithDNS) {
   bssl::UniquePtr<X509> cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir "
       "}}/test/extensions/transport_sockets/tls/test_data/san_multiple_dns_cert.pem"));
-  const std::vector<std::string>& subject_alt_names = Utility::getSubjectAltNames(*cert, GEN_DNS);
+  const std::vector<std::string> &subject_alt_names = Utility::getSubjectAltNames(*cert, GEN_DNS);
   EXPECT_EQ(2, subject_alt_names.size());
 }
 
 TEST(UtilityTest, TestGetSubjectAlternateNamesWithUri) {
   bssl::UniquePtr<X509> cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_uri_cert.pem"));
-  const std::vector<std::string>& subject_alt_names = Utility::getSubjectAltNames(*cert, GEN_URI);
+  const std::vector<std::string> &subject_alt_names = Utility::getSubjectAltNames(*cert, GEN_URI);
   EXPECT_EQ(1, subject_alt_names.size());
 }
 
 TEST(UtilityTest, TestGetSubjectAlternateNamesWithNoSAN) {
   bssl::UniquePtr<X509> cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/no_san_cert.pem"));
-  const std::vector<std::string>& uri_subject_alt_names =
+  const std::vector<std::string> &uri_subject_alt_names =
       Utility::getSubjectAltNames(*cert, GEN_URI);
   EXPECT_EQ(0, uri_subject_alt_names.size());
 }
@@ -53,6 +54,13 @@ TEST(UtilityTest, TestGetSubject) {
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_cert.pem"));
   EXPECT_EQ("CN=Test Server,OU=Lyft Engineering,O=Lyft,L=San Francisco,ST=California,C=US",
             Utility::getSubjectFromCertificate(*cert));
+}
+
+TEST(UtilityTest, TestGetIssuer) {
+  bssl::UniquePtr<X509> cert = readCertFromFile(TestEnvironment::substitute(
+      "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_cert.pem"));
+  EXPECT_EQ("CN=Test CA,OU=Lyft Engineering,O=Lyft,L=San Francisco,ST=California,C=US",
+            Utility::getIssuerFromCertificate(*cert));
 }
 
 TEST(UtilityTest, TestGetSerialNumber) {
@@ -85,22 +93,20 @@ TEST(UtilityTest, TestDaysUntilExpirationWithNull) {
 TEST(UtilityTest, TestValidFrom) {
   bssl::UniquePtr<X509> cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_cert.pem"));
-  const time_t valid_from = std::chrono::system_clock::to_time_t(Utility::getValidFrom(*cert));
-  char buffer[25];
-  size_t len = strftime(buffer, sizeof(buffer), "%b %e %H:%M:%S %Y GMT", localtime(&valid_from));
-  ASSERT(len == sizeof(buffer) - 1);
-  EXPECT_EQ(TEST_SAN_DNS_CERT_NOT_BEFORE, std::string(buffer));
+  const std::string formatted =
+      TestUtility::formatTime(Utility::getValidFrom(*cert), "%b %e %H:%M:%S %Y GMT");
+  EXPECT_EQ(TEST_SAN_DNS_CERT_NOT_BEFORE, formatted);
 }
 
 TEST(UtilityTest, TestExpirationTime) {
   bssl::UniquePtr<X509> cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_cert.pem"));
-  const time_t expiration = std::chrono::system_clock::to_time_t(Utility::getExpirationTime(*cert));
-  char buffer[25];
-  size_t len = strftime(buffer, sizeof(buffer), "%b %e %H:%M:%S %Y GMT", localtime(&expiration));
-  ASSERT(len == sizeof(buffer) - 1);
-  EXPECT_EQ(TEST_SAN_DNS_CERT_NOT_AFTER, std::string(buffer));
+  const std::string formatted =
+      TestUtility::formatTime(Utility::getExpirationTime(*cert), "%b %e %H:%M:%S %Y GMT");
+  EXPECT_EQ(TEST_SAN_DNS_CERT_NOT_AFTER, formatted);
 }
+
+} // namespace
 } // namespace Tls
 } // namespace TransportSockets
 } // namespace Extensions

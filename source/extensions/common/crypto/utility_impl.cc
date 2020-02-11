@@ -77,10 +77,10 @@ const VerificationOutput UtilityImpl::verifySignature(absl::string_view hash, Cr
   return {false, absl::StrCat("Failed to verify digest. Error code: ", ok)};
 }
 
+// This is a dummy implementation of the interface, as EVP_parse_public_key isn't available under OpenSSL
 CryptoObjectPtr UtilityImpl::importPublicKey(const std::vector<uint8_t>& key) {
   CBS cbs({key.data(), key.size()});
-
-  return std::make_unique<PublicKeyObject>(EVP_parse_public_key(&cbs));
+  return std::make_unique<PublicKeyObject>(); //EVP_parse_public_key(&cbs));
 }
 
 const EVP_MD* UtilityImpl::getHashFunction(absl::string_view name) {

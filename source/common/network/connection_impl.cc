@@ -80,9 +80,7 @@ ConnectionImpl::~ConnectionImpl() {
   // run. This generally must be done so that callbacks run in the correct context (vs. deferred
   // deletion). Hence the assert above. However, call close() here just to be completely sure that
   // the fd is closed and make it more likely that we crash from a bad close callback.
-  if (ioHandle().fd() == -1 && delayed_close_timer_ == nullptr) {
-    close(ConnectionCloseType::NoFlush);
-  }
+  close(ConnectionCloseType::NoFlush);
 }
 
 void ConnectionImpl::addWriteFilter(WriteFilterSharedPtr filter) {
@@ -411,9 +409,7 @@ void ConnectionImpl::write(Buffer::Instance& data, bool end_stream, bool through
     // with a connection error if a call to write(2) occurs before the connection is completed.
     if (!connecting_) {
       ASSERT(file_event_ != nullptr, "ConnectionImpl file event was unexpectedly reset");
-      if (file_event_ != nullptr) {
-        file_event_->activate(Event::FileReadyType::Write);
-      }
+      file_event_->activate(Event::FileReadyType::Write);
     }
   }
 }

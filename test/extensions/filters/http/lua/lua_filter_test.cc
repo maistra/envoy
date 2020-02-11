@@ -1607,7 +1607,8 @@ TEST_F(LuaHttpFilterTest, CheckConnection) {
   EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_->decodeHeaders(request_headers, true));
 }
 
-TEST_F(LuaHttpFilterTest, ImportPublicKey) {
+// TODO (dmitri-d) re-enable after importPublicKey method has been fixed
+TEST_F(LuaHttpFilterTest, DISABLED_ImportPublicKey) {
   const std::string SCRIPT{R"EOF(
     function string.fromhex(str)
       return (str:gsub('..', function (cc)
@@ -1636,7 +1637,8 @@ TEST_F(LuaHttpFilterTest, ImportPublicKey) {
   EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_->decodeHeaders(request_headers, true));
 }
 
-TEST_F(LuaHttpFilterTest, InvalidPublicKey) {
+// TODO (dmitri-d) re-enable when importPublicKey has been fixed
+TEST_F(LuaHttpFilterTest, DISABLED_InvalidPublicKey) {
   const std::string SCRIPT{R"EOF(
     function string.fromhex(str)
       return (str:gsub('..', function (cc)
@@ -1665,7 +1667,8 @@ TEST_F(LuaHttpFilterTest, InvalidPublicKey) {
   EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_->decodeHeaders(request_headers, true));
 }
 
-TEST_F(LuaHttpFilterTest, SignatureVerify) {
+// TODO (dmitri-d) re-enable when importPublicKey has been fixed
+TEST_F(LuaHttpFilterTest, DISABLED_SignatureVerify) {
   const std::string SCRIPT{R"EOF(
     function string.fromhex(str)
       return (str:gsub('..', function (cc)

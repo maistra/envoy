@@ -4,7 +4,7 @@ licenses(["notice"])  # Apache 2
 # Public docs: docs/root/configuration/listener_filters/tls_inspector.rst
 
 load(
-    "@envoy//bazel:envoy_build_system.bzl",
+    "//bazel:envoy_build_system.bzl",
     "envoy_cc_library",
     "envoy_package",
 )
@@ -13,7 +13,6 @@ envoy_package()
 
 envoy_cc_library(
     name = "tls_inspector_lib",
-    repository = "@envoy",
     srcs = ["tls_inspector.cc"],
     hdrs = ["tls_inspector.h"],
     external_deps = [
@@ -22,32 +21,30 @@ envoy_cc_library(
     ],
     deps = [
         ":openssl_impl_lib",
-        "@envoy//include/envoy/event:dispatcher_interface",
-        "@envoy//include/envoy/event:timer_interface",
-        "@envoy//include/envoy/network:filter_interface",
-        "@envoy//include/envoy/network:listen_socket_interface",
-        "@envoy//source/common/api:os_sys_calls_lib",
-        "@envoy//source/common/common:assert_lib",
-        "@envoy//source/common/common:minimal_logger_lib",
-        "@envoy//source/extensions/transport_sockets:well_known_names",
+        "//include/envoy/event:dispatcher_interface",
+        "//include/envoy/event:timer_interface",
+        "//include/envoy/network:filter_interface",
+        "//include/envoy/network:listen_socket_interface",
+        "//source/common/api:os_sys_calls_lib",
+        "//source/common/common:assert_lib",
+        "//source/common/common:minimal_logger_lib",
+        "//source/extensions/transport_sockets:well_known_names",
     ],
 )
 
 envoy_cc_library(
     name = "config",
-    repository = "@envoy",
     srcs = ["config.cc"],
     deps = [
-        "@envoy//include/envoy/registry",
-        "@envoy//include/envoy/server:filter_config_interface",
-        "@envoy//source/extensions/filters/listener:well_known_names",
-        "@envoy//source/extensions/filters/listener/tls_inspector:tls_inspector_lib",
+        "//include/envoy/registry",
+        "//include/envoy/server:filter_config_interface",
+        "//source/extensions/filters/listener:well_known_names",
+        "//source/extensions/filters/listener/tls_inspector:tls_inspector_lib",
     ],
 )
 
 envoy_cc_library(
     name = "openssl_impl_lib",
-    repository = "@envoy",
     srcs = [
         "openssl_impl.cc",
     ],

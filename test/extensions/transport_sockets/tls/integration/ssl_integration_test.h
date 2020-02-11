@@ -11,8 +11,6 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-using testing::NiceMock;
-
 namespace Envoy {
 namespace Ssl {
 
@@ -43,8 +41,8 @@ private:
   std::unique_ptr<ContextManager> context_manager_;
 };
 
-class SslIntegrationTest : public SslIntegrationTestBase,
-                           public testing::TestWithParam<Network::Address::IpVersion> {
+class SslIntegrationTest : public testing::TestWithParam<Network::Address::IpVersion>,
+                           public SslIntegrationTestBase {
 public:
   SslIntegrationTest() : SslIntegrationTestBase(GetParam()) {}
   void TearDown() override { SslIntegrationTestBase::TearDown(); };

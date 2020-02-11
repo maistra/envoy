@@ -176,4 +176,5 @@ build --cxxopt -Wno-error=deprecated-declarations
 build --cxxopt -Wno-error=unused-variable
 build --cxxopt -w
 build --cxxopt -ldl
+build --copt -DOPENSSL_IS_BORINGSSL=0
 
