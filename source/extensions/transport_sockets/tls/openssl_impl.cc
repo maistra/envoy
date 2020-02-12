@@ -90,6 +90,24 @@ std::string getSerialNumberFromCertificate(X509* cert) {
   return "";
 }
 
+STACK_OF(X509)* SSL_get_peer_full_cert_chain(const SSL *ssl) {
+  STACK_OF(X509)* to_copy = SSL_get_peer_cert_chain(ssl);
+  if (!to_copy) {
+    return nullptr;
+  }
+  STACK_OF(X509)* ret = sk_X509_dup(SSL_get_peer_cert_chain(ssl));
+
+  if (SSL_is_server(ssl)) {
+    X509* peer_cert = SSL_get_peer_certificate(ssl);
+    if (!sk_X509_insert(ret, peer_cert, 0)) {
+      sk_X509_pop_free(ret, X509_free);
+      return nullptr;
+    }
+  }
+
+  return ret;
+}
+
 void allowRenegotiation(SSL* ssl) {
   // SSL_set_renegotiate_mode(ssl, mode);
 }

@@ -28,6 +28,8 @@ int set_strict_cipher_list(SSL_CTX* ctx, const char* str);
 
 std::string getSerialNumberFromCertificate(X509* cert);
 
+STACK_OF(X509)* SSL_get_peer_full_cert_chain(const SSL *ssl);
+
 void allowRenegotiation(SSL* ssl);
 
 bssl::UniquePtr<STACK_OF(X509_NAME)> initX509Names();
