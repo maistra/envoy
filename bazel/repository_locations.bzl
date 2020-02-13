@@ -16,6 +16,11 @@ REPOSITORY_LOCATIONS = dict(
             "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/1.1.0.tar.gz",
         ],
     ),
+    build_bazel_rules_apple = dict(
+        urls = ["https://github.com/bazelbuild/rules_apple/archive/b869b0d3868d78a1d4ffd866ccb304fb68aa12c3.tar.gz"],
+        strip_prefix = "rules_apple-b869b0d3868d78a1d4ffd866ccb304fb68aa12c3",
+        sha256 = "bdc8e66e70b8a75da23b79f1f8c6207356df07d041d96d2189add7ee0780cf4e",
+    ),
     envoy_build_tools = dict(
         sha256 = "d0f88bef8bd7f76c3684407977f5673f3d06a6c50d4ddaffb8f0e7df6b0ef69e",
         strip_prefix = "envoy-build-tools-a6b28555badcb18d6be924c8fc1bea49971656b8",
@@ -103,19 +108,14 @@ REPOSITORY_LOCATIONS = dict(
         urls = ["https://github.com/gperftools/gperftools/archive/fc00474ddc21fff618fc3f009b46590e241e425e.tar.gz"],
     ),
     com_github_grpc_grpc = dict(
-        sha256 = "cce1d4585dd017980d4a407d8c5e9f8fc8c1dbb03f249b99e88a387ebb45a035",
-        strip_prefix = "grpc-1.22.1",
-        urls = ["https://github.com/grpc/grpc/archive/v1.22.1.tar.gz"],
+        sha256 = "bbc8f020f4e85ec029b047fab939b8c81f3d67254b5c724e1003a2bc49ddd123",
+        strip_prefix = "grpc-d8f4928fa779f6005a7fe55a176bdb373b0f910f",
+        urls = ["https://github.com/grpc/grpc/archive/d8f4928fa779f6005a7fe55a176bdb373b0f910f.tar.gz"],
     ),
     com_github_luajit_luajit = dict(
         sha256 = "409f7fe570d3c16558e594421c47bdd130238323c9d6fd6c83dedd2aaeb082a8",
         strip_prefix = "LuaJIT-2.1.0-beta3",
         urls = ["https://github.com/LuaJIT/LuaJIT/archive/v2.1.0-beta3.tar.gz"],
-    ),
-    com_github_nanopb_nanopb = dict(
-        sha256 = "cbc8fba028635d959033c9ba8d8186a713165e94a9de02a030a20b3e64866a04",
-        strip_prefix = "nanopb-0.3.9.4",
-        urls = ["https://github.com/nanopb/nanopb/archive/0.3.9.4.tar.gz"],
     ),
     com_github_nghttp2_nghttp2 = dict(
         sha256 = "25b623cd04dc6a863ca3b34ed6247844effe1aa5458229590b3f56a6d53cd692",
@@ -307,5 +307,10 @@ REPOSITORY_LOCATIONS = dict(
         # Only allow peeking at fuzzer related files for now.
         strip_prefix = "compiler-rt-9.0.0.src/lib/fuzzer",
         urls = ["http://releases.llvm.org/9.0.0/compiler-rt-9.0.0.src.tar.xz"],
+    ),
+    upb = dict(
+        sha256 = "61d0417abd60e65ed589c9deee7c124fe76a4106831f6ad39464e1525cef1454",
+        strip_prefix = "upb-9effcbcb27f0a665f9f345030188c0b291e32482",
+        urls = ["https://github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz"],
     ),
 )
