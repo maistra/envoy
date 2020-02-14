@@ -1137,8 +1137,7 @@ TEST_P(SslSocketTest, GetPeerCert) {
                .setExpectedPeerCert(expected_peer_cert));
 }
 
-TEST_P(SslSocketTest, DISABLED_GetPeerCertChain) {
-  std::cout << "11111111111111111111111111111111111111111111111111111111111111111111111111111111\n";
+TEST_P(SslSocketTest, GetPeerCertChain) {
   const std::string client_ctx_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -1168,7 +1167,6 @@ TEST_P(SslSocketTest, DISABLED_GetPeerCertChain) {
           "}}/test/extensions/transport_sockets/tls/test_data/no_san_chain.pem"));
   testUtil(test_options.setExpectedSerialNumber(TEST_NO_SAN_CERT_SERIAL)
                .setExpectedPeerCertChain(expected_peer_cert_chain));
-  std::cout << "222222222222222222222222222222222222222222222222222222222222222222222222222222222222\n";
 }
 
 TEST_P(SslSocketTest, GetIssueExpireTimesPeerCert) {
