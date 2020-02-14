@@ -158,6 +158,7 @@ public:
   Api::ApiPtr api_;
   Event::DispatcherPtr dispatcher_;
   Network::TcpListenSocket socket_;
+  Network::NopConnectionBalancerImpl connection_balancer_;
   Network::ConnectionHandlerPtr connection_handler_;
   Network::MockFilterChainFactory factory_;
   Network::ClientConnectionPtr conn_;
@@ -167,7 +168,6 @@ public:
   std::shared_ptr<Network::MockReadFilter> read_filter_;
   std::string name_;
   const Network::FilterChainSharedPtr filter_chain_;
-  Network::NopConnectionBalancerImpl connection_balancer_;
 };
 
 // Parameterize the listener socket address version.
@@ -177,8 +177,7 @@ INSTANTIATE_TEST_SUITE_P(IpVersions, ProxyProtocolTest,
 
 // TODO (dmitri-d) Fix "pure virtual method called" thrown in the ~ActiveTcpListener()
 // looks like connection_balancer_ is being deallocated before the listener, or something similar
-/*
-TEST_P(ProxyProtocolTest, DISABLED_v1Basic) {
+TEST_P(ProxyProtocolTest, v1Basic) {
   connect();
   write("PROXY TCP4 1.2.3.4 253.253.253.253 65535 1234\r\nmore data");
 
@@ -989,6 +988,7 @@ public:
   Event::DispatcherPtr dispatcher_;
   Network::TcpListenSocket socket_;
   Network::Address::InstanceConstSharedPtr local_dst_address_;
+  Network::NopConnectionBalancerImpl connection_balancer_;
   Network::ConnectionHandlerPtr connection_handler_;
   Network::MockFilterChainFactory factory_;
   Network::ClientConnectionPtr conn_;
@@ -998,7 +998,6 @@ public:
   std::shared_ptr<Network::MockReadFilter> read_filter_;
   std::string name_;
   const Network::FilterChainSharedPtr filter_chain_;
-  Network::NopConnectionBalancerImpl connection_balancer_;
 };
 
 // Parameterize the listener socket address version.
@@ -1031,7 +1030,7 @@ TEST_P(WildcardProxyProtocolTest, BasicV6) {
 
   disconnect();
 }
-*/
+
 
 } // namespace
 } // namespace ProxyProtocol
