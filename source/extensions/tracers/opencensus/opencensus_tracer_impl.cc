@@ -235,7 +235,7 @@ void Span::setSampled(bool sampled) { span_.AddAnnotation("setSampled", {{"sampl
 } // namespace
 
 Driver::Driver(const envoy::config::trace::v2::OpenCensusConfig& oc_config,
-               const LocalInfo::LocalInfo& localinfo)
+               const LocalInfo::LocalInfo& localinfo, Api::Api& api)
     : oc_config_(oc_config), local_info_(localinfo) {
   if (oc_config.has_trace_config()) {
     applyTraceConfig(oc_config.trace_config());
@@ -264,7 +264,8 @@ Driver::Driver(const envoy::config::trace::v2::OpenCensusConfig& oc_config,
       sts_options.scope = "https://www.googleapis.com/auth/cloud-platform";
       auto call_creds = grpc::experimental::StsCredentials(sts_options);
       auto ssl_creds_options = grpc::SslCredentialsOptions();
-      ssl_creds_options.pem_root_certs = "/etc/ssl/certs/ca-certificates.crt";
+      ssl_creds_options.pem_root_certs =
+          api.fileSystem().fileReadToEnd("/etc/ssl/certs/ca-certificates.crt");
       auto channel_creds = grpc::SslCredentials(ssl_creds_options);
       auto channel =
           ::grpc::CreateChannel("cloudtrace.googleapis.com",
