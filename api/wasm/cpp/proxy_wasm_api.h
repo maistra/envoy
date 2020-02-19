@@ -355,7 +355,9 @@ private:
   const std::string root_id_;
   std::unordered_map<uint32_t, HttpCallCallback> http_calls_;
   std::unordered_map<uint32_t, GrpcSimpleCallCallback> simple_grpc_calls_;
+  std::unique_ptr<GrpcCallHandlerBase> cur_grpc_call_;
   std::unordered_map<uint32_t, std::unique_ptr<GrpcCallHandlerBase>> grpc_calls_;
+  std::unique_ptr<GrpcStreamHandlerBase> cur_grpc_stream_;
   std::unordered_map<uint32_t, std::unique_ptr<GrpcStreamHandlerBase>> grpc_streams_;
 };
 
@@ -1234,19 +1236,16 @@ inline void GrpcStreamHandlerBase::send(StringView message, bool end_of_stream) 
   }
 }
 
-inline void RootContext::onGrpcCreateInitialMetadata(uint32_t token) {
+inline void RootContext::onGrpcCreateInitialMetadata(uint32_t) {
   {
-    auto it = grpc_calls_.find(token);
-    if (it != grpc_calls_.end()) {
-      it->second->onCreateInitialMetadata();
+    if (cur_grpc_call_ != nullptr) {
+      cur_grpc_call_->onCreateInitialMetadata();
       return;
     }
   }
   {
-    auto it = grpc_streams_.find(token);
-    if (it != grpc_streams_.end()) {
-      it->second->onCreateInitialMetadata();
-      return;
+    if (cur_grpc_stream_ != nullptr) {
+      cur_grpc_stream_->onCreateInitialMetadata();
     }
   }
 }
@@ -1345,26 +1344,32 @@ inline bool RootContext::grpcCallHandler(StringView service, StringView service_
                                          const google::protobuf::MessageLite& request,
                                          uint32_t timeout_milliseconds,
                                          std::unique_ptr<GrpcCallHandlerBase> handler) {
+  cur_grpc_call_ = std::move(handler);
   auto token = grpcCall(service, service_name, method_name, request, timeout_milliseconds);
   if (token) {
-    handler->token_ = token;
-    handler->context_ = this;
-    grpc_calls_[token] = std::move(handler);
+    cur_grpc_call_->token_ = token;
+    cur_grpc_call_->context_ = this;
+    grpc_calls_[token] = std::move(cur_grpc_call_);
+    cur_grpc_call_ = nullptr;
     return true;
   }
+  cur_grpc_call_ = nullptr;
   return false;
 }
 
 inline bool RootContext::grpcStreamHandler(StringView service, StringView service_name,
                                            StringView method_name,
                                            std::unique_ptr<GrpcStreamHandlerBase> handler) {
+  cur_grpc_stream_ = std::move(handler);
   auto token = grpcStream(service, service_name, method_name);
   if (token) {
-    handler->token_ = token;
-    handler->context_ = this;
-    grpc_streams_[token] = std::move(handler);
+    cur_grpc_stream_->token_ = token;
+    cur_grpc_stream_->context_ = this;
+    grpc_streams_[token] = std::move(cur_grpc_stream_);
+    cur_grpc_stream_ = nullptr;
     return true;
   }
+  cur_grpc_stream_ = nullptr;
   return false;
 }
 

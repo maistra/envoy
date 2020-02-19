@@ -232,6 +232,39 @@ Tracing::SpanPtr Span::spawnChild(const Tracing::Config& /*config*/, const std::
 
 void Span::setSampled(bool sampled) { span_.AddAnnotation("setSampled", {{"sampled", sampled}}); }
 
+class GoogleUserProjHeaderInterceptor : public grpc::experimental::Interceptor {
+public:
+  GoogleUserProjHeaderInterceptor(const std::string& project_id) : project_id_(project_id) {}
+
+  virtual void Intercept(grpc::experimental::InterceptorBatchMethods* methods) {
+    if (methods->QueryInterceptionHookPoint(
+            grpc::experimental::InterceptionHookPoints::PRE_SEND_INITIAL_METADATA)) {
+      auto* metadata_map = methods->GetSendInitialMetadata();
+      if (metadata_map != nullptr) {
+        metadata_map->insert(std::make_pair("x-goog-user-project", project_id_));
+      }
+    }
+    methods->Proceed();
+  }
+
+private:
+  const std::string& project_id_;
+};
+
+class GoogleUserProjHeaderInterceptorFactory
+    : public grpc::experimental::ClientInterceptorFactoryInterface {
+public:
+  GoogleUserProjHeaderInterceptorFactory(const std::string& project_id) : project_id_(project_id) {}
+
+  virtual grpc::experimental::Interceptor*
+  CreateClientInterceptor(grpc::experimental::ClientRpcInfo*) override {
+    return new GoogleUserProjHeaderInterceptor(project_id_);
+  }
+
+private:
+  std::string project_id_;
+};
+
 } // namespace
 
 Driver::Driver(const envoy::config::trace::v2::OpenCensusConfig& oc_config,
@@ -250,8 +283,22 @@ Driver::Driver(const envoy::config::trace::v2::OpenCensusConfig& oc_config,
     sts_port = port_iter->second.string_value();
   }
   if (oc_config.stackdriver_exporter_enabled()) {
+    // Try get GCP project ID from node metadata.
+    std::string project_id;
+    auto platform_md_iter = node_metadata.fields().find("PLATFORM_METADATA");
+    if (platform_md_iter != node_metadata.fields().end()) {
+      auto platform_md = platform_md_iter->second.struct_value();
+      auto proj_id_iter = platform_md.fields().find("gcp_project");
+      if (proj_id_iter != platform_md.fields().end()) {
+        project_id = proj_id_iter->second.string_value();
+      }
+    }
     ::opencensus::exporters::trace::StackdriverOptions opts;
-    opts.project_id = oc_config.stackdriver_project_id();
+    if (!oc_config.stackdriver_project_id().empty()) {
+      opts.project_id = oc_config.stackdriver_project_id();
+    } else if (!project_id.empty()) {
+      opts.project_id = project_id;
+    }
     if (!oc_config.stackdriver_address().empty()) {
       auto channel =
           grpc::CreateChannel(oc_config.stackdriver_address(), grpc::InsecureChannelCredentials());
@@ -267,9 +314,14 @@ Driver::Driver(const envoy::config::trace::v2::OpenCensusConfig& oc_config,
       ssl_creds_options.pem_root_certs =
           api.fileSystem().fileReadToEnd("/etc/ssl/certs/ca-certificates.crt");
       auto channel_creds = grpc::SslCredentials(ssl_creds_options);
-      auto channel =
-          ::grpc::CreateChannel("cloudtrace.googleapis.com",
-                                grpc::CompositeChannelCredentials(channel_creds, call_creds));
+      // Create an custom channel which includes an interceptor that inject user project header.
+      grpc::ChannelArguments args;
+      std::vector<std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>> creators;
+      creators.push_back(std::unique_ptr<GoogleUserProjHeaderInterceptorFactory>(
+          new GoogleUserProjHeaderInterceptorFactory(project_id)));
+      auto channel = ::grpc::experimental::CreateCustomChannelWithInterceptors(
+          "cloudtrace.googleapis.com", grpc::CompositeChannelCredentials(channel_creds, call_creds),
+          args, std::move(creators));
       opts.trace_service_stub = ::google::devtools::cloudtrace::v2::TraceService::NewStub(channel);
     }
     ::opencensus::exporters::trace::StackdriverExporter::Register(std::move(opts));
