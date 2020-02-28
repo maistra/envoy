@@ -423,7 +423,7 @@ typed_config:
 
 // TODO (dmitri-d) re-enable when importPublicKey method is added
 // Basic test for verifying signature.
-TEST_P(LuaIntegrationTest, DISABLED_SignatureVerification) {
+TEST_P(LuaIntegrationTest, SignatureVerification) {
   const std::string FILTER_AND_CODE =
       R"EOF(
 name: envoy.lua
@@ -470,7 +470,7 @@ typed_config:
       local sig = request_handle:headers():get("signature")
       local rawsig = sig:fromhex()
       local data = request_handle:headers():get("message")
-      local ok, error = request_handle:verifySignature(hash, pubkey, rawsig, string.len(rawsig), data, string.len(data)) 
+      local ok, error = request_handle:verifySignature(hash, pubkey, rawsig, string.len(rawsig), data, string.len(data))
 
       if ok then
         request_handle:headers():add("signature_verification", "approved")

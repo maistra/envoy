@@ -54,7 +54,7 @@ TEST(UtilityTest, TestSha256HmacWithEmptyArguments) {
 }
 
 // TODO (dmitri-d) re-enabled when importPublicKey OpenSSL-compatible implementation has been added
-TEST(UtilityTest, DISABLED_TestImportPublicKey) {
+TEST(UtilityTest, TestImportPublicKey) {
   auto key = "30820122300d06092a864886f70d01010105000382010f003082010a0282010100a7471266d01d160308d"
              "73409c06f2e8d35c531c458d3e480e9f3191847d062ec5ccff7bc51e949d5f2c3540c189a4eca1e8633a6"
              "2cf2d0923101c27e38013e71de9ae91a704849bff7fbe2ce5bf4bd666fd9731102a53193fe5a9a5a50644"
@@ -77,7 +77,7 @@ TEST(UtilityTest, DISABLED_TestImportPublicKey) {
 }
 
 // TODO (dmitri-d) re-enabled when importPublicKey OpenSSL-compatible implementation has been added
-TEST(UtilityTest, DISABLED_TestVerifySignature) {
+TEST(UtilityTest, TestVerifySignature) {
   auto key = "30820122300d06092a864886f70d01010105000382010f003082010a0282010100a7471266d01d160308d"
              "73409c06f2e8d35c531c458d3e480e9f3191847d062ec5ccff7bc51e949d5f2c3540c189a4eca1e8633a6"
              "2cf2d0923101c27e38013e71de9ae91a704849bff7fbe2ce5bf4bd666fd9731102a53193fe5a9a5a50644"
