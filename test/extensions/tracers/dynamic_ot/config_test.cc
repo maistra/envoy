@@ -17,7 +17,10 @@ namespace Tracers {
 namespace DynamicOt {
 namespace {
 
-// TODO (dmitri-d) fix a memory leak in the test
+// Disabled due to heapcheck reporting false positives when the test is statically linked with libstdc++
+// See https://github.com/envoyproxy/envoy/issues/7647 for the discussion
+// TODO (dmitri-d) there currently isn't a way to resolve this: some tests will fail when libstdc++ is
+// dynamically linked, this test fails when it's statically linked
 TEST(DynamicOtTracerConfigTest, DISABLED_DynamicOpentracingHttpTracer) {
   NiceMock<Server::MockInstance> server;
   EXPECT_CALL(server.cluster_manager_, get(Eq("fake_cluster")))
