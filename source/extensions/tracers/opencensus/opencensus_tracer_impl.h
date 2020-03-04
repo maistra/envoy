@@ -1,6 +1,5 @@
 #pragma once
 
-#include "envoy/api/api.h"
 #include "envoy/config/trace/v2/trace.pb.validate.h"
 #include "envoy/local_info/local_info.h"
 #include "envoy/tracing/http_tracer.h"
@@ -18,7 +17,7 @@ namespace OpenCensus {
 class Driver : public Tracing::Driver, Logger::Loggable<Logger::Id::tracing> {
 public:
   Driver(const envoy::config::trace::v2::OpenCensusConfig& oc_config,
-         const LocalInfo::LocalInfo& localinfo, Api::Api& api);
+         const LocalInfo::LocalInfo& localinfo);
 
   /**
    * Implements the abstract Driver's startSpan operation.

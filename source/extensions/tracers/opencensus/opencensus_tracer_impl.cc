@@ -232,43 +232,10 @@ Tracing::SpanPtr Span::spawnChild(const Tracing::Config& /*config*/, const std::
 
 void Span::setSampled(bool sampled) { span_.AddAnnotation("setSampled", {{"sampled", sampled}}); }
 
-class GoogleUserProjHeaderInterceptor : public grpc::experimental::Interceptor {
-public:
-  GoogleUserProjHeaderInterceptor(const std::string& project_id) : project_id_(project_id) {}
-
-  virtual void Intercept(grpc::experimental::InterceptorBatchMethods* methods) {
-    if (methods->QueryInterceptionHookPoint(
-            grpc::experimental::InterceptionHookPoints::PRE_SEND_INITIAL_METADATA)) {
-      auto* metadata_map = methods->GetSendInitialMetadata();
-      if (metadata_map != nullptr) {
-        metadata_map->insert(std::make_pair("x-goog-user-project", project_id_));
-      }
-    }
-    methods->Proceed();
-  }
-
-private:
-  const std::string& project_id_;
-};
-
-class GoogleUserProjHeaderInterceptorFactory
-    : public grpc::experimental::ClientInterceptorFactoryInterface {
-public:
-  GoogleUserProjHeaderInterceptorFactory(const std::string& project_id) : project_id_(project_id) {}
-
-  virtual grpc::experimental::Interceptor*
-  CreateClientInterceptor(grpc::experimental::ClientRpcInfo*) override {
-    return new GoogleUserProjHeaderInterceptor(project_id_);
-  }
-
-private:
-  std::string project_id_;
-};
-
 } // namespace
 
 Driver::Driver(const envoy::config::trace::v2::OpenCensusConfig& oc_config,
-               const LocalInfo::LocalInfo& localinfo, Api::Api& api)
+               const LocalInfo::LocalInfo& localinfo)
     : oc_config_(oc_config), local_info_(localinfo) {
   if (oc_config.has_trace_config()) {
     applyTraceConfig(oc_config.trace_config());
@@ -276,52 +243,12 @@ Driver::Driver(const envoy::config::trace::v2::OpenCensusConfig& oc_config,
   if (oc_config.stdout_exporter_enabled()) {
     ::opencensus::exporters::trace::StdoutExporter::Register();
   }
-  auto node_metadata = localinfo.node().metadata();
-  std::string sts_port;
-  auto port_iter = node_metadata.fields().find("STS_PORT");
-  if (port_iter != node_metadata.fields().end()) {
-    sts_port = port_iter->second.string_value();
-  }
   if (oc_config.stackdriver_exporter_enabled()) {
-    // Try get GCP project ID from node metadata.
-    std::string project_id;
-    auto platform_md_iter = node_metadata.fields().find("PLATFORM_METADATA");
-    if (platform_md_iter != node_metadata.fields().end()) {
-      auto platform_md = platform_md_iter->second.struct_value();
-      auto proj_id_iter = platform_md.fields().find("gcp_project");
-      if (proj_id_iter != platform_md.fields().end()) {
-        project_id = proj_id_iter->second.string_value();
-      }
-    }
     ::opencensus::exporters::trace::StackdriverOptions opts;
-    if (!oc_config.stackdriver_project_id().empty()) {
-      opts.project_id = oc_config.stackdriver_project_id();
-    } else if (!project_id.empty()) {
-      opts.project_id = project_id;
-    }
+    opts.project_id = oc_config.stackdriver_project_id();
     if (!oc_config.stackdriver_address().empty()) {
       auto channel =
           grpc::CreateChannel(oc_config.stackdriver_address(), grpc::InsecureChannelCredentials());
-      opts.trace_service_stub = ::google::devtools::cloudtrace::v2::TraceService::NewStub(channel);
-    } else if (!sts_port.empty()) {
-      ::grpc::experimental::StsCredentialsOptions sts_options;
-      sts_options.token_exchange_service_uri = "http://localhost:" + sts_port + "/token";
-      sts_options.subject_token_path = "/var/run/secrets/tokens/istio-token";
-      sts_options.subject_token_type = "urn:ietf:params:oauth:token-type:jwt";
-      sts_options.scope = "https://www.googleapis.com/auth/cloud-platform";
-      auto call_creds = grpc::experimental::StsCredentials(sts_options);
-      auto ssl_creds_options = grpc::SslCredentialsOptions();
-      ssl_creds_options.pem_root_certs =
-          api.fileSystem().fileReadToEnd("/etc/ssl/certs/ca-certificates.crt");
-      auto channel_creds = grpc::SslCredentials(ssl_creds_options);
-      // Create an custom channel which includes an interceptor that inject user project header.
-      grpc::ChannelArguments args;
-      std::vector<std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>> creators;
-      creators.push_back(std::unique_ptr<GoogleUserProjHeaderInterceptorFactory>(
-          new GoogleUserProjHeaderInterceptorFactory(project_id)));
-      auto channel = ::grpc::experimental::CreateCustomChannelWithInterceptors(
-          "cloudtrace.googleapis.com", grpc::CompositeChannelCredentials(channel_creds, call_creds),
-          args, std::move(creators));
       opts.trace_service_stub = ::google::devtools::cloudtrace::v2::TraceService::NewStub(channel);
     }
     ::opencensus::exporters::trace::StackdriverExporter::Register(std::move(opts));

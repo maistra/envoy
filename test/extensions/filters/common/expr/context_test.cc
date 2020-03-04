@@ -239,6 +239,7 @@ TEST(Context, ResponseAttributes) {
     EXPECT_EQ(148, value.value().Int64OrDie());
   }
 
+
   {
     auto value = empty_response[CelValue::CreateString(TotalSize)];
     EXPECT_TRUE(value.has_value());
