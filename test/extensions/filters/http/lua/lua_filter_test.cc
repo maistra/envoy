@@ -1608,7 +1608,7 @@ TEST_F(LuaHttpFilterTest, CheckConnection) {
 }
 
 // TODO (dmitri-d) re-enable after importPublicKey method has been fixed
-TEST_F(LuaHttpFilterTest, DISABLED_ImportPublicKey) {
+TEST_F(LuaHttpFilterTest, ImportPublicKey) {
   const std::string SCRIPT{R"EOF(
     function string.fromhex(str)
       return (str:gsub('..', function (cc)
@@ -1638,7 +1638,7 @@ TEST_F(LuaHttpFilterTest, DISABLED_ImportPublicKey) {
 }
 
 // TODO (dmitri-d) re-enable when importPublicKey has been fixed
-TEST_F(LuaHttpFilterTest, DISABLED_InvalidPublicKey) {
+TEST_F(LuaHttpFilterTest, InvalidPublicKey) {
   const std::string SCRIPT{R"EOF(
     function string.fromhex(str)
       return (str:gsub('..', function (cc)
@@ -1668,7 +1668,7 @@ TEST_F(LuaHttpFilterTest, DISABLED_InvalidPublicKey) {
 }
 
 // TODO (dmitri-d) re-enable when importPublicKey has been fixed
-TEST_F(LuaHttpFilterTest, DISABLED_SignatureVerify) {
+TEST_F(LuaHttpFilterTest, SignatureVerify) {
   const std::string SCRIPT{R"EOF(
     function string.fromhex(str)
       return (str:gsub('..', function (cc)

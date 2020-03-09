@@ -468,6 +468,22 @@ int StreamHandleWrapper::luaVerifySignature(lua_State* state) {
   return 2;
 }
 
+int StreamHandleWrapper::luaImportPublicKey(lua_State* state) {
+  // Get byte array and the length.
+  const char* str = luaL_checkstring(state, 2);
+  int n = luaL_checknumber(state, 3);
+  std::vector<uint8_t> key(str, str + n);
+  if (public_key_wrapper_.get() != nullptr) {
+    public_key_wrapper_.pushStack();
+  } else {
+    auto& crypto_util = Envoy::Common::Crypto::UtilitySingleton::get();
+    Common::Crypto::CryptoObjectPtr crypto_ptr = crypto_util.importPublicKey(key);
+    public_key_wrapper_.reset(PublicKeyWrapper::create(state, std::move(crypto_ptr)), true);
+  }
+
+  return 1;
+}
+
 FilterConfig::FilterConfig(const std::string& lua_code, ThreadLocal::SlotAllocator& tls,
                            Upstream::ClusterManager& cluster_manager)
     : cluster_manager_(cluster_manager), lua_state_(lua_code, tls) {
