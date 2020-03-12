@@ -115,7 +115,6 @@ TEST_P(TlsInspectorTest, SniRegistered) {
             return Api::SysCallSizeResult{ssize_t(client_hello.size()), 0};
           }));
   EXPECT_CALL(socket_, setRequestedServerName(Eq(servername)));
-  // Not valid for ALPN "istio" application protocol hack for openssl
   EXPECT_CALL(socket_, setRequestedApplicationProtocols(_)).Times(0);
   EXPECT_CALL(socket_, setDetectedTransportProtocol(absl::string_view("tls")));
   EXPECT_CALL(cb_, continueFilterChain(true));
@@ -201,7 +200,6 @@ TEST_P(TlsInspectorTest, NoExtensions) {
             return Api::SysCallSizeResult{ssize_t(client_hello.size()), 0};
           }));
   EXPECT_CALL(socket_, setRequestedServerName(_)).Times(0);
-  // 0 times not valid for ALPN "istio" application protocol hack for openssl
   EXPECT_CALL(socket_, setRequestedApplicationProtocols(_)).Times(0);
   EXPECT_CALL(socket_, setDetectedTransportProtocol(absl::string_view("tls")));
   EXPECT_CALL(cb_, continueFilterChain(true));
