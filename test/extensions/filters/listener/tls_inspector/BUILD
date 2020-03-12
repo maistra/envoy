@@ -51,6 +51,5 @@ envoy_cc_library(
     ],
     deps = [
         "//source/common/common:assert_lib",
-        "//source/extensions/filters/listener/tls_inspector:openssl_impl_lib",
     ],
 )

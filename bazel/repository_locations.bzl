@@ -21,6 +21,11 @@ REPOSITORY_LOCATIONS = dict(
         strip_prefix = "envoy-build-tools-a6b28555badcb18d6be924c8fc1bea49971656b8",
         urls = ["https://github.com/envoyproxy/envoy-build-tools/archive/a6b28555badcb18d6be924c8fc1bea49971656b8.tar.gz"],
     ),
+    com_github_openssl_openssl = dict(
+        sha256 = "cf26f056a955cff721d3a3c08d8126d1e4f69803e08c9600dac3b6b7158586d6",
+        strip_prefix = "openssl-894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596",
+        urls = ["https://github.com/openssl/openssl/archive/894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596.tar.gz"],
+     ),
     #EXTERNAL OPENSSL
     bssl_wrapper = dict(
         sha256 = "d84ea7d190210145695e5b172e8e6fb23f3464360da5efab5a1ae1a973c21f57",

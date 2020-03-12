@@ -83,12 +83,12 @@ public:
   void onCert();
 
 private:
+  std::vector<absl::string_view> getAlpnProtocols(const unsigned char* data, unsigned int len);
   ParseState parseClientHello(const void* data, size_t len);
   ParseState onRead();
   void onTimeout();
   void done(bool success);
   void onServername(absl::string_view name);
-  void setIstioApplicationProtocol();
 
   ConfigSharedPtr config_;
   Network::ListenerFilterCallbacks* cb_;
@@ -98,7 +98,6 @@ private:
   bssl::UniquePtr<SSL> ssl_;
   uint64_t read_{0};
   bool alpn_found_{false};
-  bool istio_protocol_required_{false};
   bool clienthello_success_{false};
 
   static thread_local uint8_t buf_[Config::TLS_MAX_CLIENT_HELLO];

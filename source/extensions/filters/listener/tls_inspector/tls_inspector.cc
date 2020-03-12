@@ -14,10 +14,10 @@
 #include "common/api/os_sys_calls_impl.h"
 #include "common/common/assert.h"
 
-#include "extensions/filters/listener/tls_inspector/openssl_impl.h"
 #include "extensions/transport_sockets/well_known_names.h"
 
 #include "openssl/ssl.h"
+#include "ssl/ssl_locl.h"
 
 namespace Envoy {
 namespace Extensions {
@@ -31,7 +31,7 @@ const unsigned Config::TLS_MAX_SUPPORTED_VERSION = TLS1_3_VERSION;
 Config::Config(Stats::Scope& scope, uint32_t max_client_hello_size)
     : stats_{ALL_TLS_INSPECTOR_STATS(POOL_COUNTER_PREFIX(scope, "tls_inspector."))},
       ssl_ctx_(
-          SSL_CTX_new(Envoy::Extensions::ListenerFilters::TlsInspector::TLS_with_buffers_method())),
+          SSL_CTX_new(TLS_method())),
       max_client_hello_size_(max_client_hello_size) {
 
   if (max_client_hello_size_ > TLS_MAX_CLIENT_HELLO) {
@@ -44,48 +44,24 @@ Config::Config(Stats::Scope& scope, uint32_t max_client_hello_size)
   SSL_CTX_set_options(ssl_ctx_.get(), SSL_OP_NO_TICKET);
   SSL_CTX_set_session_cache_mode(ssl_ctx_.get(), SSL_SESS_CACHE_OFF);
 
-  Envoy::Extensions::ListenerFilters::TlsInspector::set_certificate_cb(ssl_ctx_.get());
-
-  /* 
-   * MAISTRA
-   * Application protocol hack part 1. When the endpoint is determined to be TLS then the "istio" application protocol is required in order to enable the
-   * proper TLS filter. BoringSSL has the ability to peek ahead to obtain information during the SSL handshake that is not supposed to be available until
-   * a later callback. During the certificate callback BoringSSL peeks head and obtains the application protocols that is only available during the later
-   * ALPN callback in OpenSSL. The BoringSSL code then terminates the filter before the ALPN callback is ever called. BoringSSL can get away with this since
-   * it has this peek ahead functionality not available in OpenSSL. The following hack simulates this behavior: when there is a TLS endpoint the endpoint
-   * hostname will contain "outbound_" so that is used as a trigger to add the "istio" application protocol. If the endpoint is not TLS then the servername
-   * will not contain "outbound_". One issue, of course, is that if the actual endpoint servername contains "outbound_" then this logic will incorrectly
-   * identify the endpoint as TLS. 
-   */
   auto tlsext_servername_cb = +[](SSL* ssl, int* out_alert, void* arg) -> int {
     Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
     absl::string_view servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
     filter->onServername(servername);
-    if (servername.rfind("outbound_") != std::string::npos) {
-      filter->setIstioApplicationProtocol();
-    }
-
-    return Envoy::Extensions::ListenerFilters::TlsInspector::getServernameCallbackReturn(out_alert);
+    *out_alert = SSL_AD_USER_CANCELLED;
+    return SSL_TLSEXT_ERR_OK;
   };
   SSL_CTX_set_tlsext_servername_callback(ssl_ctx_.get(), tlsext_servername_cb);
 
-  auto alpn_cb = [](SSL* ssl, const unsigned char** out, unsigned char* outlen,
-                    const unsigned char* in, unsigned int inlen, void* arg) -> int {
-    Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
-    filter->onALPN(in, inlen);
-
-    return SSL_TLSEXT_ERR_OK;
-  };
-  SSL_CTX_set_alpn_select_cb(ssl_ctx_.get(), alpn_cb, nullptr);
-
   auto cert_cb = [](SSL* ssl, void* arg) -> int {
     Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
-    filter->onCert();    
+    // TODO (dmitri-d) move access to SSL internals into bssl_wrapper
+    filter->onALPN(ssl->s3->alpn_proposed, ssl->s3->alpn_proposed_len);
 
-    return SSL_TLSEXT_ERR_OK;
+    // Return an error to stop the handshake; we have what we wanted already.
+    return 0;
   };
   SSL_CTX_set_cert_cb(ssl_ctx_.get(), cert_cb, nullptr);
-
 }
 
 bssl::UniquePtr<SSL> Config::newSsl() { return bssl::UniquePtr<SSL>{SSL_new(ssl_ctx_.get())}; }
@@ -148,23 +124,12 @@ Network::FilterStatus Filter::onAccept(Network::ListenerFilterCallbacks& cb) {
 }
 
 void Filter::onALPN(const unsigned char* data, unsigned int len) {
-  std::vector<absl::string_view> protocols =
-      Envoy::Extensions::ListenerFilters::TlsInspector::getAlpnProtocols(data, len);
-  cb_->socket().setRequestedApplicationProtocols(protocols);
-  alpn_found_ = true;
-}
-
-/* 
- * MAISTRA
- * Application protocol hack part 2. If determined that the "istio" application protocol needs to be added (i.e. endpoint is TLS)
- * then add it to the application protocol list as part of the certificate callback.
- */
-void Filter::onCert() {
-  std::vector<absl::string_view> protocols;
-  if (istio_protocol_required_) {
-    protocols.emplace_back("istio");
+  std::vector<absl::string_view> protocols = getAlpnProtocols(data, len);
+  if (protocols.empty()) {
+    return;
   }
   cb_->socket().setRequestedApplicationProtocols(protocols);
+  alpn_found_ = true;
 }
 
 void Filter::onServername(absl::string_view name) {
@@ -176,10 +141,6 @@ void Filter::onServername(absl::string_view name) {
     config_->stats().sni_not_found_.inc();
   }
   clienthello_success_ = true;
-}
-
-void Filter::setIstioApplicationProtocol() {
-  istio_protocol_required_ = true;
 }
 
 ParseState Filter::onRead() {
@@ -266,6 +227,22 @@ ParseState Filter::parseClientHello(const void* data, size_t len) {
   default:
     return ParseState::Error;
   }
+}
+
+std::vector<absl::string_view> Filter::getAlpnProtocols(const unsigned char* data, unsigned int len) {
+  std::vector<absl::string_view> protocols;
+  absl::string_view str(reinterpret_cast<const char*>(data));
+  for (int i = 0; i < len;) {
+    uint32_t protocol_length = 0;
+    protocol_length <<= 8;
+    protocol_length |= data[i];
+    ++i;
+    absl::string_view protocol(str.substr(i, protocol_length));
+    protocols.push_back(protocol);
+    i += protocol_length;
+  }
+
+  return protocols;
 }
 
 } // namespace TlsInspector

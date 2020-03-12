@@ -116,7 +116,7 @@ TEST_P(TlsInspectorTest, SniRegistered) {
           }));
   EXPECT_CALL(socket_, setRequestedServerName(Eq(servername)));
   // Not valid for ALPN "istio" application protocol hack for openssl
-  EXPECT_CALL(socket_, setRequestedApplicationProtocols(_)).Times(1);
+  EXPECT_CALL(socket_, setRequestedApplicationProtocols(_)).Times(0);
   EXPECT_CALL(socket_, setDetectedTransportProtocol(absl::string_view("tls")));
   EXPECT_CALL(cb_, continueFilterChain(true));
   file_event_callback_(Event::FileReadyType::Read);
@@ -202,7 +202,7 @@ TEST_P(TlsInspectorTest, NoExtensions) {
           }));
   EXPECT_CALL(socket_, setRequestedServerName(_)).Times(0);
   // 0 times not valid for ALPN "istio" application protocol hack for openssl
-  EXPECT_CALL(socket_, setRequestedApplicationProtocols(_)).Times(1);
+  EXPECT_CALL(socket_, setRequestedApplicationProtocols(_)).Times(0);
   EXPECT_CALL(socket_, setDetectedTransportProtocol(absl::string_view("tls")));
   EXPECT_CALL(cb_, continueFilterChain(true));
   file_event_callback_(Event::FileReadyType::Read);
