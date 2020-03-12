@@ -23,9 +23,9 @@ REPOSITORY_LOCATIONS = dict(
     ),
     #EXTERNAL OPENSSL
     bssl_wrapper = dict(
-        sha256 = "81a59d013096015a93269325ee4148d826ffd7a9f019f622850a2b86974b9748",
-        strip_prefix = "bssl_wrapper-2eaed8832e12a0fada8f08a5e23522e035b80784",
-        urls = ["https://github.com/maistra/bssl_wrapper/archive/2eaed8832e12a0fada8f08a5e23522e035b80784.tar.gz"],
+        sha256 = "d84ea7d190210145695e5b172e8e6fb23f3464360da5efab5a1ae1a973c21f57",
+        strip_prefix = "bssl_wrapper-c9649facde3ab1d8bc871c7375a8946c50950e97",
+        urls = ["https://github.com/maistra/bssl_wrapper/archive/c9649facde3ab1d8bc871c7375a8946c50950e97.tar.gz"],
     ),
     #EXTERNAL OPENSSL
     openssl_cbs = dict(
