@@ -109,6 +109,7 @@ def envoy_dependencies(skip_targets = []):
 
     # EXTERNAL OPENSSL
     _openssl()
+    _openssl_includes()
     _bssl_wrapper()
     _openssl_cbs()
 
@@ -181,6 +182,21 @@ def _openssl():
         name = "ssl",
         actual = "@openssl//:openssl-lib",
 )
+
+def _openssl_includes():
+    _repository_impl(
+        name = "com_github_openssl_openssl",
+        build_file = "@envoy//bazel/external:openssl_includes.BUILD",
+        patches = [
+            "@envoy//bazel/external:openssl_includes-1.patch",
+        ],
+        patch_args = ["-p1"],
+    )
+    native.bind(
+        name = "openssl_includes_lib",
+        actual = "@com_github_openssl_openssl//:openssl_includes_lib",
+)
+
 
 #EXTERNAL OPENSSL
 def _bssl_wrapper():

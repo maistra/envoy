@@ -59,6 +59,8 @@ public:
   uint32_t maxClientHelloSize() const { return max_client_hello_size_; }
 
   static constexpr size_t TLS_MAX_CLIENT_HELLO = 64 * 1024;
+  static const unsigned TLS_MIN_SUPPORTED_VERSION;
+  static const unsigned TLS_MAX_SUPPORTED_VERSION;
 
 private:
   TlsInspectorStats stats_;
@@ -81,12 +83,12 @@ public:
   void onCert();
 
 private:
+  std::vector<absl::string_view> getAlpnProtocols(const unsigned char* data, unsigned int len);
   ParseState parseClientHello(const void* data, size_t len);
   ParseState onRead();
   void onTimeout();
   void done(bool success);
   void onServername(absl::string_view name);
-  void setIstioApplicationProtocol();
 
   ConfigSharedPtr config_;
   Network::ListenerFilterCallbacks* cb_;
@@ -96,7 +98,6 @@ private:
   bssl::UniquePtr<SSL> ssl_;
   uint64_t read_{0};
   bool alpn_found_{false};
-  bool istio_protocol_required_{false};
   bool clienthello_success_{false};
 
   static thread_local uint8_t buf_[Config::TLS_MAX_CLIENT_HELLO];
