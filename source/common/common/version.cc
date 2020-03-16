@@ -27,7 +27,7 @@ const std::string& VersionInfo::version() {
                                                   "DEBUG",
 #endif
 #ifdef ENVOY_SSL_VERSION
-                                                  "OpenSSL_1_1_1-ed8447bbc862a76c380bdcbc3699840b7338feb1"
+                                                  ENVOY_SSL_VERSION
 #else
                                                   "no-ssl"
 #endif
