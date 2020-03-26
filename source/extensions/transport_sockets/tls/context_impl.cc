@@ -46,7 +46,9 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
       ssl_curves_(stat_name_set_->add("ssl.curves")),
       ssl_sigalgs_(stat_name_set_->add("ssl.sigalgs")) {
   const auto tls_certificates = config.tlsCertificates();
-  tls_contexts_.resize(std::max(static_cast<size_t>(1), tls_certificates.size()));
+// Use a single context for certificates instead of one context per certificate as
+// openssl handles the multi cert case automatically in the handshake
+  tls_contexts_.resize(1);
 
   for (auto& ctx : tls_contexts_) {
     ctx.ssl_ctx_.reset(SSL_CTX_new(TLS_method()));
@@ -213,9 +215,12 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
     }
   }
 
+  // short term change to account for single context to allow for all certs as
+  // openssl handles this internally in the handshake process (1.1.1d)
+  auto& ctx = tls_contexts_[0];
+  
   std::unordered_set<int> cert_pkey_ids;
   for (uint32_t i = 0; i < tls_certificates.size(); ++i) {
-    auto& ctx = tls_contexts_[i];
     // Load certificate chain.
     const auto& tls_certificate = tls_certificates[i].get();
     ctx.cert_chain_file_path_ = tls_certificate.certificateChainPath();
