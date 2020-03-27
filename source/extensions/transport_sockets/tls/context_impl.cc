@@ -46,11 +46,9 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
       ssl_curves_(stat_name_set_->add("ssl.curves")),
       ssl_sigalgs_(stat_name_set_->add("ssl.sigalgs")) {
   const auto tls_certificates = config.tlsCertificates();
-// Use a single context for certificates instead of one context per certificate as
-// openssl handles the multi cert case automatically in the handshake
-  tls_contexts_.resize(1);
 
-  for (auto& ctx : tls_contexts_) {
+  auto& ctx = tls_context_;
+  {
     ctx.ssl_ctx_.reset(SSL_CTX_new(TLS_method()));
 
     int rc = SSL_CTX_set_app_data(ctx.ssl_ctx_.get(), this);
@@ -103,7 +101,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
                                        config.certificateValidationContext()->caCertPath()));
     }
 
-    for (auto& ctx : tls_contexts_) {
+    {
       X509_STORE* store = SSL_CTX_get_cert_store(ctx.ssl_ctx_.get());
       bool has_crl = false;
       for (const X509_INFO* item : list.get()) {
@@ -160,7 +158,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
                       config.certificateValidationContext()->certificateRevocationListPath()));
     }
 
-    for (auto& ctx : tls_contexts_) {
+    {
       X509_STORE* store = SSL_CTX_get_cert_store(ctx.ssl_ctx_.get());
       for (const X509_INFO* item : list.get()) {
         if (item->crl) {
@@ -208,17 +206,11 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
     verify_mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
   }
 
-  for (auto& ctx : tls_contexts_) {
-    if (verify_mode != SSL_VERIFY_NONE) {
-      SSL_CTX_set_verify(ctx.ssl_ctx_.get(), verify_mode, nullptr);
-      SSL_CTX_set_cert_verify_callback(ctx.ssl_ctx_.get(), ContextImpl::verifyCallback, this);
-    }
+  if (verify_mode != SSL_VERIFY_NONE) {
+    SSL_CTX_set_verify(ctx.ssl_ctx_.get(), verify_mode, nullptr);
+    SSL_CTX_set_cert_verify_callback(ctx.ssl_ctx_.get(), ContextImpl::verifyCallback, this);
   }
 
-  // short term change to account for single context to allow for all certs as
-  // openssl handles this internally in the handshake process (1.1.1d)
-  auto& ctx = tls_contexts_[0];
-  
   std::unordered_set<int> cert_pkey_ids;
   for (uint32_t i = 0; i < tls_certificates.size(); ++i) {
     // Load certificate chain.
@@ -332,9 +324,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
   }
 
   // use the server's cipher list preferences
-  for (auto& ctx : tls_contexts_) {
-    SSL_CTX_set_options(ctx.ssl_ctx_.get(), SSL_OP_CIPHER_SERVER_PREFERENCE);
-  }
+  SSL_CTX_set_options(ctx.ssl_ctx_.get(), SSL_OP_CIPHER_SERVER_PREFERENCE);
 
   parsed_alpn_protocols_ = parseAlpnProtocols(config.alpnProtocols());
 
@@ -412,7 +402,7 @@ bssl::UniquePtr<SSL> ContextImpl::newSsl(const Network::TransportSocketOptions*)
   // We use the first certificate for a new SSL object, later in the
   // SSL_CTX_set_select_certificate_cb() callback following ClientHello, we replace with the
   // selected certificate via SSL_set_SSL_CTX().
-  return bssl::UniquePtr<SSL>(SSL_new(tls_contexts_[0].ssl_ctx_.get()));
+  return bssl::UniquePtr<SSL>(SSL_new(tls_context_.ssl_ctx_.get()));
 }
 
 int ContextImpl::ignoreCertificateExpirationCallback(int ok, X509_STORE_CTX* ctx) {
@@ -533,12 +523,10 @@ void ContextImpl::logHandshake(SSL* ssl) const {
 std::vector<Ssl::PrivateKeyMethodProviderSharedPtr> ContextImpl::getPrivateKeyMethodProviders() {
   std::vector<Envoy::Ssl::PrivateKeyMethodProviderSharedPtr> providers;
 
-  for (auto& tls_context : tls_contexts_) {
-    Envoy::Ssl::PrivateKeyMethodProviderSharedPtr provider =
-        tls_context.getPrivateKeyMethodProvider();
-    if (provider) {
-      providers.push_back(provider);
-    }
+  Envoy::Ssl::PrivateKeyMethodProviderSharedPtr provider =
+      tls_context_.getPrivateKeyMethodProvider();
+  if (provider) {
+    providers.push_back(provider);
   }
   return providers;
 }
@@ -666,10 +654,8 @@ SslStats ContextImpl::generateStats(Stats::Scope& store) {
 
 size_t ContextImpl::daysUntilFirstCertExpires() const {
   int daysUntilExpiration = Utility::getDaysUntilExpiration(ca_cert_.get(), time_source_);
-  for (auto& ctx : tls_contexts_) {
-    daysUntilExpiration = std::min<int>(
-        Utility::getDaysUntilExpiration(ctx.cert_chain_.get(), time_source_), daysUntilExpiration);
-  }
+  daysUntilExpiration = std::min<int>(
+      Utility::getDaysUntilExpiration(tls_context_.cert_chain_.get(), time_source_), daysUntilExpiration);
   if (daysUntilExpiration < 0) { // Ensure that the return value is unsigned
     return 0;
   }
@@ -685,13 +671,10 @@ Envoy::Ssl::CertificateDetailsPtr ContextImpl::getCaCertInformation() const {
 
 std::vector<Envoy::Ssl::CertificateDetailsPtr> ContextImpl::getCertChainInformation() const {
   std::vector<Envoy::Ssl::CertificateDetailsPtr> cert_details;
-  for (const auto& ctx : tls_contexts_) {
-    if (ctx.cert_chain_ == nullptr) {
-      continue;
+    if (tls_context_.cert_chain_ != nullptr) {
+        cert_details.emplace_back(
+                certificateDetails(tls_context_.cert_chain_.get(), tls_context_.getCertChainFileName()));
     }
-    cert_details.emplace_back(
-        certificateDetails(ctx.cert_chain_.get(), ctx.getCertChainFileName()));
-  }
   return cert_details;
 }
 
@@ -729,30 +712,25 @@ ClientContextImpl::ClientContextImpl(Stats::Scope& scope,
       allow_renegotiation_(config.allowRenegotiation()),
       max_session_keys_(config.maxSessionKeys()) {
   // This should be guaranteed during configuration ingestion for client contexts.
-  ASSERT(tls_contexts_.size() == 1);
   if (!parsed_alpn_protocols_.empty()) {
-    for (auto& ctx : tls_contexts_) {
-      int rc = SSL_CTX_set_alpn_protos(ctx.ssl_ctx_.get(), &parsed_alpn_protocols_[0],
+      int rc = SSL_CTX_set_alpn_protos(tls_context_.ssl_ctx_.get(), &parsed_alpn_protocols_[0],
                                        parsed_alpn_protocols_.size());
       RELEASE_ASSERT(rc == 0, "");
-    }
   }
 
   if (!config.signingAlgorithmsForTest().empty()) {
     const uint16_t sigalgs = parseSigningAlgorithmsForTest(config.signingAlgorithmsForTest());
     RELEASE_ASSERT(sigalgs != 0, "");
 
-    for (auto& ctx : tls_contexts_) {
-      // upstream: int rc = SSL_CTX_set_verify_algorithm_prefs(ctx.ssl_ctx_.get(), &sigalgs, 1);
-      int rc = SSL_CTX_set1_sigalgs_list(ctx.ssl_ctx_.get(), config.signingAlgorithmsForTest().c_str());
-      RELEASE_ASSERT(rc == 1, "");
-    }
+    // upstream: int rc = SSL_CTX_set_verify_algorithm_prefs(ctx.ssl_ctx_.get(), &sigalgs, 1);
+    int rc = SSL_CTX_set1_sigalgs_list(tls_context_.ssl_ctx_.get(), config.signingAlgorithmsForTest().c_str());
+    RELEASE_ASSERT(rc == 1, "");
   }
 
   if (max_session_keys_ > 0) {
-    SSL_CTX_set_session_cache_mode(tls_contexts_[0].ssl_ctx_.get(), SSL_SESS_CACHE_CLIENT);
+    SSL_CTX_set_session_cache_mode(tls_context_.ssl_ctx_.get(), SSL_SESS_CACHE_CLIENT);
     SSL_CTX_sess_set_new_cb(
-        tls_contexts_[0].ssl_ctx_.get(), [](SSL* ssl, SSL_SESSION* session) -> int {
+        tls_context_.ssl_ctx_.get(), [](SSL* ssl, SSL_SESSION* session) -> int {
           ContextImpl* context_impl =
               static_cast<ContextImpl*>(SSL_CTX_get_app_data(SSL_get_SSL_CTX(ssl)));
           ClientContextImpl* client_context_impl = dynamic_cast<ClientContextImpl*>(context_impl);
@@ -893,89 +871,6 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
     throw EnvoyException("Server TlsCertificates must have a certificate specified");
   }
 
-  // Upstream version:
-  //// First, configure the base context for ClientHello interception.
-  //// TODO(htuch): replace with SSL_IDENTITY when we have this as a means to do multi-cert in
-  //// BoringSSL.
-  //SSL_CTX_set_select_certificate_cb(
-  //    tls_contexts_[0].ssl_ctx_.get(),
-  //    [](const SSL_CLIENT_HELLO* client_hello) -> ssl_select_cert_result_t {
-  //      return static_cast<ServerContextImpl*>(
-  //                 SSL_CTX_get_app_data(SSL_get_SSL_CTX(client_hello->ssl)))
-  //          ->selectTlsContext(client_hello);
-  //    });
-  auto cert_cb = +[](SSL* ssl, void* param) -> int {
-    std::vector<TlsContext>* tls_contexts = (std::vector<TlsContext>*)param;
-
-    std::vector<TlsContext>& contexts = *tls_contexts;
-
-    int group = SSL_get_shared_group(ssl, NULL);
-
-    // const unsigned char *cipher_suites;
-    const SSL_CIPHER* cipher;
-    size_t len;
-    const uint8_t* cipher_suites;
-
-    len = SSL_client_hello_get0_ciphers(ssl, &cipher_suites);
-
-    if (len % 2 == 0) {
-      for (; len != 0; len -= 2, cipher_suites += 2) {
-        cipher = SSL_CIPHER_find(ssl, cipher_suites);
-        int nid = SSL_CIPHER_get_cipher_nid(cipher);
-      }
-    }
-
-    const bool client_ecdsa_capable = isClientEcdsaCapable(ssl);
-
-    for (const auto& ctx : contexts) {
-      if (ctx.is_ecdsa_ && !client_ecdsa_capable) {
-        return 0;
-      }
-    }
-
-    SSL_set_SSL_CTX(ssl, contexts[0].ssl_ctx_.get());
-
-    return 1;
-  };
-  // SSL_CTX_set_cert_cb(tls_contexts_[0].ssl_ctx_.get(), cert_cb, &tls_contexts_);
-
-  auto client_hello_cb = +[](SSL* ssl, int* al, void* arg) -> int {
-    int* extout;
-    size_t extoutlen;
-
-    int present = SSL_client_hello_get1_extensions_present(ssl, &extout, &extoutlen);
-
-    const unsigned char* sessionout;
-    size_t sessionresult = SSL_client_hello_get0_session_id(ssl, &sessionout);
-
-    X509* x509 = SSL_get_peer_certificate(ssl);
-
-    int pnid;
-    int nidresult = SSL_get_peer_signature_type_nid(ssl, &pnid);
-
-    // const unsigned char *cipher_suites;
-    const SSL_CIPHER* cipher;
-    size_t len;
-    const uint8_t* cipher_suites;
-
-    len = SSL_client_hello_get0_ciphers(ssl, &cipher_suites);
-
-    if (len % 2 == 0) {
-      for (; len != 0; len -= 2, cipher_suites += 2) {
-        cipher = SSL_CIPHER_find(ssl, cipher_suites);
-        int nid = SSL_CIPHER_get_cipher_nid(cipher);
-      }
-    }
-
-    STACK_OF(X509)* x509_stack = SSL_get_peer_cert_chain(ssl);
-
-    for (int i = 0; i < sk_X509_num(x509_stack); i++) {
-      const X509* x509 = sk_X509_value(x509_stack, i);
-    }
-
-    return 1;
-  };
-  // SSL_CTX_set_client_hello_cb(tls_contexts_[0].ssl_ctx_.get(), client_hello_cb, &tls_contexts_);
   // Envoy::Extensions::TransportSockets::Tls::set_select_certificate_cb();
 
   // Compute the session context ID hash. We use all the certificate identities,
@@ -984,41 +879,40 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
   uint8_t session_context_buf[EVP_MAX_MD_SIZE] = {};
   unsigned session_context_len = 0;
   generateHashForSessionContexId(server_names, session_context_buf, session_context_len);
-  for (auto& ctx : tls_contexts_) {
-    if (config.certificateValidationContext() != nullptr &&
-        !config.certificateValidationContext()->caCert().empty()) {
-      ctx.addClientValidationContext(*config.certificateValidationContext(),
-                                     config.requireClientCertificate());
-    }
 
-    if (!parsed_alpn_protocols_.empty()) {
-      SSL_CTX_set_alpn_select_cb(
-          ctx.ssl_ctx_.get(),
-          [](SSL*, const unsigned char** out, unsigned char* outlen, const unsigned char* in,
-             unsigned int inlen, void* arg) -> int {
-            return static_cast<ServerContextImpl*>(arg)->alpnSelectCallback(out, outlen, in, inlen);
-          },
-          this);
-    }
-
-    if (!session_ticket_keys_.empty()) {
-      SSL_CTX_set_tlsext_ticket_key_cb(
-          ctx.ssl_ctx_.get(),
-          +[](SSL* ssl, uint8_t* key_name, uint8_t* iv, EVP_CIPHER_CTX* ctx, HMAC_CTX* hmac_ctx,
-             int encrypt) -> int {
-            ContextImpl* context_impl =
-                static_cast<ContextImpl*>(SSL_CTX_get_app_data(SSL_get_SSL_CTX(ssl)));
-            ServerContextImpl* server_context_impl = dynamic_cast<ServerContextImpl*>(context_impl);
-            RELEASE_ASSERT(server_context_impl != nullptr, ""); // for Coverity
-            return server_context_impl->sessionTicketProcess(ssl, key_name, iv, ctx, hmac_ctx,
-                                                             encrypt);
-          });
-    }
-
-    int rc = SSL_CTX_set_session_id_context(ctx.ssl_ctx_.get(), session_context_buf,
-                                            session_context_len);
-    RELEASE_ASSERT(rc == 1, "");
+  if (config.certificateValidationContext() != nullptr &&
+      !config.certificateValidationContext()->caCert().empty()) {
+    tls_context_.addClientValidationContext(*config.certificateValidationContext(),
+                                   config.requireClientCertificate());
   }
+
+  if (!parsed_alpn_protocols_.empty()) {
+    SSL_CTX_set_alpn_select_cb(
+        tls_context_.ssl_ctx_.get(),
+        [](SSL*, const unsigned char** out, unsigned char* outlen, const unsigned char* in,
+           unsigned int inlen, void* arg) -> int {
+          return static_cast<ServerContextImpl*>(arg)->alpnSelectCallback(out, outlen, in, inlen);
+        },
+        this);
+    }
+
+  if (!session_ticket_keys_.empty()) {
+    SSL_CTX_set_tlsext_ticket_key_cb(
+        tls_context_.ssl_ctx_.get(),
+        +[](SSL* ssl, uint8_t* key_name, uint8_t* iv, EVP_CIPHER_CTX* ctx, HMAC_CTX* hmac_ctx,
+           int encrypt) -> int {
+          ContextImpl* context_impl =
+              static_cast<ContextImpl*>(SSL_CTX_get_app_data(SSL_get_SSL_CTX(ssl)));
+          ServerContextImpl* server_context_impl = dynamic_cast<ServerContextImpl*>(context_impl);
+          RELEASE_ASSERT(server_context_impl != nullptr, ""); // for Coverity
+          return server_context_impl->sessionTicketProcess(ssl, key_name, iv, ctx, hmac_ctx,
+                                                           encrypt);
+        });
+  }
+
+  int rc = SSL_CTX_set_session_id_context(tls_context_.ssl_ctx_.get(), session_context_buf,
+                                          session_context_len);
+  RELEASE_ASSERT(rc == 1, "");
 }
 
 void ServerContextImpl::generateHashForSessionContexId(const std::vector<std::string>& server_names,
@@ -1034,7 +928,8 @@ void ServerContextImpl::generateHashForSessionContexId(const std::vector<std::st
   // case that different Envoy instances each have their own certs. All certificates in a
   // ServerContextImpl context are hashed together, since they all constitute a match on a filter
   // chain for resumption purposes.
-  for (const auto& ctx : tls_contexts_) {
+  const auto& ctx = tls_context_;
+  {
     X509* cert = SSL_CTX_get0_certificate(ctx.ssl_ctx_.get());
     RELEASE_ASSERT(cert != nullptr, "");
     X509_NAME* cert_subject = X509_get_subject_name(cert);

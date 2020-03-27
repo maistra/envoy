@@ -156,11 +156,10 @@ protected:
     }
   };
 
-  // This is always non-empty, with the first context used for all new SSL
-  // objects. For server contexts, once we have ClientHello, we
-  // potentially switch to a different CertificateContext based on certificate
-  // selection.
-  std::vector<TlsContext> tls_contexts_;
+  // Use a single context for certificates instead of one context per certificate as in the BoringSSL case.
+  // A single context is required to hold all certificates for OpenSSL.
+  // The use of certificate selection is handled by OpenSSL.
+  TlsContext tls_context_;
   bool verify_trusted_ca_{false};
   std::vector<std::string> verify_subject_alt_name_list_;
   std::vector<std::vector<uint8_t>> verify_certificate_hash_list_;
