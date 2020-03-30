@@ -1005,8 +1005,6 @@ TEST_P(SslSocketTest, NoCert) {
                .setExpectNoCertChain());
 }
 
-// TODO (dmitri-d) We currently have an issue with handling of multiple certificates,
-//  see https://issues.redhat.com/browse/MAISTRA-1142
 // Prefer ECDSA certificate when multiple RSA certificates are present and the
 // client is RSA/ECDSA capable. We validate TLSv1.2 only here, since we validate
 // the e2e behavior on TLSv1.2/1.3 in ssl_integration_test.
