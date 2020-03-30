@@ -1010,7 +1010,7 @@ TEST_P(SslSocketTest, NoCert) {
 // Prefer ECDSA certificate when multiple RSA certificates are present and the
 // client is RSA/ECDSA capable. We validate TLSv1.2 only here, since we validate
 // the e2e behavior on TLSv1.2/1.3 in ssl_integration_test.
-TEST_P(SslSocketTest, DISABLED_MultiCertPreferEcdsa) {
+TEST_P(SslSocketTest, MultiCertPreferEcdsa) {
   const std::string client_ctx_yaml = absl::StrCat(R"EOF(
     common_tls_context:
       tls_params:
