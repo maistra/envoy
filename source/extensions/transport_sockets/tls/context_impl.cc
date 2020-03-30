@@ -99,43 +99,41 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
                                        config.certificateValidationContext()->caCertPath()));
     }
 
-    {
-      X509_STORE* store = SSL_CTX_get_cert_store(tls_context_.ssl_ctx_.get());
-      bool has_crl = false;
-      for (const X509_INFO* item : list.get()) {
-        if (item->x509) {
-          X509_STORE_add_cert(store, item->x509);
-          if (ca_cert_ == nullptr) {
-            X509_up_ref(item->x509);
-            ca_cert_.reset(item->x509);
-          }
+    X509_STORE* store = SSL_CTX_get_cert_store(tls_context_.ssl_ctx_.get());
+    bool has_crl = false;
+    for (const X509_INFO* item : list.get()) {
+      if (item->x509) {
+        X509_STORE_add_cert(store, item->x509);
+        if (ca_cert_ == nullptr) {
+          X509_up_ref(item->x509);
+          ca_cert_.reset(item->x509);
         }
-        if (item->crl) {
-          X509_STORE_add_crl(store, item->crl);
-          has_crl = true;
-        }
+      }
+      if (item->crl) {
+        X509_STORE_add_crl(store, item->crl);
+        has_crl = true;
+      }
 
-        // (dmitri-d) why do we do this here? Upstream doesn't
-        Envoy::Extensions::TransportSockets::Tls::ssl_ctx_add_client_CA(tls_context_.ssl_ctx_.get(),
+      // (dmitri-d) why do we do this here? Upstream doesn't
+      Envoy::Extensions::TransportSockets::Tls::ssl_ctx_add_client_CA(tls_context_.ssl_ctx_.get(),
                                                                         item->x509);
-      }
-      if (ca_cert_ == nullptr) {
-        throw EnvoyException(fmt::format("Failed to load trusted CA certificates from {}",
-                                         config.certificateValidationContext()->caCertPath()));
-      }
-      if (has_crl) {
-        X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
-      }
-      verify_mode = SSL_VERIFY_PEER;
-      verify_trusted_ca_ = true;
+    }
+    if (ca_cert_ == nullptr) {
+      throw EnvoyException(fmt::format("Failed to load trusted CA certificates from {}",
+                                       config.certificateValidationContext()->caCertPath()));
+    }
+    if (has_crl) {
+      X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
+    }
+    verify_mode = SSL_VERIFY_PEER;
+    verify_trusted_ca_ = true;
 
-      // NOTE: We're using SSL_CTX_set_cert_verify_callback() instead of X509_verify_cert()
-      // directly. However, our new callback is still calling X509_verify_cert() under
-      // the hood. Therefore, to ignore cert expiration, we need to set the callback
-      // for X509_verify_cert to ignore that error.
-      if (config.certificateValidationContext()->allowExpiredCertificate()) {
-        X509_STORE_set_verify_cb(store, ContextImpl::ignoreCertificateExpirationCallback);
-      }
+    // NOTE: We're using SSL_CTX_set_cert_verify_callback() instead of X509_verify_cert()
+    // directly. However, our new callback is still calling X509_verify_cert() under
+    // the hood. Therefore, to ignore cert expiration, we need to set the callback
+    // for X509_verify_cert to ignore that error.
+    if (config.certificateValidationContext()->allowExpiredCertificate()) {
+      X509_STORE_set_verify_cb(store, ContextImpl::ignoreCertificateExpirationCallback);
     }
   }
 
@@ -156,16 +154,14 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
                       config.certificateValidationContext()->certificateRevocationListPath()));
     }
 
-    {
-      X509_STORE* store = SSL_CTX_get_cert_store(tls_context_.ssl_ctx_.get());
-      for (const X509_INFO* item : list.get()) {
-        if (item->crl) {
-          X509_STORE_add_crl(store, item->crl);
-        }
+    X509_STORE* store = SSL_CTX_get_cert_store(tls_context_.ssl_ctx_.get());
+    for (const X509_INFO* item : list.get()) {
+      if (item->crl) {
+        X509_STORE_add_crl(store, item->crl);
       }
-
-      X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
     }
+
+    X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
   }
 
   if (config.certificateValidationContext() != nullptr &&
