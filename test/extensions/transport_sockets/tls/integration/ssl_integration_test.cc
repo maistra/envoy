@@ -325,10 +325,8 @@ TEST_P(SslCertficateIntegrationTest, ServerEcdsaClientEcdsaOnly) {
   checkStats();
 }
 
-// TODO (dmitri-d) We currently have an issue with handling of multiple certificates,
-//  see https://issues.redhat.com/browse/MAISTRA-1142
 // Server has RSA/ECDSA certificates, client is only ECDSA capable works.
-TEST_P(SslCertficateIntegrationTest, DISABLED_ServerRsaEcdsaClientEcdsaOnly) {
+TEST_P(SslCertficateIntegrationTest, ServerRsaEcdsaClientEcdsaOnly) {
   server_rsa_cert_ = true;
   server_ecdsa_cert_ = true;
   client_ecdsa_cert_ = true;
