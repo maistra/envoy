@@ -94,6 +94,8 @@ extern "C" WasmResult proxy_get_buffer_bytes(BufferType type, uint32_t start, ui
                                              const char** ptr, size_t* size);
 extern "C" WasmResult proxy_get_buffer_status(BufferType type, size_t* length_ptr,
                                               uint32_t* flags_ptr);
+extern "C" WasmResult proxy_set_buffer_bytes(BufferType type, uint32_t start, uint32_t length,
+                                             const char* ptr, size_t size);
 
 // HTTP
 extern "C" WasmResult proxy_http_call(const char* uri_ptr, size_t uri_size, void* header_pairs_ptr,
@@ -105,12 +107,15 @@ extern "C" WasmResult proxy_http_call(const char* uri_ptr, size_t uri_size, void
 extern "C" WasmResult proxy_grpc_call(const char* service_ptr, size_t service_size,
                                       const char* service_name_ptr, size_t service_name_size,
                                       const char* method_name_ptr, size_t method_name_size,
-                                      const char* request_ptr, size_t request_size,
-                                      uint32_t timeout_milliseconds, uint32_t* token_ptr);
+                                      void* initial_metadata_pairs_ptr,
+                                      size_t initial_metadata_pairs_size, const char* request_ptr,
+                                      size_t request_size, uint32_t timeout_milliseconds,
+                                      uint32_t* token_ptr);
 extern "C" WasmResult proxy_grpc_stream(const char* service_ptr, size_t service_size,
                                         const char* service_name_ptr, size_t service_name_size,
                                         const char* method_name_ptr, size_t method_name_size,
-                                        uint32_t* token_ptr);
+                                        void* initial_metadata_pairs_ptr,
+                                        size_t initial_metadata_pairs_size, uint32_t* token_ptr);
 extern "C" WasmResult proxy_grpc_cancel(uint32_t token);
 extern "C" WasmResult proxy_grpc_close(uint32_t token);
 extern "C" WasmResult proxy_grpc_send(uint32_t token, const char* message_ptr, size_t message_size,
@@ -155,8 +160,6 @@ extern "C" FilterMetadataStatus proxy_on_response_metadata(uint32_t context_id, 
 // HTTP/gRPC.
 extern "C" void proxy_on_http_call_response(uint32_t context_id, uint32_t token, uint32_t headers,
                                             uint32_t body_size, uint32_t trailers);
-extern "C" void proxy_on_grpc_create_initial_metadata(uint32_t context_id, uint32_t token,
-                                                      uint32_t headers);
 extern "C" void proxy_on_grpc_receive_initial_metadata(uint32_t context_id, uint32_t token,
                                                        uint32_t headers);
 extern "C" void proxy_on_grpc_trailing_metadata(uint32_t context_id, uint32_t token,

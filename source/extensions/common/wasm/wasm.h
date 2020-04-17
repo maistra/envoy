@@ -1,13 +1,14 @@
 #pragma once
 
 #include <atomic>
+#include <deque>
 #include <map>
 #include <memory>
 
 #include "envoy/access_log/access_log.h"
 #include "envoy/buffer/buffer.h"
 #include "envoy/common/exception.h"
-#include "envoy/extensions/wasm/v3/wasm.pb.validate.h"
+#include "envoy/config/wasm/v3/wasm.pb.validate.h"
 #include "envoy/http/filter.h"
 #include "envoy/server/wasm.h"
 #include "envoy/stats/scope.h"
@@ -29,12 +30,6 @@
 #include "absl/container/fixed_array.h"
 
 namespace Envoy {
-
-// TODO: move to source/common/stats/symbol_table_impl.h when upstreaming.
-namespace Stats {
-using StatNameSetSharedPtr = std::shared_ptr<Stats::StatNameSet>;
-} // namespace Stats
-
 namespace Extensions {
 namespace Common {
 namespace Wasm {
@@ -49,7 +44,7 @@ struct WasmStats {
   ALL_WASM_STATS(GENERATE_COUNTER_STRUCT, GENERATE_GAUGE_STRUCT)
 };
 
-using VmConfig = envoy::extensions::wasm::v3::VmConfig;
+using VmConfig = envoy::config::wasm::v3::VmConfig;
 
 using WasmForeignFunction =
     std::function<WasmResult(Wasm&, absl::string_view, std::function<void*(size_t size)>)>;
@@ -74,7 +69,6 @@ public:
   absl::string_view vm_key() const { return vm_key_; }
   WasmVm* wasm_vm() const { return wasm_vm_.get(); }
   Context* vm_context() const { return vm_context_.get(); }
-  Stats::StatNameSetSharedPtr stat_name_set() const { return stat_name_set_; }
   Context* getRootContext(absl::string_view root_id) { return root_contexts_[root_id].get(); }
   Context* getOrCreateRootContext(const PluginSharedPtr& plugin);
   Context* getContext(uint32_t id) {
@@ -87,7 +81,7 @@ public:
 
   Upstream::ClusterManager& clusterManager() const { return cluster_manager_; }
   const std::string& code() const { return code_; }
-  const std::string& vm_configuration() const { return vm_configuration_; }
+  const std::string& vm_configuration() const;
   bool allow_precompiled() const { return allow_precompiled_; }
   void setInitialConfiguration(const std::string& vm_configuration) {
     vm_configuration_ = vm_configuration;
@@ -106,8 +100,9 @@ public:
   //
   // AccessLog::Instance
   //
-  void log(absl::string_view root_id, const Http::HeaderMap* request_headers,
-           const Http::HeaderMap* response_headers, const Http::HeaderMap* response_trailers,
+  void log(absl::string_view root_id, const Http::RequestHeaderMap* request_headers,
+           const Http::ResponseHeaderMap* response_headers,
+           const Http::ResponseTrailerMap* response_trailers,
            const StreamInfo::StreamInfo& stream_info);
 
   // Support functions.
@@ -139,6 +134,15 @@ public:
     *emscripten_abi_major_version = emscripten_abi_major_version_;
     *emscripten_abi_minor_version = emscripten_abi_minor_version_;
     return true;
+  }
+
+  void addAfterVmCallAction(std::function<void()> f) { after_vm_call_actions_.push_back(f); }
+  void doAfterVmCallActions() {
+    while (!after_vm_call_actions_.empty()) {
+      auto f = std::move(after_vm_call_actions_.front());
+      after_vm_call_actions_.pop_front();
+      f();
+    }
   }
 
 private:
@@ -197,6 +201,8 @@ private:
 
   TimeSource& time_source_;
 
+  WasmCallVoid<0> abi_version_0_1_0_;
+
   WasmCallVoid<0> _start_; /* Emscripten v1.39.0+ */
   WasmCallVoid<0> __wasm_call_ctors_;
 
@@ -230,7 +236,6 @@ private:
 
   WasmCallVoid<3> on_grpc_receive_;
   WasmCallVoid<3> on_grpc_close_;
-  WasmCallVoid<3> on_grpc_create_initial_metadata_;
   WasmCallVoid<3> on_grpc_receive_initial_metadata_;
   WasmCallVoid<3> on_grpc_receive_trailing_metadata_;
 
@@ -258,7 +263,6 @@ private:
   WasmStats wasm_stats_;
 
   // Plulgin Stats/Metrics
-  Stats::StatNameSetSharedPtr stat_name_set_;
   uint32_t next_counter_metric_id_ = kMetricTypeCounter;
   uint32_t next_gauge_metric_id_ = kMetricTypeGauge;
   uint32_t next_histogram_metric_id_ = kMetricTypeHistogram;
@@ -268,6 +272,9 @@ private:
 
   // Foreign Functions.
   absl::flat_hash_map<std::string, WasmForeignFunction> foreign_functions_;
+
+  // Actions to be done after the call into the VM returns.
+  std::deque<std::function<void()>> after_vm_call_actions_;
 };
 using WasmSharedPtr = std::shared_ptr<Wasm>;
 
@@ -286,13 +293,16 @@ private:
 };
 using WasmHandleSharedPtr = std::shared_ptr<WasmHandle>;
 
+std::string Sha256(absl::string_view data);
+
 using CreateWasmCallback = std::function<void(WasmHandleSharedPtr)>;
 
 // Create a high level Wasm VM with Envoy API support. Note: 'id' may be empty if this VM will not
 // be shared by APIs (e.g. HTTP Filter + AccessLog).
 void createWasm(const VmConfig& vm_config, PluginSharedPtr plugin_config,
                 Stats::ScopeSharedPtr scope, Upstream::ClusterManager& cluster_manager,
-                Init::Manager& init_manager, Event::Dispatcher& dispatcher, Api::Api& api,
+                Init::Manager& init_manager, Event::Dispatcher& dispatcher,
+                Runtime::RandomGenerator& random, Api::Api& api,
                 Config::DataSource::RemoteAsyncDataProviderPtr& remote_data_provider,
                 CreateWasmCallback&& cb);
 
@@ -303,7 +313,8 @@ WasmHandleSharedPtr createThreadLocalWasm(WasmHandle& base_wasm_handle, PluginSh
 
 void createWasmForTesting(const VmConfig& vm_config, PluginSharedPtr plugin,
                           Stats::ScopeSharedPtr scope, Upstream::ClusterManager& cluster_manager,
-                          Init::Manager& init_manager, Event::Dispatcher& dispatcher, Api::Api& api,
+                          Init::Manager& init_manager, Event::Dispatcher& dispatcher,
+                          Runtime::RandomGenerator& random, Api::Api& api,
                           std::unique_ptr<Context> root_context_for_testing,
                           Config::DataSource::RemoteAsyncDataProviderPtr& remote_data_provider,
                           CreateWasmCallback&& cb);
@@ -317,6 +328,12 @@ WasmHandleSharedPtr getOrCreateThreadLocalWasm(WasmHandleSharedPtr base_wasm,
                                                PluginSharedPtr plugin,
                                                absl::string_view configuration,
                                                Event::Dispatcher& dispatcher);
+
+inline const std::string& Wasm::vm_configuration() const {
+  if (base_wasm_handle_)
+    return base_wasm_handle_->wasm()->vm_configuration_;
+  return vm_configuration_;
+}
 
 inline void* Wasm::allocMemory(uint64_t size, uint64_t* address) {
   Word a = malloc_(vm_context(), size);
@@ -348,23 +365,15 @@ inline uint64_t Wasm::copyBuffer(const Buffer::Instance& buffer) {
   if (length <= 0) {
     return 0;
   }
-  Buffer::RawSlice oneRawSlice;
-  // NB: we need to pass in >= 1 in order to get the real "n" (see Buffer::Instance for details).
-  int nSlices = buffer.getRawSlices(&oneRawSlice, 1);
-  if (nSlices <= 0) {
+  auto slices = buffer.getRawSlices(absl::nullopt);
+  if (slices.size() <= 0) {
     return 0;
   }
   uint8_t* m = static_cast<uint8_t*>(allocMemory(length, &pointer));
-  if (nSlices == 1) {
-    memcpy(m, oneRawSlice.mem_, oneRawSlice.len_);
-    return pointer;
-  }
-  absl::FixedArray<Buffer::RawSlice> manyRawSlices(nSlices);
-  buffer.getRawSlices(manyRawSlices.begin(), nSlices);
   auto p = m;
-  for (int i = 0; i < nSlices; i++) {
-    memcpy(p, manyRawSlices[i].mem_, manyRawSlices[i].len_);
-    p += manyRawSlices[i].len_;
+  for (auto& slice : slices) {
+    memcpy(p, slice.mem_, slice.len_);
+    p += slice.len_;
   }
   return pointer;
 }
@@ -395,9 +404,7 @@ inline bool Wasm::copyToPointerSize(const Buffer::Instance& buffer, uint64_t sta
   if (size < start + length) {
     return false;
   }
-  auto nslices = buffer.getRawSlices(nullptr, 0);
-  auto slices = std::make_unique<Buffer::RawSlice[]>(nslices + 10 /* pad for evbuffer overrun */);
-  auto actual_slices = buffer.getRawSlices(&slices[0], nslices);
+  auto slices = buffer.getRawSlices(absl::nullopt);
   uint64_t pointer = 0;
   char* p = static_cast<char*>(allocMemory(length, &pointer));
   auto s = start;
@@ -405,15 +412,15 @@ inline bool Wasm::copyToPointerSize(const Buffer::Instance& buffer, uint64_t sta
   if (!p) {
     return false;
   }
-  for (uint64_t i = 0; i < actual_slices; i++) {
-    if (slices[i].len_ <= s) {
-      s -= slices[i].len_;
+  for (auto& slice : slices) {
+    if (slice.len_ <= s) {
+      s -= slice.len_;
       continue;
     }
     auto ll = l;
-    if (ll > s + slices[i].len_)
-      ll = s + slices[i].len_;
-    memcpy(p, static_cast<char*>(slices[i].mem_) + s, ll);
+    if (ll > s + slice.len_)
+      ll = s + slice.len_;
+    memcpy(p, static_cast<char*>(slice.mem_) + s, ll);
     l -= ll;
     if (l <= 0) {
       break;

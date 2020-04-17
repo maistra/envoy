@@ -24,6 +24,7 @@ envoy_cc_test(
         "//source/common/stats:stats_lib",
         "//test/common/http:common_lib",
         "//test/common/http/http2:http2_frame",
+        "//test/common/stats:stat_test_utility_lib",
         "//test/mocks/http:http_mocks",
         "//test/mocks/init:init_mocks",
         "//test/mocks/local_info:local_info_mocks",
@@ -99,6 +100,7 @@ envoy_cc_test_library(
     deps = [
         "//source/common/common:hex_lib",
         "//source/common/common:macros",
+        "//source/common/http:utility_lib",
         "//source/common/http/http2:codec_lib",
         "//test/common/http:common_lib",
         "//test/common/http/http2:codec_impl_test_util",
@@ -132,6 +134,7 @@ envoy_cc_test(
         "//source/common/http/http2:metadata_decoder_lib",
         "//source/common/http/http2:metadata_encoder_lib",
         "//source/common/runtime:runtime_lib",
+        "//test/test_common:logging_lib",
         "//test/test_common:utility_lib",
     ],
 )

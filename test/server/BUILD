@@ -2,9 +2,10 @@ licenses(["notice"])  # Apache 2
 
 load(
     "//bazel:envoy_build_system.bzl",
+    "envoy_benchmark_test",
+    "envoy_cc_benchmark_binary",
     "envoy_cc_fuzz_test",
     "envoy_cc_test",
-    "envoy_cc_test_binary",
     "envoy_cc_test_library",
     "envoy_package",
     "envoy_select_hot_restart",
@@ -114,6 +115,7 @@ envoy_cc_test(
     deps = [
         "//source/common/stats:stats_lib",
         "//source/server:hot_restart_lib",
+        "//source/server:hot_restarting_child",
         "//test/mocks/network:network_mocks",
         "//test/mocks/server:server_mocks",
     ],
@@ -202,8 +204,10 @@ envoy_cc_test_library(
     hdrs = ["listener_manager_impl_test.h"],
     data = ["//test/extensions/transport_sockets/tls/test_data:certs"],
     deps = [
+        "//source/common/init:manager_lib",
         "//source/server:api_listener_lib",
         "//source/server:listener_lib",
+        "//test/mocks/init:init_mocks",
         "//test/mocks/network:network_mocks",
         "//test/mocks/server:server_mocks",
         "//test/test_common:environment_lib",
@@ -393,7 +397,7 @@ envoy_cc_test(
     ],
 )
 
-envoy_cc_test_binary(
+envoy_cc_benchmark_binary(
     name = "filter_chain_benchmark_test",
     srcs = ["filter_chain_benchmark_test.cc"],
     external_deps = [
@@ -409,4 +413,10 @@ envoy_cc_test_binary(
         # tranport socket config registration
         "//source/extensions/transport_sockets/tls:config",
     ],
+)
+
+envoy_benchmark_test(
+    name = "filter_chain_benchmark_test_benchmark_test",
+    timeout = "long",
+    benchmark_binary = "filter_chain_benchmark_test",
 )

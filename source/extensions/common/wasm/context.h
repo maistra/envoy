@@ -81,7 +81,7 @@ public:
   uint32_t id() const { return id_; }
   bool isVmContext() { return id_ == 0; }
   bool isRootContext() { return root_context_id_ == 0; }
-  Context* root_context() { return root_context_; }
+  Context* rootContext() { return isRootContext() ? this : root_context_; }
 
   absl::string_view root_id() const { return plugin_ ? plugin_->root_id_ : root_id_; }
   absl::string_view log_prefix() const { return plugin_ ? plugin_->log_prefix_ : root_log_prefix_; }
@@ -129,12 +129,12 @@ public:
   virtual void onUpstreamConnectionClose(PeerType);
   // HTTP Filter Stream Request Downcalls.
   virtual Http::FilterHeadersStatus onRequestHeaders();
-  virtual Http::FilterDataStatus onRequestBody(int body_buffer_length, bool end_of_stream);
+  virtual Http::FilterDataStatus onRequestBody(bool end_of_stream);
   virtual Http::FilterTrailersStatus onRequestTrailers();
   virtual Http::FilterMetadataStatus onRequestMetadata();
   // HTTP Filter Stream Response Downcalls.
   virtual Http::FilterHeadersStatus onResponseHeaders();
-  virtual Http::FilterDataStatus onResponseBody(int body_buffer_length, bool end_of_stream);
+  virtual Http::FilterDataStatus onResponseBody(bool end_of_stream);
   virtual Http::FilterTrailersStatus onResponseTrailers();
   virtual Http::FilterMetadataStatus onResponseMetadata();
   // Async Response Downcalls on any Context.
@@ -160,8 +160,9 @@ public:
   //
   // AccessLog::Instance
   //
-  void log(const Http::HeaderMap* request_headers, const Http::HeaderMap* response_headers,
-           const Http::HeaderMap* response_trailers,
+  void log(const Http::RequestHeaderMap* request_headers,
+           const Http::ResponseHeaderMap* response_headers,
+           const Http::ResponseTrailerMap* response_trailers,
            const StreamInfo::StreamInfo& stream_info) override;
 
   //
@@ -220,14 +221,9 @@ public:
   virtual WasmResult setProperty(absl::string_view key, absl::string_view serialized_value);
 
   // Continue
-  virtual void continueRequest() {
-    if (decoder_callbacks_)
-      decoder_callbacks_->continueDecoding();
-  }
-  virtual void continueResponse() {
-    if (encoder_callbacks_)
-      encoder_callbacks_->continueEncoding();
-  }
+  virtual void continueRequest();
+  virtual void continueResponse();
+
   virtual void sendLocalResponse(Http::Code response_code, absl::string_view body_text,
                                  std::function<void(Http::HeaderMap& headers)> modify_headers,
                                  const absl::optional<Grpc::Status::GrpcStatus> grpc_status,
@@ -267,7 +263,8 @@ public:
   virtual uint32_t getHeaderMapSize(HeaderMapType type);
 
   // Buffer
-  virtual Buffer::Instance* getBuffer(BufferType type);
+  virtual const Buffer::Instance* getBuffer(BufferType type);
+  virtual WasmResult setBuffer(BufferType type, std::function<void(Buffer::Instance&)> callback);
   bool end_of_stream() { return end_of_stream_; }
 
   // HTTP
@@ -293,11 +290,13 @@ public:
   // gRPC
   // Returns a token which will be used with the corresponding onGrpc and grpc calls.
   virtual WasmResult grpcCall(const GrpcService& grpc_service, absl::string_view service_name,
-                              absl::string_view method_name, absl::string_view request,
+                              absl::string_view method_name, const Pairs& initial_metadata,
+                              absl::string_view request,
                               const absl::optional<std::chrono::milliseconds>& timeout,
                               uint32_t* token_ptr);
   virtual WasmResult grpcStream(const GrpcService& grpc_service, absl::string_view service_name,
-                                absl::string_view method_name, uint32_t* token_ptr);
+                                absl::string_view method_name, const Pairs& initial_metadat,
+                                uint32_t* token_ptr);
   virtual WasmResult grpcClose(uint32_t token);  // cancel on call, close on stream.
   virtual WasmResult grpcCancel(uint32_t token); // cancel on call, reset on stream.
   virtual WasmResult grpcSend(uint32_t token, absl::string_view message,
@@ -330,15 +329,21 @@ public:
   // Connection
   virtual bool isSsl();
 
+  void addAfterVmCallAction(std::function<void()> f);
+
 protected:
   friend class Wasm;
 
+  void onCloseTCP();
+
   struct AsyncClientHandler : public Http::AsyncClient::Callbacks {
     // Http::AsyncClient::Callbacks
-    void onSuccess(Envoy::Http::ResponseMessagePtr&& response) override {
+    void onSuccess(const Http::AsyncClient::Request&,
+                   Envoy::Http::ResponseMessagePtr&& response) override {
       context_->onHttpCallSuccess(token_, response);
     }
-    void onFailure(Http::AsyncClient::FailureReason reason) override {
+    void onFailure(const Http::AsyncClient::Request&,
+                   Http::AsyncClient::FailureReason reason) override {
       context_->onHttpCallFailure(token_, reason);
     }
 
@@ -349,8 +354,8 @@ protected:
 
   struct GrpcCallClientHandler : public Grpc::RawAsyncRequestCallbacks {
     // Grpc::AsyncRequestCallbacks
-    void onCreateInitialMetadata(Http::RequestHeaderMap& metadata) override {
-      context_->onGrpcCreateInitialMetadata(token_, metadata);
+    void onCreateInitialMetadata(Http::RequestHeaderMap& initial_metadata) override {
+      context_->onCreateInitialMetadata(token_, initial_metadata);
     }
     void onSuccessRaw(Buffer::InstancePtr&& response, Tracing::Span& /* span */) override {
       context_->onGrpcReceive(token_, std::move(response));
@@ -368,9 +373,7 @@ protected:
 
   struct GrpcStreamClientHandler : public Grpc::RawAsyncStreamCallbacks {
     // Grpc::AsyncStreamCallbacks
-    void onCreateInitialMetadata(Http::RequestHeaderMap& metadata) override {
-      context_->onGrpcCreateInitialMetadata(token_, metadata);
-    }
+    void onCreateInitialMetadata(Http::RequestHeaderMap&) override {}
     void onReceiveInitialMetadata(Http::ResponseHeaderMapPtr&& metadata) override {
       context_->onGrpcReceiveInitialMetadata(token_, std::move(metadata));
     }
@@ -397,8 +400,7 @@ protected:
   void onHttpCallSuccess(uint32_t token, Envoy::Http::ResponseMessagePtr& response);
   void onHttpCallFailure(uint32_t token, Http::AsyncClient::FailureReason reason);
 
-  virtual void onGrpcCreateInitialMetadata(uint32_t token,
-                                           Http::HeaderMap& metadata); // For both Call and Stream.
+  virtual void onCreateInitialMetadata(uint32_t token, Http::RequestHeaderMap& initial_metadata);
   virtual void onGrpcReceive(uint32_t token,
                              Buffer::InstancePtr response); // Call (implies OK close) and Stream.
   virtual void onGrpcClose(uint32_t token, const Grpc::Status::GrpcStatus& status,
@@ -462,30 +464,39 @@ protected:
   // Only available during onHttpCallResponse.
   Envoy::Http::ResponseMessagePtr* http_call_response_{};
 
-  Http::HeaderMap* grpc_create_initial_metadata_{};
   Http::HeaderMapPtr grpc_receive_initial_metadata_{};
   Http::HeaderMapPtr grpc_receive_trailing_metadata_{};
 
-  // NB: this are only available (non-nullptr) during onGrpcReceive.
+  // NB: this is only available (non-nullptr) during onGrpcReceive.
   Buffer::InstancePtr grpc_receive_buffer_;
 
+  // NB: this is only available (non-nullptr) during grpcCall and grpcStream.
+  Http::RequestHeaderMapPtr grpc_initial_metadata_;
+
   const StreamInfo::StreamInfo* access_log_stream_info_{};
-  const Http::HeaderMap* access_log_request_headers_{};
-  const Http::HeaderMap* access_log_response_headers_{};
-  const Http::HeaderMap* access_log_request_trailers_{}; // unused
-  const Http::HeaderMap* access_log_response_trailers_{};
+  const Http::RequestHeaderMap* access_log_request_headers_{};
+  const Http::ResponseHeaderMap* access_log_response_headers_{};
+  const Http::RequestTrailerMap* access_log_request_trailers_{}; // unused
+  const Http::ResponseTrailerMap* access_log_response_trailers_{};
 
   // Temporary state.
   ProtobufWkt::Struct temporary_metadata_;
   bool end_of_stream_;
+  bool buffering_request_body_ = false;
+  bool buffering_response_body_ = false;
 
   // MB: must be a node-type map as we take persistent references to the entries.
   std::map<uint32_t, AsyncClientHandler> http_request_;
   std::map<uint32_t, GrpcCallClientHandler> grpc_call_request_;
   std::map<uint32_t, GrpcStreamClientHandler> grpc_stream_;
 
-  // Opaque state
+  // Opaque state.
   absl::flat_hash_map<std::string, std::unique_ptr<StorageObject>> data_storage_;
+
+  // TCP State.
+  bool upstream_closed_ = false;
+  bool downstream_closed_ = false;
+  bool tcp_connection_closed_ = false;
 };
 
 using ContextSharedPtr = std::shared_ptr<Context>;

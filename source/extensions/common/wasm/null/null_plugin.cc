@@ -30,7 +30,9 @@ using Plugin::Context;
 using Plugin::WasmData;
 
 void NullPlugin::getFunction(absl::string_view function_name, WasmCallVoid<0>* f) {
-  if (function_name == "_start") {
+  if (function_name == "proxy_abi_version_0_1_0") {
+    *f = [](Common::Wasm::Context*) { /* dummy function */ };
+  } else if (function_name == "_start") {
     *f = nullptr;
   } else if (function_name == "__wasm_call_ctors") {
     *f = nullptr;
@@ -99,11 +101,6 @@ void NullPlugin::getFunction(absl::string_view function_name, WasmCallVoid<3>* f
     *f = [plugin](Common::Wasm::Context* context, Word context_id, Word token, Word body_size) {
       SaveRestoreContext saved_context(context);
       plugin->onGrpcReceive(context_id.u64_, token.u64_, body_size.u64_);
-    };
-  } else if (function_name == "proxy_on_grpc_create_initial_metadata") {
-    *f = [plugin](Common::Wasm::Context* context, Word context_id, Word token, Word headers) {
-      SaveRestoreContext saved_context(context);
-      plugin->onGrpcCreateInitialMetadata(context_id.u64_, token.u64_, headers.u64_);
     };
   } else if (function_name == "proxy_on_grpc_receive_initial_metadata") {
     *f = [plugin](Common::Wasm::Context* context, Word context_id, Word token, Word headers) {
@@ -429,11 +426,6 @@ void NullPlugin::onGrpcClose(uint64_t context_id, uint64_t token, uint64_t statu
   getRootContext(context_id)->onGrpcClose(token, static_cast<Plugin::GrpcStatus>(status_code));
 }
 
-void NullPlugin::onGrpcCreateInitialMetadata(uint64_t context_id, uint64_t token,
-                                             uint64_t headers) {
-  getRootContext(context_id)->onGrpcCreateInitialMetadata(token, headers);
-}
-
 void NullPlugin::onGrpcReceiveInitialMetadata(uint64_t context_id, uint64_t token,
                                               uint64_t headers) {
   getRootContext(context_id)->onGrpcReceiveInitialMetadata(token, headers);
@@ -469,6 +461,21 @@ void NullPlugin::onDelete(uint64_t context_id) {
 Plugin::RootContext* nullVmGetRoot(absl::string_view root_id) {
   auto null_vm = static_cast<NullVm*>(current_context_->wasmVm());
   return static_cast<NullPlugin*>(null_vm->plugin_.get())->getRoot(root_id);
+}
+
+Plugin::Context* nullVmGetContext(uint32_t context_id) {
+  auto null_vm = static_cast<NullVm*>(current_context_->wasmVm());
+  return static_cast<NullPlugin*>(null_vm->plugin_.get())->getContext(context_id);
+}
+
+Plugin::RootContext* nullVmGetRootContext(uint32_t context_id) {
+  auto null_vm = static_cast<NullVm*>(current_context_->wasmVm());
+  return static_cast<NullPlugin*>(null_vm->plugin_.get())->getRootContext(context_id);
+}
+
+Plugin::ContextBase* nullVmGetContextBase(uint32_t context_id) {
+  auto null_vm = static_cast<NullVm*>(current_context_->wasmVm());
+  return static_cast<NullPlugin*>(null_vm->plugin_.get())->getContextBase(context_id);
 }
 
 } // namespace Null

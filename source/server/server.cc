@@ -16,6 +16,7 @@
 #include "envoy/network/dns.h"
 #include "envoy/registry/registry.h"
 #include "envoy/server/options.h"
+#include "envoy/server/wasm_config.h"
 #include "envoy/upstream/cluster_manager.h"
 
 #include "common/api/api_impl.h"
@@ -41,8 +42,10 @@
 #include "server/configuration_impl.h"
 #include "server/connection_handler_impl.h"
 #include "server/guarddog_impl.h"
+#include "server/http/utils.h"
 #include "server/listener_hooks.h"
 #include "server/ssl_context_manager.h"
+#include "server/wasm_config_impl.h"
 
 namespace Envoy {
 namespace Server {
@@ -121,7 +124,9 @@ InstanceImpl::~InstanceImpl() {
   // RdsRouteConfigSubscription is an Init::Target, ~RdsRouteConfigSubscription triggers a callback
   // set at initialization, which goes to unregister it from the top-level InitManager, which has
   // already been destructed (use-after-free) causing a segfault.
+  ENVOY_LOG(debug, "destroying listener manager");
   listener_manager_.reset();
+  ENVOY_LOG(debug, "destroyed listener manager");
 }
 
 Upstream::ClusterManager& InstanceImpl::clusterManager() { return *config_.clusterManager(); }
@@ -194,6 +199,7 @@ void InstanceImpl::updateServerStats() {
   server_stats_->memory_allocated_.set(Memory::Stats::totalCurrentlyAllocated() +
                                        parent_stats.parent_memory_allocated_);
   server_stats_->memory_heap_size_.set(Memory::Stats::totalCurrentlyReserved());
+  server_stats_->memory_physical_size_.set(Memory::Stats::totalPhysicalBytes());
   server_stats_->parent_connections_.set(parent_stats.parent_connections_);
   server_stats_->total_connections_.set(listener_manager_->numConnections() +
                                         parent_stats.parent_connections_);
@@ -216,9 +222,10 @@ void InstanceImpl::flushStatsInternal() {
 
 bool InstanceImpl::healthCheckFailed() { return !live_.load(); }
 
-InstanceUtil::BootstrapVersion InstanceUtil::loadBootstrapConfig(
-    envoy::config::bootstrap::v3::Bootstrap& bootstrap, const Options& options,
-    ProtobufMessage::ValidationVisitor& validation_visitor, Api::Api& api) {
+void InstanceUtil::loadBootstrapConfig(envoy::config::bootstrap::v3::Bootstrap& bootstrap,
+                                       const Options& options,
+                                       ProtobufMessage::ValidationVisitor& validation_visitor,
+                                       Api::Api& api) {
   const std::string& config_path = options.configPath();
   const std::string& config_yaml = options.configYaml();
   const envoy::config::bootstrap::v3::Bootstrap& config_proto = options.configProto();
@@ -241,7 +248,6 @@ InstanceUtil::BootstrapVersion InstanceUtil::loadBootstrapConfig(
     bootstrap.MergeFrom(config_proto);
   }
   MessageUtil::validate(bootstrap, validation_visitor);
-  return BootstrapVersion::V2;
 }
 
 void InstanceImpl::initialize(const Options& options,
@@ -390,14 +396,14 @@ void InstanceImpl::initialize(const Options& options,
   cluster_manager_factory_ = std::make_unique<Upstream::ProdClusterManagerFactory>(
       *admin_, Runtime::LoaderSingleton::get(), stats_store_, thread_local_, *random_generator_,
       dns_resolver_, *ssl_context_manager_, *dispatcher_, *local_info_, *secret_manager_,
-      messageValidationContext(), *api_, http_context_, access_log_manager_, *singleton_manager_);
+      messageValidationContext(), *api_, http_context_, grpc_context_, access_log_manager_,
+      *singleton_manager_);
 
   // Now the configuration gets parsed. The configuration may start setting
   // thread local data per above. See MainImpl::initialize() for why ConfigImpl
   // is constructed as part of the InstanceImpl and then populated once
   // cluster_manager_factory_ is available.
   config_.initialize(bootstrap_, *this, *cluster_manager_factory_);
-  http_context_.setTracer(config_.httpTracer());
 
   // Instruct the listener manager to create the LDS provider if needed. This must be done later
   // because various items do not yet exist when the listener manager is created.
@@ -412,7 +418,7 @@ void InstanceImpl::initialize(const Options& options,
   if (bootstrap_.has_hds_config()) {
     const auto& hds_config = bootstrap_.hds_config();
     async_client_manager_ = std::make_unique<Grpc::AsyncClientManagerImpl>(
-        *config_.clusterManager(), thread_local_, time_source_, *api_);
+        *config_.clusterManager(), thread_local_, time_source_, *api_, grpc_context_.statNames());
     hds_delegate_ = std::make_unique<Upstream::HdsDelegate>(
         stats_store_,
         Config::Utility::factoryForGrpcApiConfigSource(*async_client_manager_, hds_config,
@@ -422,6 +428,28 @@ void InstanceImpl::initialize(const Options& options,
         stats_store_, *ssl_context_manager_, *random_generator_, info_factory_, access_log_manager_,
         *config_.clusterManager(), *local_info_, *admin_, *singleton_manager_, thread_local_,
         messageValidationContext().dynamicValidationVisitor(), *api_);
+  }
+
+  // Optional Wasm services. These must be initialied afer threading but before the main
+  // configuration which many reference wasm vms.
+  if (bootstrap_.wasm_service_size() > 0) {
+    auto factory = Registry::FactoryRegistry<Configuration::WasmFactory>::getFactory("envoy.wasm");
+    if (factory) {
+      for (auto& config : bootstrap_.wasm_service()) {
+        auto scope = Stats::ScopeSharedPtr(stats_store_.createScope(config.stat_prefix()));
+        Configuration::WasmFactoryContextImpl wasm_factory_context(
+            clusterManager(), initManager(), *dispatcher_, thread_local_, api(), scope, random(),
+            *local_info_);
+        factory->createWasm(config, wasm_factory_context, [this](WasmServicePtr wasm) {
+          if (wasm) {
+            // If not nullptr, this is a singleton WASM service.
+            wasm_.emplace_back(std::move(wasm));
+          }
+        });
+      }
+    } else {
+      ENVOY_LOG(warn, "No wasm factory available, so no wasm service started.");
+    }
   }
 
   for (Stats::SinkPtr& sink : config_.statsSinks()) {
@@ -496,7 +524,7 @@ RunHelper::RunHelper(Instance& instance, const Options& options, Event::Dispatch
     });
 
     sig_usr_1_ = dispatcher.listenForSignal(SIGUSR1, [&access_log_manager]() {
-      ENVOY_LOG(warn, "caught SIGUSR1");
+      ENVOY_LOG(info, "caught SIGUSR1. Reopening access logs.");
       access_log_manager.reopen();
     });
 

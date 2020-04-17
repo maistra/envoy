@@ -196,8 +196,12 @@ Word send_local_response(void* raw_context, Word response_code, Word response_co
   auto grpc_status_opt = (grpc_status != Grpc::Status::WellKnownGrpcStatus::InvalidCode)
                              ? absl::optional<Grpc::Status::WellKnownGrpcStatus>(grpc_status)
                              : absl::optional<Grpc::Status::WellKnownGrpcStatus>();
-  context->sendLocalResponse(static_cast<Envoy::Http::Code>(response_code.u64_), body.value(),
-                             modify_headers, grpc_status_opt, details.value());
+  context->addAfterVmCallAction([context, response_code, body = std::string(body.value()),
+                                 modify_headers = std::move(modify_headers), grpc_status_opt,
+                                 details = std::string(details.value())] {
+    context->sendLocalResponse(static_cast<Envoy::Http::Code>(response_code.u64_), body,
+                               modify_headers, grpc_status_opt, details);
+  });
   return wasmResultToWord(WasmResult::Ok);
 }
 
@@ -453,22 +457,23 @@ Word get_buffer_bytes(void* raw_context, Word type, Word start, Word length, Wor
     return wasmResultToWord(WasmResult::NotFound);
   }
   // NB: check for overflow.
-  if (buffer->length() < start.u64_ + length.u64_ || start.u64_ > start.u64_ + length.u64_) {
+  if (start.u64_ > start.u64_ + length.u64_) {
     return wasmResultToWord(WasmResult::BadArgument);
   }
   uint64_t pointer = 0;
   void* p = nullptr;
-  if (length.u64_ > 0) {
-    p = context->wasm()->allocMemory(length.u64_, &pointer);
+  uint64_t written = std::min(buffer->length(), length.u64_);
+  if (written > 0) {
+    p = context->wasm()->allocMemory(written, &pointer);
     if (!p) {
       return wasmResultToWord(WasmResult::InvalidMemoryAccess);
     }
-    buffer->copyOut(start.u64_, length.u64_, p);
+    buffer->copyOut(start.u64_, written, p);
   }
   if (!context->wasmVm()->setWord(ptr_ptr.u64_, Word(pointer))) {
     return wasmResultToWord(WasmResult::InvalidMemoryAccess);
   }
-  if (!context->wasmVm()->setWord(size_ptr.u64_, Word(length.u64_))) {
+  if (!context->wasmVm()->setWord(size_ptr.u64_, Word(written))) {
     return wasmResultToWord(WasmResult::InvalidMemoryAccess);
   }
   return wasmResultToWord(WasmResult::Ok);
@@ -494,10 +499,50 @@ Word get_buffer_status(void* raw_context, Word type, Word length_ptr, Word flags
   return wasmResultToWord(WasmResult::Ok);
 }
 
+Word set_buffer_bytes(void* raw_context, Word type, Word start, Word length, Word data_ptr,
+                      Word data_size) {
+  if (type.u64_ > static_cast<uint64_t>(BufferType::MAX)) {
+    return wasmResultToWord(WasmResult::BadArgument);
+  }
+  auto context = WASM_CONTEXT(raw_context);
+  auto buffer = context->getBuffer(static_cast<BufferType>(type.u64_));
+  if (!buffer) {
+    return wasmResultToWord(WasmResult::NotFound);
+  }
+  auto data = context->wasmVm()->getMemory(data_ptr.u64_, data_size.u64_);
+  if (!data) {
+    return wasmResultToWord(WasmResult::InvalidMemoryAccess);
+  }
+  WasmResult result = WasmResult::InternalFailure;
+  if (context->setBuffer(static_cast<BufferType>(type.u64_),
+                         [start = start.u64_, length = length.u64_, data, &result](auto& buffer) {
+                           if (start == 0) {
+                             if (length == 0) {
+                               buffer.prepend(data.value());
+                               result = WasmResult::Ok;
+                             } else if (length >= buffer.length()) {
+                               buffer.drain(buffer.length());
+                               buffer.add(data.value());
+                               result = WasmResult::Ok;
+                             } else {
+                               result = WasmResult::BadArgument;
+                             }
+                           } else if (start >= buffer.length()) {
+                             buffer.add(data.value());
+                             result = WasmResult::Ok;
+                           } else {
+                             result = WasmResult::BadArgument;
+                           }
+                         }) != WasmResult::Ok) {
+    return wasmResultToWord(WasmResult::BadArgument);
+  }
+  return wasmResultToWord(result);
+}
+
 Word http_call(void* raw_context, Word uri_ptr, Word uri_size, Word header_pairs_ptr,
                Word header_pairs_size, Word body_ptr, Word body_size, Word trailer_pairs_ptr,
                Word trailer_pairs_size, Word timeout_milliseconds, Word token_ptr) {
-  auto context = WASM_CONTEXT(raw_context)->root_context();
+  auto context = WASM_CONTEXT(raw_context)->rootContext();
   auto uri = context->wasmVm()->getMemory(uri_ptr.u64_, uri_size.u64_);
   auto body = context->wasmVm()->getMemory(body_ptr.u64_, body_size.u64_);
   auto header_pairs = context->wasmVm()->getMemory(header_pairs_ptr.u64_, header_pairs_size.u64_);
@@ -566,11 +611,15 @@ Word get_metric(void* raw_context, Word metric_id, Word result_uint64_ptr) {
 
 Word grpc_call(void* raw_context, Word service_ptr, Word service_size, Word service_name_ptr,
                Word service_name_size, Word method_name_ptr, Word method_name_size,
-               Word request_ptr, Word request_size, Word timeout_milliseconds, Word token_ptr) {
-  auto context = WASM_CONTEXT(raw_context)->root_context();
+               Word initial_metadata_ptr, Word initial_metadata_size, Word request_ptr,
+               Word request_size, Word timeout_milliseconds, Word token_ptr) {
+  auto context = WASM_CONTEXT(raw_context)->rootContext();
   auto service = context->wasmVm()->getMemory(service_ptr.u64_, service_size.u64_);
   auto service_name = context->wasmVm()->getMemory(service_name_ptr.u64_, service_name_size.u64_);
   auto method_name = context->wasmVm()->getMemory(method_name_ptr.u64_, method_name_size.u64_);
+  auto initial_metadata_pairs =
+      context->wasmVm()->getMemory(initial_metadata_ptr.u64_, initial_metadata_size.u64_);
+  auto initial_metadata = toPairs(initial_metadata_pairs.value());
   auto request = context->wasmVm()->getMemory(request_ptr.u64_, request_size.u64_);
   if (!service || !service_name || !method_name || !request) {
     return wasmResultToWord(WasmResult::InvalidMemoryAccess);
@@ -580,9 +629,9 @@ Word grpc_call(void* raw_context, Word service_ptr, Word service_size, Word serv
     return wasmResultToWord(WasmResult::ParseFailure);
   }
   uint32_t token = 0;
-  auto result =
-      context->grpcCall(service_proto, service_name.value(), method_name.value(), request.value(),
-                        std::chrono::milliseconds(timeout_milliseconds.u64_), &token);
+  auto result = context->grpcCall(service_proto, service_name.value(), method_name.value(),
+                                  initial_metadata, request.value(),
+                                  std::chrono::milliseconds(timeout_milliseconds.u64_), &token);
   if (result != WasmResult::Ok) {
     return wasmResultToWord(result);
   }
@@ -594,8 +643,8 @@ Word grpc_call(void* raw_context, Word service_ptr, Word service_size, Word serv
 
 Word grpc_stream(void* raw_context, Word service_ptr, Word service_size, Word service_name_ptr,
                  Word service_name_size, Word method_name_ptr, Word method_name_size,
-                 Word token_ptr) {
-  auto context = WASM_CONTEXT(raw_context)->root_context();
+                 Word initial_metadata_ptr, Word initial_metadata_size, Word token_ptr) {
+  auto context = WASM_CONTEXT(raw_context)->rootContext();
   auto service = context->wasmVm()->getMemory(service_ptr.u64_, service_size.u64_);
   auto service_name = context->wasmVm()->getMemory(service_name_ptr.u64_, service_name_size.u64_);
   auto method_name = context->wasmVm()->getMemory(method_name_ptr.u64_, method_name_size.u64_);
@@ -606,9 +655,12 @@ Word grpc_stream(void* raw_context, Word service_ptr, Word service_size, Word se
   if (!service_proto.ParseFromArray(service.value().data(), service.value().size())) {
     return wasmResultToWord(WasmResult::ParseFailure);
   }
+  auto initial_metadata_pairs =
+      context->wasmVm()->getMemory(initial_metadata_ptr.u64_, initial_metadata_size.u64_);
+  auto initial_metadata = toPairs(initial_metadata_pairs.value());
   uint32_t token = 0;
-  auto result =
-      context->grpcStream(service_proto, service_name.value(), method_name.value(), &token);
+  auto result = context->grpcStream(service_proto, service_name.value(), method_name.value(),
+                                    initial_metadata, &token);
   if (result != WasmResult::Ok) {
     return wasmResultToWord(result);
   }
@@ -619,18 +671,18 @@ Word grpc_stream(void* raw_context, Word service_ptr, Word service_size, Word se
 }
 
 Word grpc_cancel(void* raw_context, Word token) {
-  auto context = WASM_CONTEXT(raw_context)->root_context();
+  auto context = WASM_CONTEXT(raw_context)->rootContext();
   return wasmResultToWord(context->grpcCancel(token.u64_));
 }
 
 Word grpc_close(void* raw_context, Word token) {
-  auto context = WASM_CONTEXT(raw_context)->root_context();
+  auto context = WASM_CONTEXT(raw_context)->rootContext();
   return wasmResultToWord(context->grpcClose(token.u64_));
 }
 
 Word grpc_send(void* raw_context, Word token, Word message_ptr, Word message_size,
                Word end_stream) {
-  auto context = WASM_CONTEXT(raw_context)->root_context();
+  auto context = WASM_CONTEXT(raw_context)->rootContext();
   auto message = context->wasmVm()->getMemory(message_ptr.u64_, message_size.u64_);
   if (!message) {
     return wasmResultToWord(WasmResult::InvalidMemoryAccess);
@@ -701,6 +753,13 @@ Word wasi_unstable_fd_write(void* raw_context, Word fd, Word iovs, Word iovs_len
   return 0; // __WASI_ESUCCESS
 }
 
+// __wasi_errno_t __wasi_fd_read(_wasi_fd_t fd, const __wasi_iovec_t *iovs,
+//    size_t iovs_len, __wasi_size_t *nread);
+Word wasi_unstable_fd_read(void*, Word, Word, Word, Word) {
+  // Don't support reading of any files.
+  return 52; // __WASI_ERRNO_ENOSYS
+}
+
 // __wasi_errno_t __wasi_fd_seek(__wasi_fd_t fd, __wasi_filedelta_t offset, __wasi_whence_t
 // whence,__wasi_filesize_t *newoffset);
 Word wasi_unstable_fd_seek(void*, Word, int64_t, Word, Word) {
@@ -709,6 +768,26 @@ Word wasi_unstable_fd_seek(void*, Word, int64_t, Word, Word) {
 
 // __wasi_errno_t __wasi_fd_close(__wasi_fd_t fd);
 Word wasi_unstable_fd_close(void*, Word) { throw WasmException("wasi_unstable fd_close"); }
+
+// __wasi_errno_t __wasi_fd_fdstat_get(__wasi_fd_t fd, __wasi_fdstat_t *stat)
+Word wasi_unstable_fd_fdstat_get(void* raw_context, Word fd, Word statOut) {
+  // We will only support this interface on stdout and stderr
+  if (fd.u64_ != 1 && fd.u64_ != 2) {
+    return 8; // __WASI_EBADF;
+  }
+
+  // The last word points to a 24-byte structure, which we
+  // are mostly going to zero out.
+  uint64_t wasi_fdstat[3];
+  wasi_fdstat[0] = 0;
+  wasi_fdstat[1] = 64; // This sets "fs_rights_base" to __WASI_RIGHTS_FD_WRITE
+  wasi_fdstat[2] = 0;
+
+  auto context = WASM_CONTEXT(raw_context);
+  context->wasmVm()->setMemory(statOut.u64_, 3 * sizeof(uint64_t), &wasi_fdstat);
+
+  return 0; // __WASI_ESUCCESS
+}
 
 // __wasi_errno_t __wasi_environ_get(char **environ, char *environ_buf);
 Word wasi_unstable_environ_get(void*, Word, Word) {

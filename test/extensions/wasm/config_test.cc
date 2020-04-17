@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "envoy/extensions/wasm/v3/wasm.pb.validate.h"
+#include "envoy/config/wasm/v3/wasm.pb.validate.h"
 #include "envoy/registry/registry.h"
 
 #include "common/stats/isolated_store_impl.h"
@@ -35,7 +35,7 @@ TEST_P(WasmFactoryTest, CreateWasmFromWASM) {
   auto factory =
       Registry::FactoryRegistry<Server::Configuration::WasmFactory>::getFactory("envoy.wasm");
   ASSERT_NE(factory, nullptr);
-  envoy::extensions::wasm::v3::WasmService config;
+  envoy::config::wasm::v3::WasmService config;
   config.mutable_config()->mutable_vm_config()->set_runtime(
       absl::StrCat("envoy.wasm.runtime.", GetParam()));
   config.mutable_config()->mutable_vm_config()->mutable_code()->mutable_local()->set_filename(
@@ -47,14 +47,16 @@ TEST_P(WasmFactoryTest, CreateWasmFromWASM) {
   Init::ExpectableWatcherImpl init_watcher;
   Event::MockDispatcher dispatcher;
   ThreadLocal::MockInstance tls;
+  NiceMock<Runtime::MockRandomGenerator> random;
   Stats::IsolatedStoreImpl stats_store;
   NiceMock<LocalInfo::MockLocalInfo> local_info;
   Api::ApiPtr api = Api::createApiForTest(stats_store);
   auto scope = Stats::ScopeSharedPtr(stats_store.createScope("wasm."));
   Server::Configuration::WasmFactoryContextImpl context(cluster_manager, init_manager, dispatcher,
-                                                        tls, *api, scope, local_info);
-  Server::WasmSharedPtr wasmptr = nullptr;
-  factory->createWasm(config, context, [&wasmptr](Server::WasmSharedPtr wasm) { wasmptr = wasm; });
+                                                        tls, *api, scope, random, local_info);
+  Server::WasmServicePtr wasmptr = nullptr;
+  factory->createWasm(config, context,
+                      [&wasmptr](Server::WasmServicePtr wasm) { wasmptr = std::move(wasm); });
   EXPECT_CALL(init_watcher, ready());
   init_manager.initialize(init_watcher);
   EXPECT_NE(wasmptr, nullptr);
@@ -65,7 +67,7 @@ TEST_P(WasmFactoryTest, CreateWasmFromWASMPerThread) {
   auto factory =
       Registry::FactoryRegistry<Server::Configuration::WasmFactory>::getFactory("envoy.wasm");
   ASSERT_NE(factory, nullptr);
-  envoy::extensions::wasm::v3::WasmService config;
+  envoy::config::wasm::v3::WasmService config;
   config.mutable_config()->mutable_vm_config()->set_runtime(
       absl::StrCat("envoy.wasm.runtime.", GetParam()));
   config.mutable_config()->mutable_vm_config()->mutable_code()->mutable_local()->set_filename(
@@ -77,22 +79,27 @@ TEST_P(WasmFactoryTest, CreateWasmFromWASMPerThread) {
   Event::MockDispatcher dispatcher;
   testing::NiceMock<ThreadLocal::MockInstance> tls;
   Stats::IsolatedStoreImpl stats_store;
+  NiceMock<Runtime::MockRandomGenerator> random;
   NiceMock<LocalInfo::MockLocalInfo> local_info;
   Api::ApiPtr api = Api::createApiForTest(stats_store);
   auto scope = Stats::ScopeSharedPtr(stats_store.createScope("wasm."));
   Server::Configuration::WasmFactoryContextImpl context(cluster_manager, init_manager, dispatcher,
-                                                        tls, *api, scope, local_info);
+                                                        tls, *api, scope, random, local_info);
+  Server::WasmServicePtr wasmptr = nullptr;
   factory->createWasm(config, context,
-                      [](Server::WasmSharedPtr wasm) { EXPECT_EQ(wasm, nullptr); });
+                      [&wasmptr](Server::WasmServicePtr wasm) { wasmptr = std::move(wasm); });
   EXPECT_CALL(init_watcher, ready());
   init_manager.initialize(init_watcher);
+  EXPECT_NE(wasmptr, nullptr);
+  wasmptr.reset();
+  tls.shutdownThread();
 }
 
 TEST_P(WasmFactoryTest, MissingImport) {
   auto factory =
       Registry::FactoryRegistry<Server::Configuration::WasmFactory>::getFactory("envoy.wasm");
   ASSERT_NE(factory, nullptr);
-  envoy::extensions::wasm::v3::WasmService config;
+  envoy::config::wasm::v3::WasmService config;
   config.mutable_config()->mutable_vm_config()->set_runtime(
       absl::StrCat("envoy.wasm.runtime.", GetParam()));
   config.mutable_config()->mutable_vm_config()->mutable_code()->mutable_local()->set_filename(
@@ -105,12 +112,13 @@ TEST_P(WasmFactoryTest, MissingImport) {
   Event::MockDispatcher dispatcher;
   ThreadLocal::MockInstance tls;
   Stats::IsolatedStoreImpl stats_store;
+  NiceMock<Runtime::MockRandomGenerator> random;
   NiceMock<LocalInfo::MockLocalInfo> local_info;
   Api::ApiPtr api = Api::createApiForTest(stats_store);
   auto scope = Stats::ScopeSharedPtr(stats_store.createScope("wasm."));
   Server::Configuration::WasmFactoryContextImpl context(cluster_manager, init_manager, dispatcher,
-                                                        tls, *api, scope, local_info);
-  EXPECT_THROW_WITH_REGEX(factory->createWasm(config, context, [](Server::WasmSharedPtr) {});
+                                                        tls, *api, scope, random, local_info);
+  EXPECT_THROW_WITH_REGEX(factory->createWasm(config, context, [](Server::WasmServicePtr) {});
                           , Extensions::Common::Wasm::WasmVmException,
                           "Failed to load WASM module due to a missing import: env.missing");
 }
@@ -119,7 +127,7 @@ TEST_P(WasmFactoryTest, UnspecifiedRuntime) {
   auto factory =
       Registry::FactoryRegistry<Server::Configuration::WasmFactory>::getFactory("envoy.wasm");
   ASSERT_NE(factory, nullptr);
-  envoy::extensions::wasm::v3::WasmService config;
+  envoy::config::wasm::v3::WasmService config;
   config.mutable_config()->mutable_vm_config()->set_runtime("");
   config.mutable_config()->mutable_vm_config()->mutable_code()->mutable_local()->set_filename(
       TestEnvironment::substitute(
@@ -131,12 +139,13 @@ TEST_P(WasmFactoryTest, UnspecifiedRuntime) {
   Event::MockDispatcher dispatcher;
   ThreadLocal::MockInstance tls;
   Stats::IsolatedStoreImpl stats_store;
+  NiceMock<Runtime::MockRandomGenerator> random;
   NiceMock<LocalInfo::MockLocalInfo> local_info;
   Api::ApiPtr api = Api::createApiForTest(stats_store);
   auto scope = Stats::ScopeSharedPtr(stats_store.createScope("wasm."));
   Server::Configuration::WasmFactoryContextImpl context(cluster_manager, init_manager, dispatcher,
-                                                        tls, *api, scope, local_info);
-  EXPECT_THROW_WITH_MESSAGE(factory->createWasm(config, context, [](Server::WasmSharedPtr) {}),
+                                                        tls, *api, scope, random, local_info);
+  EXPECT_THROW_WITH_MESSAGE(factory->createWasm(config, context, [](Server::WasmServicePtr) {}),
                             Extensions::Common::Wasm::WasmVmException,
                             "Failed to create WASM VM with unspecified runtime.");
 }
@@ -145,7 +154,7 @@ TEST_P(WasmFactoryTest, UnknownRuntime) {
   auto factory =
       Registry::FactoryRegistry<Server::Configuration::WasmFactory>::getFactory("envoy.wasm");
   ASSERT_NE(factory, nullptr);
-  envoy::extensions::wasm::v3::WasmService config;
+  envoy::config::wasm::v3::WasmService config;
   config.mutable_config()->mutable_vm_config()->set_runtime("envoy.wasm.runtime.invalid");
   config.mutable_config()->mutable_vm_config()->mutable_code()->mutable_local()->set_filename(
       TestEnvironment::substitute(
@@ -157,12 +166,13 @@ TEST_P(WasmFactoryTest, UnknownRuntime) {
   Event::MockDispatcher dispatcher;
   ThreadLocal::MockInstance tls;
   Stats::IsolatedStoreImpl stats_store;
+  NiceMock<Runtime::MockRandomGenerator> random;
   NiceMock<LocalInfo::MockLocalInfo> local_info;
   Api::ApiPtr api = Api::createApiForTest(stats_store);
   auto scope = Stats::ScopeSharedPtr(stats_store.createScope("wasm."));
   Server::Configuration::WasmFactoryContextImpl context(cluster_manager, init_manager, dispatcher,
-                                                        tls, *api, scope, local_info);
-  EXPECT_THROW_WITH_MESSAGE(factory->createWasm(config, context, [](Server::WasmSharedPtr) {}),
+                                                        tls, *api, scope, random, local_info);
+  EXPECT_THROW_WITH_MESSAGE(factory->createWasm(config, context, [](Server::WasmServicePtr) {}),
                             Extensions::Common::Wasm::WasmVmException,
                             "Failed to create WASM VM using envoy.wasm.runtime.invalid runtime. "
                             "Envoy was compiled without support for it.");

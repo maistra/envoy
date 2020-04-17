@@ -10,9 +10,14 @@ extern thread_local Envoy::Extensions::Common::Wasm::Context* current_context_;
 namespace Null {
 namespace Plugin {
 class RootContext;
-}
+class Context;
+class ContextBase;
+} // namespace Plugin
 
 Plugin::RootContext* nullVmGetRoot(absl::string_view root_id);
+Plugin::Context* nullVmGetContext(uint32_t context_id);
+Plugin::RootContext* nullVmGetRootContext(uint32_t context_id);
+Plugin::ContextBase* nullVmGetContextBase(uint32_t context_id);
 
 namespace Plugin {
 
@@ -135,6 +140,12 @@ inline WasmResult proxy_get_buffer_status(BufferType type, size_t* length_ptr,
       Exports::get_buffer_status(current_context_, WS(type), WR(length_ptr), WR(flags_ptr)));
 }
 
+inline WasmResult proxy_set_buffer_bytes(BufferType type, uint64_t start, uint64_t length,
+                                         const char* data_ptr, size_t data_size) {
+  return wordToWasmResult(Exports::set_buffer_bytes(current_context_, WS(type), WS(start),
+                                                    WS(length), WR(data_ptr), WS(data_size)));
+}
+
 // Headers/Trailers/Metadata Maps
 inline WasmResult proxy_add_header_map_value(HeaderMapType type, const char* key_ptr,
                                              size_t key_size, const char* value_ptr,
@@ -187,20 +198,24 @@ inline WasmResult proxy_http_call(const char* uri_ptr, size_t uri_size, void* he
 inline WasmResult proxy_grpc_call(const char* service_ptr, size_t service_size,
                                   const char* service_name_ptr, size_t service_name_size,
                                   const char* method_name_ptr, size_t method_name_size,
+                                  void* initial_metadata_ptr, size_t initial_metadata_size,
                                   const char* request_ptr, size_t request_size,
                                   uint64_t timeout_milliseconds, uint32_t* token_ptr) {
-  return wordToWasmResult(Exports::grpc_call(
-      current_context_, WR(service_ptr), WS(service_size), WR(service_name_ptr),
-      WS(service_name_size), WR(method_name_ptr), WS(method_name_size), WR(request_ptr),
-      WS(request_size), WS(timeout_milliseconds), WR(token_ptr)));
+  return wordToWasmResult(
+      Exports::grpc_call(current_context_, WR(service_ptr), WS(service_size), WR(service_name_ptr),
+                         WS(service_name_size), WR(method_name_ptr), WS(method_name_size),
+                         WR(initial_metadata_ptr), WS(initial_metadata_size), WR(request_ptr),
+                         WS(request_size), WS(timeout_milliseconds), WR(token_ptr)));
 }
 inline WasmResult proxy_grpc_stream(const char* service_ptr, size_t service_size,
                                     const char* service_name_ptr, size_t service_name_size,
                                     const char* method_name_ptr, size_t method_name_size,
+                                    void* initial_metadata_ptr, size_t initial_metadata_size,
                                     uint32_t* token_ptr) {
   return wordToWasmResult(Exports::grpc_stream(
       current_context_, WR(service_ptr), WS(service_size), WR(service_name_ptr),
-      WS(service_name_size), WR(method_name_ptr), WS(method_name_size), WR(token_ptr)));
+      WS(service_name_size), WR(method_name_ptr), WS(method_name_size), WR(initial_metadata_ptr),
+      WS(initial_metadata_size), WR(token_ptr)));
 }
 inline WasmResult proxy_grpc_cancel(uint64_t token) {
   return wordToWasmResult(Exports::grpc_cancel(current_context_, WS(token)));
@@ -249,6 +264,13 @@ inline WasmResult proxy_call_foreign_function(const char* function_name, size_t 
 #undef WR
 
 inline RootContext* getRoot(StringView root_id) { return nullVmGetRoot(root_id); }
+inline Plugin::Context* getContext(uint32_t context_id) { return nullVmGetContext(context_id); }
+inline Plugin::RootContext* getRootContext(uint32_t context_id) {
+  return nullVmGetRootContext(context_id);
+}
+inline Plugin::ContextBase* getContextBase(uint32_t context_id) {
+  return nullVmGetContextBase(context_id);
+}
 
 } // namespace Plugin
 } // namespace Null

@@ -208,7 +208,7 @@ ClusterManagerImpl::ClusterManagerImpl(
     Runtime::RandomGenerator& random, const LocalInfo::LocalInfo& local_info,
     AccessLog::AccessLogManager& log_manager, Event::Dispatcher& main_thread_dispatcher,
     Server::Admin& admin, ProtobufMessage::ValidationContext& validation_context, Api::Api& api,
-    Http::Context& http_context)
+    Http::Context& http_context, Grpc::Context& grpc_context)
     : factory_(factory), runtime_(runtime), stats_(stats), tls_(tls.allocateSlot()),
       random_(random), bind_config_(bootstrap.cluster_manager().upstream_bind_config()),
       local_info_(local_info), cm_stats_(generateStats(stats)),
@@ -219,14 +219,14 @@ ClusterManagerImpl::ClusterManagerImpl(
       http_context_(http_context),
       subscription_factory_(local_info, main_thread_dispatcher, *this, random,
                             validation_context.dynamicValidationVisitor(), api) {
-  async_client_manager_ =
-      std::make_unique<Grpc::AsyncClientManagerImpl>(*this, tls, time_source_, api);
+  async_client_manager_ = std::make_unique<Grpc::AsyncClientManagerImpl>(
+      *this, tls, time_source_, api, grpc_context.statNames());
   const auto& cm_config = bootstrap.cluster_manager();
   if (cm_config.has_outlier_detection()) {
     const std::string event_log_file_path = cm_config.outlier_detection().event_log_path();
     if (!event_log_file_path.empty()) {
-      outlier_event_logger_.reset(
-          new Outlier::EventLoggerImpl(log_manager, event_log_file_path, time_source_));
+      outlier_event_logger_ = std::make_shared<Outlier::EventLoggerImpl>(
+          log_manager, event_log_file_path, time_source_);
     }
   }
 
@@ -268,7 +268,13 @@ ClusterManagerImpl::ClusterManagerImpl(
               ->create(),
           main_thread_dispatcher,
           *Protobuf::DescriptorPool::generated_pool()->FindMethodByName(
-              "envoy.service.discovery.v2.AggregatedDiscoveryService.DeltaAggregatedResources"),
+              dyn_resources.ads_config().transport_api_version() ==
+                      envoy::config::core::v3::ApiVersion::V3
+                  // TODO(htuch): consolidate with type_to_endpoint.cc, once we sort out the future
+                  // direction of that module re: https://github.com/envoyproxy/envoy/issues/10650.
+                  ? "envoy.service.discovery.v3.AggregatedDiscoveryService.DeltaAggregatedResources"
+                  : "envoy.service.discovery.v2.AggregatedDiscoveryService."
+                    "DeltaAggregatedResources"),
           dyn_resources.ads_config().transport_api_version(), random_, stats_,
           Envoy::Config::Utility::parseRateLimitSettings(dyn_resources.ads_config()), local_info);
     } else {
@@ -281,6 +287,8 @@ ClusterManagerImpl::ClusterManagerImpl(
           *Protobuf::DescriptorPool::generated_pool()->FindMethodByName(
               dyn_resources.ads_config().transport_api_version() ==
                       envoy::config::core::v3::ApiVersion::V3
+                  // TODO(htuch): consolidate with type_to_endpoint.cc, once we sort out the future
+                  // direction of that module re: https://github.com/envoyproxy/envoy/issues/10650.
                   ? "envoy.service.discovery.v3.AggregatedDiscoveryService."
                     "StreamAggregatedResources"
                   : "envoy.service.discovery.v2.AggregatedDiscoveryService."
@@ -1321,7 +1329,7 @@ ClusterManagerPtr ProdClusterManagerFactory::clusterManagerFromProto(
     const envoy::config::bootstrap::v3::Bootstrap& bootstrap) {
   return ClusterManagerPtr{new ClusterManagerImpl(
       bootstrap, *this, stats_, tls_, runtime_, random_, local_info_, log_manager_,
-      main_thread_dispatcher_, admin_, validation_context_, api_, http_context_)};
+      main_thread_dispatcher_, admin_, validation_context_, api_, http_context_, grpc_context_)};
 }
 
 Http::ConnectionPool::InstancePtr ProdClusterManagerFactory::allocateConnPool(

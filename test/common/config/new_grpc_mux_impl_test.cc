@@ -10,8 +10,8 @@
 #include "common/config/utility.h"
 #include "common/config/version_converter.h"
 #include "common/protobuf/protobuf.h"
-#include "common/stats/isolated_store_impl.h"
 
+#include "test/common/stats/stat_test_utility.h"
 #include "test/mocks/common.h"
 #include "test/mocks/config/mocks.h"
 #include "test/mocks/event/mocks.h"
@@ -60,7 +60,7 @@ public:
   std::unique_ptr<NewGrpcMuxImpl> grpc_mux_;
   NiceMock<Config::MockSubscriptionCallbacks> callbacks_;
   NiceMock<LocalInfo::MockLocalInfo> local_info_;
-  Stats::IsolatedStoreImpl stats_;
+  Stats::TestUtil::TestStore stats_;
   Envoy::Config::RateLimitSettings rate_limit_settings_;
   Stats::Gauge& control_plane_connected_state_;
 };
@@ -70,18 +70,12 @@ public:
   Event::SimulatedTimeSystem time_system_;
 };
 
-// TODO(fredlas) #8478 will delete this.
-TEST_F(NewGrpcMuxImplTest, JustForCoverageTodoDelete) {
-  setup();
-  EXPECT_TRUE(grpc_mux_->isDelta());
-}
-
 // Test that we simply ignore a message for an unknown type_url, with no ill effects.
 TEST_F(NewGrpcMuxImplTest, DiscoveryResponseNonexistentSub) {
   setup();
 
   const std::string& type_url = Config::TypeUrl::get().ClusterLoadAssignment;
-  auto watch = grpc_mux_->addWatch(type_url, {}, callbacks_, std::chrono::milliseconds(0));
+  auto watch = grpc_mux_->addWatch(type_url, {}, callbacks_);
 
   EXPECT_CALL(*async_client_, startRaw(_, _, _, _)).WillOnce(Return(&async_stream_));
   grpc_mux_->start();
@@ -123,8 +117,7 @@ TEST_F(NewGrpcMuxImplTest, ConfigUpdateWithAliases) {
   setup();
 
   const std::string& type_url = Config::TypeUrl::get().VirtualHost;
-  auto watch =
-      grpc_mux_->addWatch(type_url, {"domain1.test"}, callbacks_, std::chrono::milliseconds(0));
+  auto watch = grpc_mux_->addWatch(type_url, {"domain1.test"}, callbacks_);
 
   EXPECT_CALL(*async_client_, startRaw(_, _, _, _)).WillOnce(Return(&async_stream_));
   grpc_mux_->start();
@@ -159,8 +152,7 @@ TEST_F(NewGrpcMuxImplTest, ConfigUpdateWithNotFoundResponse) {
   setup();
 
   const std::string& type_url = Config::TypeUrl::get().VirtualHost;
-  auto watch =
-      grpc_mux_->addWatch(type_url, {"domain1.test"}, callbacks_, std::chrono::milliseconds(0));
+  auto watch = grpc_mux_->addWatch(type_url, {"domain1.test"}, callbacks_);
 
   EXPECT_CALL(*async_client_, startRaw(_, _, _, _)).WillOnce(Return(&async_stream_));
   grpc_mux_->start();

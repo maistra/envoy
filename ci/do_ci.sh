@@ -58,6 +58,10 @@ function cp_binary_for_image_build() {
 
   # Copy for azp which doesn't preserve permissions, creating a tar archive
   tar czf "${ENVOY_BUILD_DIR}"/envoy_binary.tar.gz -C "${ENVOY_SRCDIR}" build_"$1" build_"$1"_stripped
+
+  # Remove binaries to save space, only if BUILD_REASON exists (running in AZP)
+  [[ -z "${BUILD_REASON}" ]] || \
+    rm -rf "${ENVOY_SRCDIR}"/build_"$1" "${ENVOY_SRCDIR}"/build_"$1"_stripped "${ENVOY_DELIVERY_DIR}"/envoy
 }
 
 function bazel_binary_build() {
@@ -151,21 +155,6 @@ elif [[ "$CI_TARGET" == "bazel.asan" ]]; then
   echo "bazel ASAN/UBSAN debug build with tests"
   echo "Building and testing envoy tests ${TEST_TARGETS}"
   bazel_with_collection test ${BAZEL_BUILD_OPTIONS} ${TEST_TARGETS}
-  # Also validate that integration test traffic tapping (useful when debugging etc.)
-  # works. This requires that we set TAP_PATH. We do this under bazel.asan to
-  # ensure a debug build in CI.
-  echo "Validating integration test traffic tapping..."
-  TAP_TMP=/tmp/tap/
-  rm -rf "${TAP_TMP}"
-  mkdir -p "${TAP_TMP}"
-  bazel_with_collection test ${BAZEL_BUILD_OPTIONS} \
-    --strategy=TestRunner=local --test_env=TAP_PATH="${TAP_TMP}/tap" \
-    --test_env=PATH="/usr/sbin:${PATH}" \
-    //test/extensions/transport_sockets/tls/integration:ssl_integration_test
-  # Verify that some pb_text files have been created. We can't check for pcap,
-  # since tcpdump is not available in general due to CircleCI lack of support
-  # for privileged Docker executors.
-  ls -l "${TAP_TMP}"/tap_*.pb_text > /dev/null
   exit 0
 elif [[ "$CI_TARGET" == "bazel.tsan" ]]; then
   setup_clang_toolchain
@@ -291,12 +280,10 @@ elif [[ "$CI_TARGET" == "bazel.fuzzit" ]]; then
 elif [[ "$CI_TARGET" == "fix_format" ]]; then
   # proto_format.sh needs to build protobuf.
   setup_clang_toolchain
-  echo "protoxform_test..."
-  ./tools/protoxform/protoxform_test.sh
   echo "fix_format..."
   ./tools/code_format/check_format.py fix
   ./tools/code_format/format_python_tools.sh fix
-  ./tools/proto_format/proto_format.sh fix
+  ./tools/proto_format/proto_format.sh fix --test
   exit 0
 elif [[ "$CI_TARGET" == "check_format" ]]; then
   # proto_format.sh needs to build protobuf.
@@ -306,7 +293,7 @@ elif [[ "$CI_TARGET" == "check_format" ]]; then
   echo "check_format..."
   ./tools/code_format/check_format.py check
   ./tools/code_format/format_python_tools.sh check
-  ./tools/proto_format/proto_format.sh check
+  ./tools/proto_format/proto_format.sh check --test
   exit 0
 elif [[ "$CI_TARGET" == "check_repositories" ]]; then
   echo "check_repositories..."

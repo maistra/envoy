@@ -63,7 +63,7 @@ TEST_F(OptionsImplTest, InvalidCommandLine) {
                           "Couldn't find match for argument");
 }
 
-TEST_F(OptionsImplTest, v1Disallowed) {
+TEST_F(OptionsImplTest, V1Disallowed) {
   std::unique_ptr<OptionsImpl> options = createOptionsImpl(
       "envoy --mode validate --concurrency 2 -c hello --admin-address-path path --restart-epoch 1 "
       "--local-address-ip-version v6 -l info --service-cluster cluster --service-node node "
@@ -486,7 +486,7 @@ TEST_F(OptionsImplPlatformLinuxTest, AffinityTest4) {
 
 class TestFactory : public Config::TypedFactory {
 public:
-  virtual ~TestFactory() = default;
+  ~TestFactory() override = default;
   std::string category() const override { return "test"; }
   std::string configType() override { return "google.protobuf.StringValue"; }
   ProtobufTypes::MessagePtr createEmptyConfigProto() override {
@@ -501,7 +501,7 @@ public:
 
 class TestingFactory : public Config::TypedFactory {
 public:
-  virtual ~TestingFactory() = default;
+  ~TestingFactory() override = default;
   std::string category() const override { return "testing"; }
   std::string configType() override { return "google.protobuf.StringValue"; }
   ProtobufTypes::MessagePtr createEmptyConfigProto() override {
@@ -517,7 +517,7 @@ public:
 REGISTER_FACTORY(TestTestFactory, TestFactory){"test-1", "test-2"};
 REGISTER_FACTORY(TestTestingFactory, TestingFactory){"test-1", "test-2"};
 
-TEST(DisableExtensions, IsDisabled) {
+TEST(DisableExtensions, DEPRECATED_FEATURE_TEST(IsDisabled)) {
   EXPECT_LOG_CONTAINS("warning", "failed to disable invalid extension name 'not.a.factory'",
                       OptionsImpl::disableExtensions({"not.a.factory"}));
 

@@ -397,13 +397,15 @@ def hasInvalidAngleBracketDirectory(line):
   return subdir in SUBDIR_SET
 
 
-VERSION_HISTORY_NEW_LINE_REGEX = re.compile("\* [a-z \-_]*: [a-z:`]")
+VERSION_HISTORY_NEW_LINE_REGEX = re.compile("\* ([a-z \-_]*): ([a-z:`]+)")
 VERSION_HISTORY_NEW_RELEASE_REGEX = re.compile("^====[=]+$")
 
 
 def checkCurrentReleaseNotes(file_path, error_messages):
   in_current_release = False
 
+  first_word_of_prior_line = ''
+  next_word_to_check = ''  # first word after :
   for line_number, line in enumerate(readLines(file_path)):
 
     def reportError(message):
@@ -416,9 +418,26 @@ def checkCurrentReleaseNotes(file_path, error_messages):
       # If we see a version marker we are now in the section for the current release.
       in_current_release = True
 
-    if line.startswith("*") and not VERSION_HISTORY_NEW_LINE_REGEX.match(line):
-      reportError("Version history line malformed. "
-                  "Does not match VERSION_HISTORY_NEW_LINE_REGEX in check_format.py\n %s" % line)
+    # Do basic alphabetization checks of the first word on the line and the
+    # first word after the :
+    if line.startswith("*"):
+      match = VERSION_HISTORY_NEW_LINE_REGEX.match(line)
+      if not match:
+        reportError("Version history line malformed. "
+                    "Does not match VERSION_HISTORY_NEW_LINE_REGEX in check_format.py\n %s" % line)
+      else:
+        first_word = match.groups()[0]
+        next_word = match.groups()[1]
+        if first_word_of_prior_line and first_word_of_prior_line > first_word:
+          reportError(
+              "Version history not in alphabetical order (%s vs %s): please check placement of line\n %s. "
+              % (first_word_of_prior_line, first_word, line))
+        if first_word_of_prior_line == first_word and next_word_to_check and next_word_to_check > next_word:
+          reportError(
+              "Version history not in alphabetical order (%s vs %s): please check placement of line\n %s. "
+              % (next_word_to_check, next_word, line))
+        first_word_of_prior_line = first_word
+        next_word_to_check = next_word
 
 
 def checkFileContents(file_path, checker):
@@ -580,6 +599,10 @@ def checkSourceLine(line, file_path, reportError):
     reportError("Don't use 'using testing::Test;, elaborate the type instead")
   if line.startswith("using testing::TestWithParams;"):
     reportError("Don't use 'using testing::Test;, elaborate the type instead")
+  if re.search("TEST(_.\(.*,\s|\()[a-z].*\)\s\{", line):
+    # Matches variants of TEST(), TEST_P(), TEST_F() etc. where the test name begins
+    # with a lowercase letter.
+    reportError("Test names should be CamelCase, starting with a capital letter")
   if not whitelistedForSerializeAsString(file_path) and "SerializeAsString" in line:
     # The MessageLite::SerializeAsString doesn't generate deterministic serialization,
     # use MessageUtil::hash instead.
@@ -592,7 +615,9 @@ def checkSourceLine(line, file_path, reportError):
     reportError("Don't use Protobuf::util::JsonStringToMessage, use TestUtility::loadFromJson.")
 
   if isInSubdir(file_path, 'source') and file_path.endswith('.cc') and \
-     ('.counter(' in line or '.gauge(' in line or '.histogram(' in line):
+     ('.counterFromString(' in line or '.gaugeFromString(' in line or \
+      '.histogramFromString(' in line or '->counterFromString(' in line or \
+      '->gaugeFromString(' in line or '->histogramFromString(' in line):
     reportError("Don't lookup stats by name at runtime; use StatName saved during construction")
 
   if re.search("envoy::[a-z0-9_:]+::[A-Z][a-z]\w*_\w*_[A-Z]{2}", line):
@@ -924,7 +949,7 @@ if __name__ == "__main__":
     owned = []
     maintainers = [
         '@mattklein123', '@htuch', '@alyssawilk', '@zuercher', '@lizan', '@snowp', '@asraa',
-        '@junr03', '@dio', '@jmarantz'
+        '@yavlasov', '@junr03', '@dio', '@jmarantz'
     ]
 
     try:
@@ -955,17 +980,27 @@ if __name__ == "__main__":
   if os.path.isfile(target_path):
     error_messages += checkFormat("./" + target_path)
   else:
-    pool = multiprocessing.Pool(processes=args.num_workers)
     results = []
-    # For each file in target_path, start a new task in the pool and collect the
-    # results (results is passed by reference, and is used as an output).
-    for root, _, files in os.walk(target_path):
-      checkFormatVisitor((pool, results, owned_directories, error_messages), root, files)
 
-    # Close the pool to new tasks, wait for all of the running tasks to finish,
-    # then collect the error messages.
-    pool.close()
-    pool.join()
+    def PooledCheckFormat(path_predicate):
+      pool = multiprocessing.Pool(processes=args.num_workers)
+      # For each file in target_path, start a new task in the pool and collect the
+      # results (results is passed by reference, and is used as an output).
+      for root, _, files in os.walk(target_path):
+        checkFormatVisitor((pool, results, owned_directories, error_messages), root,
+                           [f for f in files if path_predicate(f)])
+
+      # Close the pool to new tasks, wait for all of the running tasks to finish,
+      # then collect the error messages.
+      pool.close()
+      pool.join()
+
+    # We first run formatting on non-BUILD files, since the BUILD file format
+    # requires analysis of srcs/hdrs in the BUILD file, and we don't want these
+    # to be rewritten by other multiprocessing pooled processes.
+    PooledCheckFormat(lambda f: not isBuildFile(f))
+    PooledCheckFormat(lambda f: isBuildFile(f))
+
     error_messages += sum((r.get() for r in results), [])
 
   if checkErrorMessages(error_messages):

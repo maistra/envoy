@@ -1,6 +1,9 @@
 // NOLINT(namespace-envoy)
 #include "proxy_wasm_intrinsics.h"
 
+// Required Proxy-Wasm ABI version.
+extern "C" PROXY_WASM_KEEPALIVE void proxy_abi_version_0_1_0() {}
+
 static std::unordered_map<std::string, RootFactory>* root_factories = nullptr;
 static std::unordered_map<std::string, ContextFactory>* context_factories = nullptr;
 static std::unordered_map<int32_t, std::unique_ptr<ContextBase>> context_map;
@@ -223,11 +226,6 @@ extern "C" PROXY_WASM_KEEPALIVE void proxy_on_http_call_response(uint32_t contex
                                                                  uint32_t trailers) {
   getRootContext(context_id)
       ->onHttpCallResponse(token, headers, static_cast<size_t>(body_size), trailers);
-}
-
-extern "C" PROXY_WASM_KEEPALIVE void
-proxy_on_grpc_create_initial_metadata(uint32_t context_id, uint32_t token, uint32_t headers) {
-  getRootContext(context_id)->onGrpcCreateInitialMetadata(token, headers);
 }
 
 extern "C" PROXY_WASM_KEEPALIVE void

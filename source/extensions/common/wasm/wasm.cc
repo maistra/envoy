@@ -9,7 +9,7 @@
 #include <string>
 
 #include "envoy/common/exception.h"
-#include "envoy/extensions/wasm/v3/wasm.pb.validate.h"
+#include "envoy/config/wasm/v3/wasm.pb.validate.h"
 #include "envoy/grpc/status.h"
 #include "envoy/http/codes.h"
 #include "envoy/local_info/local_info.h"
@@ -51,10 +51,6 @@ namespace Extensions {
 namespace Common {
 namespace Wasm {
 
-namespace {
-
-std::atomic<int64_t> active_wasm_;
-
 std::string Sha256(absl::string_view data) {
   std::vector<uint8_t> digest(SHA256_DIGEST_LENGTH);
   EVP_MD_CTX* ctx(EVP_MD_CTX_new());
@@ -67,6 +63,10 @@ std::string Sha256(absl::string_view data) {
   EVP_MD_CTX_free(ctx);
   return std::string(reinterpret_cast<const char*>(&digest[0]), digest.size());
 }
+
+namespace {
+
+std::atomic<int64_t> active_wasm_;
 
 std::string Xor(absl::string_view a, absl::string_view b) {
   ASSERT(a.size() == b.size());
@@ -113,8 +113,7 @@ Wasm::Wasm(absl::string_view runtime, absl::string_view vm_id, absl::string_view
       time_source_(dispatcher.timeSource()), vm_configuration_(vm_configuration),
       wasm_stats_(WasmStats{
           ALL_WASM_STATS(POOL_COUNTER_PREFIX(*scope_, absl::StrCat("wasm.", runtime, ".")),
-                         POOL_GAUGE_PREFIX(*scope_, absl::StrCat("wasm.", runtime, ".")))}),
-      stat_name_set_(scope_->symbolTable().makeSet("Wasm").release()) {
+                         POOL_GAUGE_PREFIX(*scope_, absl::StrCat("wasm.", runtime, ".")))}) {
   active_wasm_++;
   wasm_stats_.active_.set(active_wasm_);
   wasm_stats_.created_.inc();
@@ -140,8 +139,10 @@ void Wasm::registerCallbacks() {
       &ConvertFunctionWordToUint32<decltype(Exports::wasi_unstable_##_fn),                         \
                                    Exports::wasi_unstable_##_fn>::convertFunctionWordToUint32)
   _REGISTER_WASI(fd_write);
+  _REGISTER_WASI(fd_read);
   _REGISTER_WASI(fd_seek);
   _REGISTER_WASI(fd_close);
+  _REGISTER_WASI(fd_fdstat_get);
   _REGISTER_WASI(environ_get);
   _REGISTER_WASI(environ_sizes_get);
   _REGISTER_WASI(args_get);
@@ -186,6 +187,7 @@ void Wasm::registerCallbacks() {
 
   _REGISTER_PROXY(get_buffer_status);
   _REGISTER_PROXY(get_buffer_bytes);
+  _REGISTER_PROXY(set_buffer_bytes);
 
   _REGISTER_PROXY(http_call);
 
@@ -215,9 +217,17 @@ void Wasm::getFunctions() {
   _GET(__wasm_call_ctors);
 
   _GET(malloc);
+  if (!malloc_) {
+    throw WasmException("WASM missing malloc");
+  }
 #undef _GET
 
 #define _GET_PROXY(_fn) wasm_vm_->getFunction("proxy_" #_fn, &_fn##_);
+  _GET_PROXY(abi_version_0_1_0);
+  if (!abi_version_0_1_0_) {
+    throw WasmException("WASM missing Proxy-Wasm ABI version or requires an unsupported version.");
+  }
+
   _GET_PROXY(validate_configuration);
   _GET_PROXY(on_vm_start);
   _GET_PROXY(on_configure);
@@ -242,7 +252,6 @@ void Wasm::getFunctions() {
   _GET_PROXY(on_http_call_response);
   _GET_PROXY(on_grpc_receive);
   _GET_PROXY(on_grpc_close);
-  _GET_PROXY(on_grpc_create_initial_metadata);
   _GET_PROXY(on_grpc_receive_initial_metadata);
   _GET_PROXY(on_grpc_receive_trailing_metadata);
   _GET_PROXY(on_queue_ready);
@@ -250,10 +259,6 @@ void Wasm::getFunctions() {
   _GET_PROXY(on_log);
   _GET_PROXY(on_delete);
 #undef _GET_PROXY
-
-  if (!malloc_) {
-    throw WasmException("WASM missing malloc");
-  }
 }
 
 Wasm::Wasm(WasmHandleSharedPtr& base_wasm_handle, Event::Dispatcher& dispatcher)
@@ -263,8 +268,7 @@ Wasm::Wasm(WasmHandleSharedPtr& base_wasm_handle, Event::Dispatcher& dispatcher)
       scope_(base_wasm_handle->wasm()->scope_),
       cluster_manager_(base_wasm_handle->wasm()->cluster_manager_), dispatcher_(dispatcher),
       time_source_(dispatcher.timeSource()), base_wasm_handle_(base_wasm_handle),
-      wasm_stats_(base_wasm_handle->wasm()->wasm_stats_),
-      stat_name_set_(base_wasm_handle->wasm()->stat_name_set_) {
+      wasm_stats_(base_wasm_handle->wasm()->wasm_stats_) {
   if (started_from_ != Cloneable::NotCloneable) {
     wasm_vm_ = base_wasm_handle->wasm()->wasm_vm()->clone();
   } else {
@@ -512,7 +516,8 @@ static void createWasmInternal(const VmConfig& vm_config, PluginSharedPtr plugin
                                Stats::ScopeSharedPtr scope,
                                Upstream::ClusterManager& cluster_manager,
                                Init::Manager& init_manager, Event::Dispatcher& dispatcher,
-                               Api::Api& api, std::unique_ptr<Context> root_context_for_testing,
+                               Runtime::RandomGenerator& random, Api::Api& api,
+                               std::unique_ptr<Context> root_context_for_testing,
                                Config::DataSource::RemoteAsyncDataProviderPtr& remote_data_provider,
                                CreateWasmCallback&& cb) {
   std::string source, code;
@@ -572,7 +577,8 @@ static void createWasmInternal(const VmConfig& vm_config, PluginSharedPtr plugin
 
   if (vm_config.code().has_remote()) {
     remote_data_provider = std::make_unique<Config::DataSource::RemoteAsyncDataProvider>(
-        cluster_manager, init_manager, vm_config.code().remote(), true, std::move(callback));
+        cluster_manager, init_manager, vm_config.code().remote(), dispatcher, random, true,
+        std::move(callback));
   } else if (vm_config.code().has_local()) {
     callback(code);
   } else {
@@ -582,22 +588,23 @@ static void createWasmInternal(const VmConfig& vm_config, PluginSharedPtr plugin
 
 void createWasm(const VmConfig& vm_config, PluginSharedPtr plugin, Stats::ScopeSharedPtr scope,
                 Upstream::ClusterManager& cluster_manager, Init::Manager& init_manager,
-                Event::Dispatcher& dispatcher, Api::Api& api,
+                Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random, Api::Api& api,
                 Config::DataSource::RemoteAsyncDataProviderPtr& remote_data_provider,
                 CreateWasmCallback&& cb) {
-  createWasmInternal(vm_config, plugin, scope, cluster_manager, init_manager, dispatcher, api,
-                     nullptr /* root_context_for_testing */, remote_data_provider, std::move(cb));
+  createWasmInternal(vm_config, plugin, scope, cluster_manager, init_manager, dispatcher, random,
+                     api, nullptr /* root_context_for_testing */, remote_data_provider,
+                     std::move(cb));
 }
 
-void createWasmForTesting(const envoy::extensions::wasm::v3::VmConfig& vm_config,
+void createWasmForTesting(const envoy::config::wasm::v3::VmConfig& vm_config,
                           PluginSharedPtr plugin, Stats::ScopeSharedPtr scope,
                           Upstream::ClusterManager& cluster_manager, Init::Manager& init_manager,
-                          Event::Dispatcher& dispatcher, Api::Api& api,
-                          std::unique_ptr<Context> root_context_for_testing,
+                          Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random,
+                          Api::Api& api, std::unique_ptr<Context> root_context_for_testing,
                           Config::DataSource::RemoteAsyncDataProviderPtr& remote_data_provider,
                           CreateWasmCallback&& cb) {
-  createWasmInternal(vm_config, plugin, scope, cluster_manager, init_manager, dispatcher, api,
-                     std::move(root_context_for_testing), remote_data_provider, std::move(cb));
+  createWasmInternal(vm_config, plugin, scope, cluster_manager, init_manager, dispatcher, random,
+                     api, std::move(root_context_for_testing), remote_data_provider, std::move(cb));
 }
 
 WasmHandleSharedPtr createThreadLocalWasm(WasmHandleSharedPtr& base_wasm, PluginSharedPtr plugin,

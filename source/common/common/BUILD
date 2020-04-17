@@ -384,12 +384,6 @@ envoy_cc_library(
 )
 
 envoy_cc_library(
-    name = "to_lower_table_lib",
-    srcs = ["to_lower_table.cc"],
-    hdrs = ["to_lower_table.h"],
-)
-
-envoy_cc_library(
     name = "callback_impl_lib",
     hdrs = ["callback_impl.h"],
     deps = [
@@ -423,5 +417,15 @@ envoy_cc_library(
         "//include/envoy/common:time_interface",
         "//include/envoy/common:token_bucket_interface",
         "//source/common/common:utility_lib",
+    ],
+)
+
+envoy_cc_library(
+    name = "zlib_base_lib",
+    srcs = ["zlib/base.cc"],
+    hdrs = ["zlib/base.h"],
+    external_deps = ["zlib"],
+    deps = [
+        "//source/common/buffer:buffer_lib",
     ],
 )

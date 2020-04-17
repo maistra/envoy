@@ -16,7 +16,6 @@
 #include "common/common/hex.h"
 #include "common/common/utility.h"
 #include "common/config/api_type_oracle.h"
-#include "common/config/resources.h"
 #include "common/config/version_converter.h"
 #include "common/config/well_known_names.h"
 #include "common/protobuf/protobuf.h"
@@ -60,13 +59,13 @@ void Utility::translateApiConfigSource(
 }
 
 void Utility::checkCluster(absl::string_view error_prefix, absl::string_view cluster_name,
-                           Upstream::ClusterManager& cm) {
+                           Upstream::ClusterManager& cm, bool allow_added_via_api) {
   Upstream::ThreadLocalCluster* cluster = cm.get(cluster_name);
   if (cluster == nullptr) {
     throw EnvoyException(fmt::format("{}: unknown cluster '{}'", error_prefix, cluster_name));
   }
 
-  if (cluster->info()->addedViaApi()) {
+  if (!allow_added_via_api && cluster->info()->addedViaApi()) {
     throw EnvoyException(fmt::format("{}: invalid cluster '{}': currently only "
                                      "static (non-CDS) clusters are supported",
                                      error_prefix, cluster_name));
@@ -294,24 +293,6 @@ void Utility::translateOpaqueConfig(const ProtobufWkt::Any& typed_config,
   if (!config.fields().empty()) {
     MessageUtil::jsonConvert(config, validation_visitor, out_proto);
   }
-}
-
-BackOffStrategyPtr
-Utility::prepareDnsRefreshStrategy(const envoy::config::cluster::v3::Cluster& cluster,
-                                   const uint64_t dns_refresh_rate_ms,
-                                   Runtime::RandomGenerator& random) {
-  if (cluster.has_dns_failure_refresh_rate()) {
-    uint64_t base_interval_ms =
-        PROTOBUF_GET_MS_REQUIRED(cluster.dns_failure_refresh_rate(), base_interval);
-    uint64_t max_interval_ms = PROTOBUF_GET_MS_OR_DEFAULT(cluster.dns_failure_refresh_rate(),
-                                                          max_interval, base_interval_ms * 10);
-    if (max_interval_ms < base_interval_ms) {
-      throw EnvoyException("cluster.dns_failure_refresh_rate must have max_interval greater than "
-                           "or equal to the base_interval");
-    }
-    return std::make_unique<JitteredBackOffStrategy>(base_interval_ms, max_interval_ms, random);
-  }
-  return std::make_unique<FixedBackOffStrategy>(dns_refresh_rate_ms);
 }
 
 } // namespace Config

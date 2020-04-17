@@ -4,7 +4,6 @@ load(
     "//bazel:envoy_build_system.bzl",
     "envoy_cc_library",
     "envoy_package",
-    "envoy_select_wasm_wavm",
 )
 
 envoy_package()
@@ -44,9 +43,7 @@ envoy_cc_library(
         "//source/common/common:assert_lib",
         "//source/extensions/common/wasm/null:null_lib",
         "//source/extensions/common/wasm/v8:v8_lib",
-    ] + envoy_select_wasm_wavm([
-        "//source/extensions/common/wasm/wavm:wavm_lib",
-    ]),
+    ],
 )
 
 # NB: Used to break the circular dependency between wasm_lib and null_plugin_lib.
@@ -70,7 +67,7 @@ envoy_cc_library(
         "//source/extensions/filters/common/expr:evaluator_lib",
         "//source/extensions/filters/http:well_known_names",
         "@com_google_cel_cpp//eval/public:activation",
-        "@envoy_api//envoy/extensions/wasm/v3:pkg_cc_proto",
+        "@envoy_api//envoy/config/wasm/v3:pkg_cc_proto",
     ],
 )
 
@@ -118,6 +115,6 @@ envoy_cc_library(
         "@com_google_cel_cpp//eval/public:cel_value",
         "@com_google_cel_cpp//eval/public:value_export_util",
         "@com_google_cel_cpp//parser",
-        "@envoy_api//envoy/extensions/wasm/v3:pkg_cc_proto",
+        "@envoy_api//envoy/config/wasm/v3:pkg_cc_proto",
     ],
 )

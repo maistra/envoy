@@ -449,6 +449,8 @@ The following optional features can be enabled on the Bazel build command-line:
   Otherwise, the linker will fail to resolve symbols that are included via the `linktamp` rule, which is only available to binary targets.
   This is being tracked as a feature in: https://github.com/envoyproxy/envoy/issues/6859.
 * Process logging for Android applications can be enabled with `--define logger=android`.
+* Excluding assertions for known issues with `--define disable_known_issue_asserts=true`.
+  A KNOWN_ISSUE_ASSERT is an assertion that should pass (like all assertions), but sometimes fails for some as-yet unidentified or unresolved reason. Because it is known to potentially fail, it can be compiled out even when DEBUG is true, when this flag is set. This allows Envoy to be run in production with assertions generally enabled, without crashing for known issues. KNOWN_ISSUE_ASSERT should only be used for newly-discovered issues that represent benign violations of expectations.
 
 ## Disabling extensions
 
@@ -589,11 +591,19 @@ Sometimes it's useful to see real system paths in bazel error message output (vs
 
 Run `tools/gen_compilation_database.py` to generate
 a [JSON Compilation Database](https://clang.llvm.org/docs/JSONCompilationDatabase.html). This could be used
-with any tools (e.g. clang-tidy) compatible with the format.
+with any tools (e.g. clang-tidy) compatible with the format. It is recommended to run this script
+with `TEST_TMPDIR` set, so the Bazel artifacts doesn't get cleaned up in next `bazel build` or `bazel test`.
 
 The compilation database could also be used to setup editors with cross reference, code completion.
 For example, you can use [You Complete Me](https://valloric.github.io/YouCompleteMe/) or
-[cquery](https://github.com/cquery-project/cquery) with supported editors.
+[clangd](https://clangd.llvm.org/) with supported editors.
+
+For example, use following command to prepare a compilation database:
+
+```
+TEST_TMPDIR=/tmp tools/gen_compilation_database.py --run_bazel_build
+```
+
 
 # Running clang-format without docker
 

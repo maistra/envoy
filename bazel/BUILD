@@ -11,6 +11,7 @@ load("//bazel:envoy_internal.bzl", "envoy_select_force_libcpp")
 exports_files([
     "gen_sh_test_runner.sh",
     "sh_test_wrapper.sh",
+    "test_for_benchmark_wrapper.sh",
 ])
 
 genrule(
@@ -127,6 +128,11 @@ config_setting(
 )
 
 config_setting(
+    name = "compdb_build",
+    values = {"define": "ENVOY_CONFIG_COMPILATION_DATABASE=1"},
+)
+
+config_setting(
     name = "clang_build",
     flag_values = {
         "@bazel_tools//tools/cpp:compiler": "clang",
@@ -212,6 +218,11 @@ config_setting(
 )
 
 config_setting(
+    name = "disable_known_issue_asserts",
+    values = {"define": "disable_known_issue_asserts=true"},
+)
+
+config_setting(
     name = "enable_perf_annotation",
     values = {"define": "perf_annotation=enabled"},
 )
@@ -274,6 +285,11 @@ config_setting(
 config_setting(
     name = "linux_ppc",
     values = {"cpu": "ppc"},
+)
+
+config_setting(
+    name = "linux_s390x",
+    values = {"cpu": "s390x"},
 )
 
 config_setting(
@@ -364,6 +380,7 @@ alias(
             ":linux_x86_64": ":linux_x86_64",
             ":linux_aarch64": ":linux_aarch64",
             ":linux_ppc": ":linux_ppc",
+            ":linux_s390x": "linux_s390x",
             ":linux_mips64": ":linux_mips64",
             # If we're not on an linux platform return a value that will never match in the select() statement calling this
             # since it would have already been matched above.

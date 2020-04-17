@@ -103,7 +103,6 @@ public:
 
   void onGrpcReceive(uint64_t context_id, uint64_t token, size_t body_size);
   void onGrpcClose(uint64_t context_id, uint64_t token, uint64_t status_code);
-  void onGrpcCreateInitialMetadata(uint64_t context_id, uint64_t token, uint64_t headers);
   void onGrpcReceiveInitialMetadata(uint64_t context_id, uint64_t token, uint64_t headers);
   void onGrpcReceiveTrailingMetadata(uint64_t context_id, uint64_t token, uint64_t trailers);
 
@@ -112,13 +111,13 @@ public:
   void onDelete(uint64_t context_id);
 
   Plugin::RootContext* getRoot(absl::string_view root_id);
+  Plugin::Context* getContext(uint64_t context_id);
+  Plugin::RootContext* getRootContext(uint64_t context_id);
+  Plugin::ContextBase* getContextBase(uint64_t context_id);
 
 private:
   Plugin::Context* ensureContext(uint64_t context_id, uint64_t root_context_id);
   Plugin::RootContext* ensureRootContext(uint64_t context_id);
-  Plugin::Context* getContext(uint64_t context_id);
-  Plugin::RootContext* getRootContext(uint64_t context_id);
-  Plugin::ContextBase* getContextBase(uint64_t context_id);
 
   NullPluginRegistry* registry_{};
   std::unordered_map<std::string, Plugin::RootContext*> root_context_map_;

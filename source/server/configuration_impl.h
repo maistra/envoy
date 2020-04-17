@@ -12,7 +12,7 @@
 #include "envoy/config/bootstrap/v3/bootstrap.pb.h"
 #include "envoy/config/trace/v3/trace.pb.h"
 #include "envoy/config/typed_config.h"
-#include "envoy/extensions/wasm/v3/wasm.pb.h"
+#include "envoy/config/wasm/v3/wasm.pb.h"
 #include "envoy/http/filter.h"
 #include "envoy/network/filter.h"
 #include "envoy/server/configuration.h"
@@ -34,7 +34,7 @@ namespace Configuration {
  */
 class StatsSinkFactory : public Config::TypedFactory {
 public:
-  virtual ~StatsSinkFactory() = default;
+  ~StatsSinkFactory() override = default;
 
   /**
    * Create a particular Stats::Sink implementation. If the implementation is unable to produce a
@@ -100,7 +100,6 @@ public:
 
   // Server::Configuration::Main
   Upstream::ClusterManager* clusterManager() override { return cluster_manager_.get(); }
-  Tracing::HttpTracer& httpTracer() override { return *http_tracer_; }
   std::list<Stats::SinkPtr>& statsSinks() override { return stats_sinks_; }
   std::chrono::milliseconds statsFlushInterval() const override { return stats_flush_interval_; }
   std::chrono::milliseconds wdMissTimeout() const override { return watchdog_miss_timeout_; }
@@ -122,7 +121,6 @@ private:
                             Instance& server);
 
   std::unique_ptr<Upstream::ClusterManager> cluster_manager_;
-  Tracing::HttpTracerPtr http_tracer_;
   std::list<Stats::SinkPtr> stats_sinks_;
   std::chrono::milliseconds stats_flush_interval_;
   std::chrono::milliseconds watchdog_miss_timeout_;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "envoy/extensions/wasm/v3/wasm.pb.validate.h"
+#include "envoy/config/wasm/v3/wasm.pb.validate.h"
 #include "envoy/server/wasm_config.h"
 
 #include "extensions/common/wasm/wasm.h"
@@ -13,9 +13,9 @@ class WasmFactory : public Server::Configuration::WasmFactory {
 public:
   ~WasmFactory() override {}
   std::string name() override { return "envoy.wasm"; }
-  void createWasm(const envoy::extensions::wasm::v3::WasmService& config,
+  void createWasm(const envoy::config::wasm::v3::WasmService& config,
                   Server::Configuration::WasmFactoryContext& context,
-                  Server::CreateWasmCallback&& cb) override;
+                  Server::CreateWasmServiceCallback&& cb) override;
 
 private:
   Config::DataSource::RemoteAsyncDataProviderPtr remote_data_provider_;
