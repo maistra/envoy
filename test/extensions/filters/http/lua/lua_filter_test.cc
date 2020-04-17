@@ -1793,6 +1793,7 @@ TEST_F(LuaHttpFilterTest, CheckConnection) {
   EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_->decodeHeaders(request_headers, true));
 }
 
+// TODO (dmitri-d) re-enable after importPublicKey method has been fixed
 TEST_F(LuaHttpFilterTest, ImportPublicKey) {
   const std::string SCRIPT{R"EOF(
     function string.fromhex(str)
@@ -1822,6 +1823,7 @@ TEST_F(LuaHttpFilterTest, ImportPublicKey) {
   EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_->decodeHeaders(request_headers, true));
 }
 
+// TODO (dmitri-d) re-enable when importPublicKey has been fixed
 TEST_F(LuaHttpFilterTest, InvalidPublicKey) {
   const std::string SCRIPT{R"EOF(
     function string.fromhex(str)
@@ -1851,6 +1853,7 @@ TEST_F(LuaHttpFilterTest, InvalidPublicKey) {
   EXPECT_EQ(Http::FilterHeadersStatus::Continue, filter_->decodeHeaders(request_headers, true));
 }
 
+// TODO (dmitri-d) re-enable when importPublicKey has been fixed
 TEST_F(LuaHttpFilterTest, SignatureVerify) {
   const std::string SCRIPT{R"EOF(
     function string.fromhex(str)

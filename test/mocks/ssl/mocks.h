@@ -135,7 +135,7 @@ public:
   MOCK_METHOD(bool, checkFips, ());
 
 #ifdef OPENSSL_IS_BORINGSSL
-  MOCK_METHOD(BoringSslPrivateKeyMethodSharedPtr, getBoringSslPrivateKeyMethod, ());
+//  MOCK_METHOD(BoringSslPrivateKeyMethodSharedPtr, getBoringSslPrivateKeyMethod, ());
 #endif
 };
 

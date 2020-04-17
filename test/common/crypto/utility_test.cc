@@ -53,6 +53,7 @@ TEST(UtilityTest, TestSha256HmacWithEmptyArguments) {
   EXPECT_EQ("b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad", Hex::encode(hmac));
 }
 
+// TODO (dmitri-d) re-enabled when importPublicKey OpenSSL-compatible implementation has been added
 TEST(UtilityTest, TestImportPublicKey) {
   auto key = "30820122300d06092a864886f70d01010105000382010f003082010a0282010100a7471266d01d160308d"
              "73409c06f2e8d35c531c458d3e480e9f3191847d062ec5ccff7bc51e949d5f2c3540c189a4eca1e8633a6"
@@ -75,6 +76,7 @@ TEST(UtilityTest, TestImportPublicKey) {
   EXPECT_EQ(nullptr, pkey);
 }
 
+// TODO (dmitri-d) re-enabled when importPublicKey OpenSSL-compatible implementation has been added
 TEST(UtilityTest, TestVerifySignature) {
   auto key = "30820122300d06092a864886f70d01010105000382010f003082010a0282010100a7471266d01d160308d"
              "73409c06f2e8d35c531c458d3e480e9f3191847d062ec5ccff7bc51e949d5f2c3540c189a4eca1e8633a6"

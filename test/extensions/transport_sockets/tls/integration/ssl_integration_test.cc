@@ -60,8 +60,10 @@ SslIntegrationTestBase::makeSslClientConnection(const ClientSslTransportOptions&
             " -showcerts -debug -msg -CAfile "
             "{{ test_rundir }}/test/config/integration/certs/cacert.pem "
             "-servername lyft.com -cert "
+            //"{{ test_rundir }}/test/config/integration/certs/client_ecdsacert.pem "
             "{{ test_rundir }}/test/config/integration/certs/clientcert.pem "
             "-key "
+            //"{{ test_rundir }}/test/config/integration/certs/client_ecdsakey.pem ",
             "{{ test_rundir }}/test/config/integration/certs/clientkey.pem ",
         version_);
     ENVOY_LOG_MISC(debug, "Executing {}", s_client_cmd);

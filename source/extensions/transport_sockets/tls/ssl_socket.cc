@@ -190,10 +190,11 @@ PostIoAction SslSocket::doHandshake() {
       ENVOY_CONN_LOG(debug, "handshake expecting {}", callbacks_->connection(),
                      err == SSL_ERROR_WANT_READ ? "read" : "write");
       return PostIoAction::KeepOpen;
-    case SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
-      ENVOY_CONN_LOG(debug, "handshake continued asynchronously", callbacks_->connection());
-      state_ = SocketState::HandshakeInProgress;
-      return PostIoAction::KeepOpen;
+// BoringSSL-specific error code
+//    case SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
+//      ENVOY_CONN_LOG(debug, "handshake continued asynchronously", callbacks_->connection());
+//      state_ = SocketState::HandshakeInProgress;
+//      return PostIoAction::KeepOpen;
     default:
       ENVOY_CONN_LOG(debug, "handshake error: {}", callbacks_->connection(), err);
       drainErrorQueue();
@@ -503,8 +504,10 @@ const std::string& SslSocketInfo::tlsVersion() const {
 }
 
 absl::optional<std::string> SslSocketInfo::x509Extension(absl::string_view extension_name) const {
+  std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n";
   bssl::UniquePtr<X509> cert(SSL_get_peer_certificate(ssl_.get()));
   if (!cert) {
+    std::cout << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\n";
     return absl::nullopt;
   }
   return Utility::getX509ExtensionValue(*cert, extension_name);

@@ -19,3 +19,9 @@ envoy_dependency_imports()
 load("@rules_antlr//antlr:deps.bzl", "antlr_dependencies")
 
 antlr_dependencies(471)
+
+new_local_repository(
+    name = "openssl",
+    path = "/usr/lib64/",
+    build_file = "openssl.BUILD"
+)

@@ -420,7 +420,6 @@ TEST_P(DownstreamProtocolIntegrationTest, RetryPriority) {
   EXPECT_EQ(512U, response->body().size());
 }
 
-//
 // Verifies that a retry host filter can be configured and affect the host selected during retries.
 // The predicate will keep track of the first host attempted, and attempt to route all requests to
 // the same host. With a total of two upstream hosts, this should result in us continuously sending

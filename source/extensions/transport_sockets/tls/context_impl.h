@@ -18,15 +18,15 @@
 #include "common/stats/symbol_table_impl.h"
 
 #include "extensions/transport_sockets/tls/context_manager_impl.h"
+#include "extensions/transport_sockets/tls/openssl_impl.h"
 
 #include "absl/synchronization/mutex.h"
+#include "absl/types/optional.h"
+#include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/ssl.h"
 #include "openssl/x509v3.h"
 
 namespace Envoy {
-#ifndef OPENSSL_IS_BORINGSSL
-#error Envoy requires BoringSSL
-#endif
 
 namespace Extensions {
 namespace TransportSockets {
@@ -150,6 +150,7 @@ protected:
   void incCounter(const Stats::StatName name, absl::string_view value,
                   const Stats::StatName fallback) const;
 
+
   Envoy::Ssl::CertificateDetailsPtr certificateDetails(X509* cert, const std::string& path) const;
 
   struct TlsContext {
@@ -166,7 +167,7 @@ protected:
     std::string getCertChainFileName() const { return cert_chain_file_path_; };
     void addClientValidationContext(const Envoy::Ssl::CertificateValidationContextConfig& config,
                                     bool require_client_cert);
-    bool isCipherEnabled(uint16_t cipher_id, uint16_t client_version);
+    // bool isCipherEnabled(uint16_t cipher_id, uint16_t client_version);
     Envoy::Ssl::PrivateKeyMethodProviderSharedPtr getPrivateKeyMethodProvider() {
       return private_key_method_provider_;
     }
@@ -237,6 +238,8 @@ private:
                            HMAC_CTX* hmac_ctx, int encrypt);
 
   SessionContextID generateHashForSessionContextId(const std::vector<std::string>& server_names);
+  // bool isClientEcdsaCapable(SSL *ssl);
+  // int cert_cb(SSL* ssl, void *param);
 
   const std::vector<Envoy::Ssl::ServerContextConfig::SessionTicketKey> session_ticket_keys_;
 };

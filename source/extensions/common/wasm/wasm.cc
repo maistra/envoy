@@ -44,7 +44,7 @@
 #include "eval/eval/field_backed_map_impl.h"
 #include "eval/public/cel_value.h"
 #include "eval/public/value_export_util.h"
-#include "openssl/bytestring.h"
+//#include "openssl/bytestring.h"
 #include "openssl/hmac.h"
 #include "openssl/sha.h"
 

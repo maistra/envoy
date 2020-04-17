@@ -477,6 +477,7 @@ typed_config:
   cleanup();
 }
 
+// TODO (dmitri-d) re-enable when importPublicKey method is added
 // Basic test for verifying signature.
 TEST_P(LuaIntegrationTest, SignatureVerification) {
   const std::string FILTER_AND_CODE =
