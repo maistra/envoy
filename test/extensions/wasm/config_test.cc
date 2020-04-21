@@ -51,9 +51,11 @@ TEST_P(WasmFactoryTest, CreateWasmFromWASM) {
   Stats::IsolatedStoreImpl stats_store;
   NiceMock<LocalInfo::MockLocalInfo> local_info;
   Api::ApiPtr api = Api::createApiForTest(stats_store);
+  NiceMock<Server::MockServerLifecycleNotifier> lifecycle_notifier;
   auto scope = Stats::ScopeSharedPtr(stats_store.createScope("wasm."));
   Server::Configuration::WasmFactoryContextImpl context(cluster_manager, init_manager, dispatcher,
-                                                        tls, *api, scope, random, local_info);
+                                                        tls, *api, scope, random, local_info,
+                                                        lifecycle_notifier);
   Server::WasmServicePtr wasmptr = nullptr;
   factory->createWasm(config, context,
                       [&wasmptr](Server::WasmServicePtr wasm) { wasmptr = std::move(wasm); });
@@ -82,9 +84,11 @@ TEST_P(WasmFactoryTest, CreateWasmFromWASMPerThread) {
   NiceMock<Runtime::MockRandomGenerator> random;
   NiceMock<LocalInfo::MockLocalInfo> local_info;
   Api::ApiPtr api = Api::createApiForTest(stats_store);
+  NiceMock<Server::MockServerLifecycleNotifier> lifecycle_notifier;
   auto scope = Stats::ScopeSharedPtr(stats_store.createScope("wasm."));
   Server::Configuration::WasmFactoryContextImpl context(cluster_manager, init_manager, dispatcher,
-                                                        tls, *api, scope, random, local_info);
+                                                        tls, *api, scope, random, local_info,
+                                                        lifecycle_notifier);
   Server::WasmServicePtr wasmptr = nullptr;
   factory->createWasm(config, context,
                       [&wasmptr](Server::WasmServicePtr wasm) { wasmptr = std::move(wasm); });
@@ -115,9 +119,11 @@ TEST_P(WasmFactoryTest, MissingImport) {
   NiceMock<Runtime::MockRandomGenerator> random;
   NiceMock<LocalInfo::MockLocalInfo> local_info;
   Api::ApiPtr api = Api::createApiForTest(stats_store);
+  NiceMock<Server::MockServerLifecycleNotifier> lifecycle_notifier;
   auto scope = Stats::ScopeSharedPtr(stats_store.createScope("wasm."));
   Server::Configuration::WasmFactoryContextImpl context(cluster_manager, init_manager, dispatcher,
-                                                        tls, *api, scope, random, local_info);
+                                                        tls, *api, scope, random, local_info,
+                                                        lifecycle_notifier);
   EXPECT_THROW_WITH_REGEX(factory->createWasm(config, context, [](Server::WasmServicePtr) {});
                           , Extensions::Common::Wasm::WasmVmException,
                           "Failed to load WASM module due to a missing import: env.missing");
@@ -142,9 +148,11 @@ TEST_P(WasmFactoryTest, UnspecifiedRuntime) {
   NiceMock<Runtime::MockRandomGenerator> random;
   NiceMock<LocalInfo::MockLocalInfo> local_info;
   Api::ApiPtr api = Api::createApiForTest(stats_store);
+  NiceMock<Server::MockServerLifecycleNotifier> lifecycle_notifier;
   auto scope = Stats::ScopeSharedPtr(stats_store.createScope("wasm."));
   Server::Configuration::WasmFactoryContextImpl context(cluster_manager, init_manager, dispatcher,
-                                                        tls, *api, scope, random, local_info);
+                                                        tls, *api, scope, random, local_info,
+                                                        lifecycle_notifier);
   EXPECT_THROW_WITH_MESSAGE(factory->createWasm(config, context, [](Server::WasmServicePtr) {}),
                             Extensions::Common::Wasm::WasmVmException,
                             "Failed to create WASM VM with unspecified runtime.");
@@ -169,9 +177,11 @@ TEST_P(WasmFactoryTest, UnknownRuntime) {
   NiceMock<Runtime::MockRandomGenerator> random;
   NiceMock<LocalInfo::MockLocalInfo> local_info;
   Api::ApiPtr api = Api::createApiForTest(stats_store);
+  NiceMock<Server::MockServerLifecycleNotifier> lifecycle_notifier;
   auto scope = Stats::ScopeSharedPtr(stats_store.createScope("wasm."));
   Server::Configuration::WasmFactoryContextImpl context(cluster_manager, init_manager, dispatcher,
-                                                        tls, *api, scope, random, local_info);
+                                                        tls, *api, scope, random, local_info,
+                                                        lifecycle_notifier);
   EXPECT_THROW_WITH_MESSAGE(factory->createWasm(config, context, [](Server::WasmServicePtr) {}),
                             Extensions::Common::Wasm::WasmVmException,
                             "Failed to create WASM VM using envoy.wasm.runtime.invalid runtime. "

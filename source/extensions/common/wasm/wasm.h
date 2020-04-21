@@ -11,6 +11,7 @@
 #include "envoy/config/wasm/v3/wasm.pb.validate.h"
 #include "envoy/http/filter.h"
 #include "envoy/server/wasm.h"
+#include "envoy/server/lifecycle_notifier.h"
 #include "envoy/stats/scope.h"
 #include "envoy/stats/stats.h"
 #include "envoy/thread_local/thread_local.h"
@@ -144,6 +145,8 @@ public:
       f();
     }
   }
+  void initializeLifecycle(Server::ServerLifecycleNotifier& lifecycle_notifier);
+  void initializeStats();
 
 private:
   friend class Context;
@@ -199,6 +202,7 @@ private:
   absl::flat_hash_set<Context*> pending_done_; // Root contexts not done during shutdown.
   bool shutdown_ready_{false};                 // All pending RootContexts are now done.
 
+  Event::PostCb server_shutdown_post_cb_;
   TimeSource& time_source_;
 
   WasmCallVoid<0> abi_version_0_1_0_;
@@ -303,6 +307,7 @@ void createWasm(const VmConfig& vm_config, PluginSharedPtr plugin_config,
                 Stats::ScopeSharedPtr scope, Upstream::ClusterManager& cluster_manager,
                 Init::Manager& init_manager, Event::Dispatcher& dispatcher,
                 Runtime::RandomGenerator& random, Api::Api& api,
+                Envoy::Server::ServerLifecycleNotifier& lifecycle_notifier,
                 Config::DataSource::RemoteAsyncDataProviderPtr& remote_data_provider,
                 CreateWasmCallback&& cb);
 
@@ -315,8 +320,9 @@ void createWasmForTesting(const VmConfig& vm_config, PluginSharedPtr plugin,
                           Stats::ScopeSharedPtr scope, Upstream::ClusterManager& cluster_manager,
                           Init::Manager& init_manager, Event::Dispatcher& dispatcher,
                           Runtime::RandomGenerator& random, Api::Api& api,
-                          std::unique_ptr<Context> root_context_for_testing,
+                          Envoy::Server::ServerLifecycleNotifier& lifecycle_notifier,
                           Config::DataSource::RemoteAsyncDataProviderPtr& remote_data_provider,
+                          std::unique_ptr<Context> root_context_for_testing,
                           CreateWasmCallback&& cb);
 
 // Get an existing ThreadLocal VM matching 'vm_id' or nullptr if there isn't one.

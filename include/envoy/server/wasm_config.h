@@ -4,6 +4,7 @@
 #include "envoy/common/pure.h"
 #include "envoy/event/dispatcher.h"
 #include "envoy/init/manager.h"
+#include "envoy/server/lifecycle_notifier.h"
 #include "envoy/server/wasm.h"
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
@@ -56,6 +57,8 @@ public:
    * @return RandomGenerator& the random generator for the server.
    */
   virtual Envoy::Runtime::RandomGenerator& random() PURE;
+
+  virtual ServerLifecycleNotifier& lifecycleNotifier() PURE;
 };
 
 /**

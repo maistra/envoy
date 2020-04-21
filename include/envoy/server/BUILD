@@ -307,6 +307,7 @@ envoy_cc_library(
     name = "wasm_config_interface",
     hdrs = ["wasm_config.h"],
     deps = [
+        ":lifecycle_notifier_interface",
         ":wasm_interface",
         "//include/envoy/api:api_interface",
         "//include/envoy/event:dispatcher_interface",

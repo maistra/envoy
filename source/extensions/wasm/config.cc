@@ -47,8 +47,8 @@ void WasmFactory::createWasm(const envoy::config::wasm::v3::WasmService& config,
 
   Common::Wasm::createWasm(config.config().vm_config(), plugin, context.scope(),
                            context.clusterManager(), context.initManager(), context.dispatcher(),
-                           context.random(), context.api(), remote_data_provider_,
-                           std::move(callback));
+                           context.random(), context.api(), context.lifecycleNotifier(),
+                           remote_data_provider_, std::move(callback));
 }
 
 /**
