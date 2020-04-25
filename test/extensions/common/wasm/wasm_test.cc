@@ -1,4 +1,5 @@
 #include <stdio.h>
+
 #include "envoy/server/lifecycle_notifier.h"
 
 #include "common/common/hex.h"
@@ -37,7 +38,10 @@ public:
   MOCK_METHOD2(scriptLog_, void(spdlog::level::level_enum level, absl::string_view message));
 };
 
-class WasmCommonTest : public testing::TestWithParam<std::string> {};
+class WasmCommonTest : public testing::TestWithParam<std::string> {
+public:
+  void SetUp() { clearCodeCacheForTesting(false); }
+};
 
 INSTANTIATE_TEST_SUITE_P(Runtimes, WasmCommonTest,
                          testing::Values("v8",
