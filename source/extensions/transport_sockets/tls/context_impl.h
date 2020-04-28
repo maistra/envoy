@@ -172,11 +172,10 @@ protected:
     }
   };
 
-  // This is always non-empty, with the first context used for all new SSL
-  // objects. For server contexts, once we have ClientHello, we
-  // potentially switch to a different CertificateContext based on certificate
-  // selection.
-  std::vector<TlsContext> tls_contexts_;
+  // Use a single context for certificates instead of one context per certificate as in the BoringSSL case.
+  // A single context is required to hold all certificates for OpenSSL.
+  // The use of certificate selection is handled by OpenSSL.
+  TlsContext tls_context_;
   bool verify_trusted_ca_{false};
   std::vector<std::string> verify_subject_alt_name_list_;
   std::vector<Matchers::StringMatcherImpl> subject_alt_name_matchers_;
@@ -236,10 +235,6 @@ private:
                          unsigned int inlen);
   int sessionTicketProcess(SSL* ssl, uint8_t* key_name, uint8_t* iv, EVP_CIPHER_CTX* ctx,
                            HMAC_CTX* hmac_ctx, int encrypt);
-  bool isClientEcdsaCapable(const SSL_CLIENT_HELLO* ssl_client_hello);
-  // Select the TLS certificate context in SSL_CTX_set_select_certificate_cb() callback with
-  // ClientHello details.
-  enum ssl_select_cert_result_t selectTlsContext(const SSL_CLIENT_HELLO* ssl_client_hello);
 
   SessionContextID generateHashForSessionContextId(const std::vector<std::string>& server_names);
 

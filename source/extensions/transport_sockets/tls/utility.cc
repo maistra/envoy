@@ -1,5 +1,6 @@
 #include "extensions/transport_sockets/tls/utility.h"
 
+#include "openssl/err.h"
 #include "common/common/assert.h"
 #include "common/network/address_impl.h"
 
@@ -154,7 +155,7 @@ int32_t Utility::getDaysUntilExpiration(const X509* cert, TimeSource& time_sourc
 
 absl::optional<std::string> Utility::getX509ExtensionValue(const X509& cert,
                                                            absl::string_view extension_name) {
-  X509_EXTENSIONS* extensions(X509_get0_extensions(&cert));
+  const X509_EXTENSIONS* extensions(X509_get0_extensions(&cert));
 
   if (extensions == nullptr) {
     return absl::nullopt;

@@ -2,6 +2,7 @@
 #include <vector>
 
 #include "extensions/transport_sockets/tls/utility.h"
+#include "openssl/err.h"
 
 #include "test/extensions/transport_sockets/tls/ssl_test_utility.h"
 #include "test/extensions/transport_sockets/tls/test_data/long_validity_cert_info.h"
@@ -13,6 +14,7 @@
 #include "absl/time/time.h"
 #include "gtest/gtest.h"
 #include "openssl/x509v3.h"
+
 
 namespace Envoy {
 namespace Extensions {
