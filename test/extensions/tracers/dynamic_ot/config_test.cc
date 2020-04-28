@@ -20,7 +20,7 @@ namespace Tracers {
 namespace DynamicOt {
 namespace {
 
-TEST(DynamicOtTracerConfigTest, DynamicOpentracingHttpTracer) {
+TEST(DynamicOtTracerConfigTest, DISABLED_DynamicOpentracingHttpTracer) {
   NiceMock<Server::Configuration::MockTracerFactoryContext> context;
   EXPECT_CALL(context.server_factory_context_.cluster_manager_, get(Eq("fake_cluster")))
       .WillRepeatedly(
@@ -50,7 +50,7 @@ TEST(DynamicOtTracerConfigTest, DynamicOpentracingHttpTracer) {
 }
 
 // Test that the deprecated extension name still functions.
-TEST(DynamicOtTracerConfigTest, DEPRECATED_FEATURE_TEST(DeprecatedExtensionFilterName)) {
+TEST(DISABLED_DynamicOtTracerConfigTest, DEPRECATED_FEATURE_TEST(DeprecatedExtensionFilterName)) {
   const std::string deprecated_name = "envoy.dynamic.ot";
 
   ASSERT_NE(nullptr, Registry::FactoryRegistry<Server::Configuration::TracerFactory>::getFactory(

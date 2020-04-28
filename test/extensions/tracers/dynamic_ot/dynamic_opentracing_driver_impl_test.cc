@@ -46,14 +46,14 @@ public:
   NiceMock<Tracing::MockConfig> config_;
 };
 
-TEST_F(DynamicOpenTracingDriverTest, FormatErrorMessage) {
+DISABLE_TEST_F(DynamicOpenTracingDriverTest, FormatErrorMessage) {
   const std::error_code error_code = std::make_error_code(std::errc::permission_denied);
   EXPECT_EQ(error_code.message(), DynamicOpenTracingDriver::formatErrorMessage(error_code, ""));
   EXPECT_EQ(error_code.message() + ": abc",
             DynamicOpenTracingDriver::formatErrorMessage(error_code, "abc"));
 }
 
-TEST_F(DynamicOpenTracingDriverTest, InitializeDriver) {
+DISABLE_TEST_F(DynamicOpenTracingDriverTest, InitializeDriver) {
   {
     std::string invalid_library = "abc123";
     std::string invalid_config = R"EOF(
@@ -70,7 +70,7 @@ TEST_F(DynamicOpenTracingDriverTest, InitializeDriver) {
   }
 }
 
-TEST_F(DynamicOpenTracingDriverTest, FlushSpans) {
+DISABLE_TEST_F(DynamicOpenTracingDriverTest, FlushSpans) {
   setupValidDriver();
 
   Tracing::SpanPtr first_span = driver_->startSpan(config_, request_headers_, operation_name_,

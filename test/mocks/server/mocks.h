@@ -419,8 +419,8 @@ public:
 
   TimeSource& timeSource() override { return time_system_; }
 
-  testing::NiceMock<ThreadLocal::MockInstance> thread_local_;
   NiceMock<Stats::MockIsolatedStatsStore> stats_store_;
+  testing::NiceMock<ThreadLocal::MockInstance> thread_local_;
   std::shared_ptr<testing::NiceMock<Network::MockDnsResolver>> dns_resolver_{
       new testing::NiceMock<Network::MockDnsResolver>()};
   testing::NiceMock<Api::MockApi> api_;
