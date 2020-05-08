@@ -504,10 +504,8 @@ const std::string& SslSocketInfo::tlsVersion() const {
 }
 
 absl::optional<std::string> SslSocketInfo::x509Extension(absl::string_view extension_name) const {
-  std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n";
   bssl::UniquePtr<X509> cert(SSL_get_peer_certificate(ssl_.get()));
   if (!cert) {
-    std::cout << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\n";
     return absl::nullopt;
   }
   return Utility::getX509ExtensionValue(*cert, extension_name);

@@ -70,7 +70,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
 
   if (!Envoy::Extensions::TransportSockets::Tls::set_strict_cipher_list(tls_context_.ssl_ctx_.get(), config.cipherSuites().c_str())) {
     std::vector<absl::string_view> ciphers =
-        StringUtil::splitToken(config.cipherSuites(), ":+-![|]", false);
+        StringUtil::splitToken(config.cipherSuites(), ":+![|]", false);
     std::vector<std::string> bad_ciphers;
     for (const auto& cipher : ciphers) {
       std::string cipher_str(cipher);
@@ -271,7 +271,6 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
     }
     // Read rest of the certificate chain.
     while (true) {
-      std::cout << "certificate-chain-loading\n";
       bssl::UniquePtr<X509> cert(PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr));
       if (cert == nullptr) {
         break;
@@ -483,14 +482,14 @@ int ContextImpl::verifyCallback(X509_STORE_CTX* store_ctx, void* arg) {
   }
 
   // TODO (dmitri-d) getVerifyCallbackCert looks sketchy
-  //bssl::UniquePtr<X509> cert(SSL_get_peer_certificate(ssl));
-  bssl::UniquePtr<X509> cert(Envoy::Extensions::TransportSockets::Tls::getVerifyCallbackCert(store_ctx, arg));
+  // We don't own the pointer to the cert, shouldn't release it
+  X509* cert(Envoy::Extensions::TransportSockets::Tls::getVerifyCallbackCert(store_ctx, arg));
 
   const Network::TransportSocketOptions* transport_socket_options =
       static_cast<const Network::TransportSocketOptions*>(SSL_get_app_data(ssl));
 
   Envoy::Ssl::ClientValidationStatus validated = impl->verifyCertificate(
-      cert.get(),
+      cert,
       transport_socket_options &&
               !transport_socket_options->verifySubjectAltNameListOverride().empty()
           ? transport_socket_options->verifySubjectAltNameListOverride()
@@ -904,41 +903,6 @@ uint16_t ClientContextImpl::parseSigningAlgorithmsForTest(const std::string& sig
   return 0;
 }
 
-// TODO (dmitri-d): this always returns false
-// it is very different from the upstream version
-static bool isClientEcdsaCapable(SSL* ssl) {
-  X509* x509 = SSL_get_peer_certificate(ssl);
-  STACK_OF(X509_NAME)* x509_name_stack = SSL_get_client_CA_list(ssl);
-
-  for (int i = 0; i < sk_X509_NAME_num(x509_name_stack); i++) {
-    const X509_NAME* x509_name = sk_X509_NAME_value(x509_name_stack, i);
-  }
-
-  int pnid;
-  int nidresult = SSL_get_peer_signature_type_nid(ssl, &pnid);
-
-  STACK_OF(SSL_CIPHER)* cipher_stack = SSL_get_client_ciphers(ssl);
-
-  for (int i = 0; i < sk_SSL_CIPHER_num(cipher_stack); i++) {
-    const SSL_CIPHER* cipher = sk_SSL_CIPHER_value(cipher_stack, i);
-    int nid = SSL_CIPHER_get_cipher_nid(cipher);
-  }
-
-  STACK_OF(X509)* x509_stack = SSL_get_peer_cert_chain(ssl);
-
-  for (int i = 0; i < sk_X509_num(x509_stack); i++) {
-    const X509* x509 = sk_X509_value(x509_stack, i);
-  }
-
-  int version_num = SSL_client_version(ssl);
-  const char* version = SSL_get_version(ssl);
-
-  SSL_SESSION* session = SSL_get_session(ssl);
-  x509 = SSL_SESSION_get0_peer(session);
-
-  return false;
-}
-
 ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
                                      const Envoy::Ssl::ServerContextConfig& config,
                                      const std::vector<std::string>& server_names,
@@ -1056,21 +1020,21 @@ ServerContextImpl::generateHashForSessionContextId(const std::vector<std::string
         break;
       }
     }
-
-    // It's possible that the certificate doesn't have a subject, but
-    // does have SANs. Make sure that we have one or the other.
-    if (cn_index < 0 && san_count == 0) {
-      throw EnvoyException("Invalid TLS context has neither subject CN nor SAN names");
-    }
-
-    rc = X509_NAME_digest(X509_get_issuer_name(cert), EVP_sha256(), hash_buffer, &hash_length);
-    RELEASE_ASSERT(rc == 1, Utility::getLastCryptoError().value_or(""));
-    RELEASE_ASSERT(hash_length == SHA256_DIGEST_LENGTH,
-                   fmt::format("invalid SHA256 hash length {}", hash_length));
-
-    rc = EVP_DigestUpdate(md, hash_buffer, hash_length);
-    RELEASE_ASSERT(rc == 1, Utility::getLastCryptoError().value_or(""));
   }
+
+  // It's possible that the certificate doesn't have a subject, but
+  // does have SANs. Make sure that we have one or the other.
+  if (cn_index < 0 && san_count == 0) {
+    throw EnvoyException("Invalid TLS context has neither subject CN nor SAN names");
+  }
+
+  rc = X509_NAME_digest(X509_get_issuer_name(cert), EVP_sha256(), hash_buffer, &hash_length);
+  RELEASE_ASSERT(rc == 1, Utility::getLastCryptoError().value_or(""));
+  RELEASE_ASSERT(hash_length == SHA256_DIGEST_LENGTH,
+                 fmt::format("invalid SHA256 hash length {}", hash_length));
+
+  rc = EVP_DigestUpdate(md, hash_buffer, hash_length);
+  RELEASE_ASSERT(rc == 1, Utility::getLastCryptoError().value_or(""));
 
   // Hash all the settings that affect whether the server will allow/accept
   // the client connection. This ensures that the client is always validated against

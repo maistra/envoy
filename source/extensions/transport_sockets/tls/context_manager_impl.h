@@ -40,7 +40,6 @@ public:
     return private_key_method_manager_;
   };
 
-
 private:
   void removeEmptyContexts();
   TimeSource& time_source_;

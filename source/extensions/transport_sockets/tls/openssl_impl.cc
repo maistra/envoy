@@ -99,6 +99,9 @@ STACK_OF(X509)* SSL_get_peer_full_cert_chain(const SSL *ssl) {
 
   if (SSL_is_server(ssl)) {
     X509* peer_cert = SSL_get_peer_certificate(ssl);
+    if (peer_cert == nullptr) {
+      return ret;
+    }
     if (!sk_X509_insert(ret, peer_cert, 0)) {
       sk_X509_pop_free(ret, X509_free);
       return nullptr;
