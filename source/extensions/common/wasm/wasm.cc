@@ -50,6 +50,9 @@
 #include "openssl/sha.h"
 
 namespace Envoy {
+
+using ScopeWeakPtr = std::weak_ptr<Stats::Scope>;
+
 namespace Extensions {
 namespace Common {
 namespace Wasm {
@@ -78,7 +81,7 @@ namespace {
   GAUGE(remote_load_cache_entries, NeverImport)
 
 struct CreateWasmStats {
-  Stats::ScopeSharedPtr scope_;
+  ScopeWeakPtr scope_;
   CREATE_WASM_STATS(GENERATE_COUNTER_STRUCT, GENERATE_GAUGE_STRUCT)
 };
 
@@ -613,7 +616,11 @@ createWasmInternal(const VmConfig& vm_config, PluginSharedPtr plugin, Stats::Sco
     if (!code_cache) {
       code_cache = new std::remove_reference<decltype(*code_cache)>::type;
     }
-    if (!create_wasm_stats) {
+    Stats::ScopeSharedPtr create_wasm_stats_scope;
+    if (!create_wasm_stats || !(create_wasm_stats_scope = create_wasm_stats->scope_.lock())) {
+      if (create_wasm_stats) {
+        delete create_wasm_stats;
+      }
       create_wasm_stats =
           new CreateWasmStats{scope, CREATE_WASM_STATS(POOL_COUNTER_PREFIX(*scope, "wasm."),
                                                        POOL_GAUGE_PREFIX(*scope, "wasm."))};
@@ -701,6 +708,7 @@ createWasmInternal(const VmConfig& vm_config, PluginSharedPtr plugin, Stats::Sco
             }
             if (!root_context) {
               wasm->wasm()->start(plugin);
+              wasm->wasm()->clearRootContexts();
             } else {
               wasm->wasm()->startForTesting(std::move(root_context), plugin);
             }
