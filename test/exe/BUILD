@@ -36,17 +36,6 @@ envoy_sh_test(
     tags = ["nofips"],
 )
 
-envoy_sh_test(
-    name = "version_out_test",
-    srcs = ["version_out_test.sh"],
-    coverage = False,
-    data = [
-        "//:VERSION",
-        "//bazel:raw_build_id.ldscript",
-        "//source/exe:envoy-static",
-    ],
-)
-
 envoy_cc_test(
     name = "main_common_test",
     srcs = ["main_common_test.cc"],

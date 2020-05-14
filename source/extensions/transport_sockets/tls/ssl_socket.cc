@@ -190,10 +190,11 @@ PostIoAction SslSocket::doHandshake() {
       ENVOY_CONN_LOG(debug, "handshake expecting {}", callbacks_->connection(),
                      err == SSL_ERROR_WANT_READ ? "read" : "write");
       return PostIoAction::KeepOpen;
-    case SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
-      ENVOY_CONN_LOG(debug, "handshake continued asynchronously", callbacks_->connection());
-      state_ = SocketState::HandshakeInProgress;
-      return PostIoAction::KeepOpen;
+// BoringSSL-specific error code
+//    case SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
+//      ENVOY_CONN_LOG(debug, "handshake continued asynchronously", callbacks_->connection());
+//      state_ = SocketState::HandshakeInProgress;
+//      return PostIoAction::KeepOpen;
     default:
       ENVOY_CONN_LOG(debug, "handshake error: {}", callbacks_->connection(), err);
       drainErrorQueue();

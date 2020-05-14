@@ -25,7 +25,6 @@ envoy_cc_test(
     external_deps = ["ssl"],
     shard_count = 4,
     deps = [
-        ":test_private_key_method_provider_test_lib",
         "//include/envoy/network:transport_socket_interface",
         "//source/common/buffer:buffer_lib",
         "//source/common/common:empty_string",
@@ -39,6 +38,7 @@ envoy_cc_test(
         "//source/common/stats:stats_lib",
         "//source/extensions/transport_sockets/tls:context_config_lib",
         "//source/extensions/transport_sockets/tls:context_lib",
+        "//source/extensions/transport_sockets/tls:openssl_impl_lib",
         "//source/extensions/transport_sockets/tls:ssl_socket_lib",
         "//source/extensions/transport_sockets/tls:utility_lib",
         "//source/extensions/transport_sockets/tls/private_key:private_key_manager_lib",
@@ -98,7 +98,10 @@ envoy_cc_test(
         "gen_unittest_certs.sh",
         "//test/extensions/transport_sockets/tls/test_data:certs",
     ],
-    external_deps = ["ssl"],
+    external_deps = [
+        "ssl",
+        "bssl_wrapper_lib",
+    ],
     deps = [
         ":ssl_test_utils",
         "//source/extensions/transport_sockets/tls:utility_lib",

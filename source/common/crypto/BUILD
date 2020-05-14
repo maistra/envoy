@@ -9,7 +9,12 @@ load(
 envoy_package()
 
 envoy_cc_library(
-    name = "utility_lib",
+   name = "utility_lib",
+   external_deps = [
+     "ssl",
+     "openssl_cbs_lib",
+     "bssl_wrapper_lib"
+    ],
     hdrs = [
         "utility.h",
     ],

@@ -48,6 +48,7 @@ const VerificationOutput UtilityImpl::verifySignature(absl::string_view hash, Cr
   if (md == nullptr) {
     return {false, absl::StrCat(hash, " is not supported.")};
   }
+
   // Step 3: initialize EVP_DigestVerify
   auto pkey_wrapper = Common::Crypto::Access::getTyped<Common::Crypto::PublicKeyObject>(key);
   EVP_PKEY* pkey = pkey_wrapper->getEVP_PKEY();
@@ -73,9 +74,8 @@ const VerificationOutput UtilityImpl::verifySignature(absl::string_view hash, Cr
 }
 
 CryptoObjectPtr UtilityImpl::importPublicKey(const std::vector<uint8_t>& key) {
-  CBS cbs({key.data(), key.size()});
-
-  return std::make_unique<PublicKeyObject>(EVP_parse_public_key(&cbs));
+  const unsigned char* tmp = key.data();
+  return std::make_unique<PublicKeyObject>(d2i_PUBKEY(nullptr, &tmp, key.size()));
 }
 
 const EVP_MD* UtilityImpl::getHashFunction(absl::string_view name) {

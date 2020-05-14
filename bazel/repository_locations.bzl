@@ -26,21 +26,22 @@ REPOSITORY_LOCATIONS = dict(
         # 2020-03-24
         urls = ["https://github.com/envoyproxy/envoy-build-tools/archive/84ca08de00eedd0ba08e7d5551108d6f03f5d362.tar.gz"],
     ),
-    boringssl = dict(
-        sha256 = "a3d4de4f03cb321ef943678d72a045c9a19d26b23d6f4e313f97600c65201a27",
-        strip_prefix = "boringssl-1c2769383f027befac5b75b6cedd25daf3bf4dcf",
-        # To update BoringSSL, which tracks Chromium releases:
-        # 1. Open https://omahaproxy.appspot.com/ and note <current_version> of linux/stable release.
-        # 2. Open https://chromium.googlesource.com/chromium/src/+/refs/tags/<current_version>/DEPS and note <boringssl_revision>.
-        # 3. Find a commit in BoringSSL's "master-with-bazel" branch that merges <boringssl_revision>.
-        #
-        # chromium-81.0.4044.69
-        urls = ["https://github.com/google/boringssl/archive/1c2769383f027befac5b75b6cedd25daf3bf4dcf.tar.gz"],
+    com_github_openssl_openssl = dict(
+        sha256 = "cf26f056a955cff721d3a3c08d8126d1e4f69803e08c9600dac3b6b7158586d6",
+        strip_prefix = "openssl-894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596",
+        urls = ["https://github.com/openssl/openssl/archive/894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596.tar.gz"],
+     ),
+    #EXTERNAL OPENSSL
+    bssl_wrapper = dict(
+        sha256 = "d84ea7d190210145695e5b172e8e6fb23f3464360da5efab5a1ae1a973c21f57",
+        strip_prefix = "bssl_wrapper-c9649facde3ab1d8bc871c7375a8946c50950e97",
+        urls = ["https://github.com/maistra/bssl_wrapper/archive/c9649facde3ab1d8bc871c7375a8946c50950e97.tar.gz"],
     ),
-    boringssl_fips = dict(
-        sha256 = "b12ad676ee533824f698741bd127f6fbc82c46344398a6d78d25e62c6c418c73",
-        # fips-20180730
-        urls = ["https://commondatastorage.googleapis.com/chromium-boringssl-docs/fips/boringssl-66005f41fbc3529ffe8d007708756720529da20d.tar.xz"],
+    #EXTERNAL OPENSSL
+    openssl_cbs = dict(
+        sha256 = "f466ca7bc4b876cfa9edb4870275207e580588f85f8fae268c40277846a6d8de",
+        strip_prefix = "openssl-cbs-dab3282af49f134766abcda5f95cbb19057a53d1",
+        urls = ["https://github.com/maistra/openssl-cbs/archive/dab3282af49f134766abcda5f95cbb19057a53d1.tar.gz"],
     ),
     com_google_absl = dict(
         sha256 = "2693730730247afb0e7cb2d41664ac2af3ad75c79944efd266be40ba944179b9",
@@ -183,10 +184,10 @@ REPOSITORY_LOCATIONS = dict(
         urls = ["https://github.com/msgpack/msgpack-c/releases/download/cpp-3.2.1/msgpack-3.2.1.tar.gz"],
     ),
     com_github_google_jwt_verify = dict(
-        sha256 = "d422a6eadd4bcdd0f9b122cd843a4015f8b18aebea6e1deb004bd4d401a8ef92",
-        strip_prefix = "jwt_verify_lib-40e2cc938f4bcd059a97dc6c73f59ecfa5a71bac",
-        # 2020-02-11
-        urls = ["https://github.com/google/jwt_verify_lib/archive/40e2cc938f4bcd059a97dc6c73f59ecfa5a71bac.tar.gz"],
+        sha256 = "974826c9ba8060d9656e6c360718e3ee5eb1622ff59ed4138f8a3cd718ea7b13",
+        strip_prefix = "jwt_verify_lib-2c7ddcd871c3d902e089787e244ebe49723652cc",
+        # 2019-12-20
+        urls = ["https://github.com/Maistra/jwt_verify_lib/archive/2c7ddcd871c3d902e089787e244ebe49723652cc.tar.gz"],
     ),
     com_github_nodejs_http_parser = dict(
         sha256 = "8fa0ab8770fd8425a9b431fdbf91623c4d7a9cdb842b9339289bd2b0b01b0d3d",

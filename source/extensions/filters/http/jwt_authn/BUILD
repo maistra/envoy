@@ -9,6 +9,13 @@ load(
 
 envoy_package()
 
+config_setting(
+    name = "openssl_build",
+    values = {
+        "OPENSSL_IS_BORINGSSL": "false",
+    },
+)
+
 envoy_cc_library(
     name = "extractor_lib",
     srcs = ["extractor.cc"],

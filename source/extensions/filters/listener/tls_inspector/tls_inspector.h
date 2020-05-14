@@ -8,6 +8,7 @@
 
 #include "common/common/logger.h"
 
+#include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/ssl.h"
 
 namespace Envoy {
@@ -22,6 +23,7 @@ namespace TlsInspector {
   COUNTER(connection_closed)                                                                       \
   COUNTER(client_hello_too_large)                                                                  \
   COUNTER(read_error)                                                                              \
+  COUNTER(read_timeout)                                                                            \
   COUNTER(tls_found)                                                                               \
   COUNTER(tls_not_found)                                                                           \
   COUNTER(alpn_found)                                                                              \
@@ -44,6 +46,7 @@ enum class ParseState {
   // Parser reports unrecoverable error.
   Error
 };
+
 /**
  * Global configuration for TLS inspector.
  */
@@ -76,17 +79,21 @@ public:
 
   // Network::ListenerFilter
   Network::FilterStatus onAccept(Network::ListenerFilterCallbacks& cb) override;
+  void onALPN(const unsigned char* data, unsigned int len);
+  void onCert();
 
 private:
+  std::vector<absl::string_view> getAlpnProtocols(const unsigned char* data, unsigned int len);
   ParseState parseClientHello(const void* data, size_t len);
   ParseState onRead();
+  void onTimeout();
   void done(bool success);
-  void onALPN(const unsigned char* data, unsigned int len);
   void onServername(absl::string_view name);
 
   ConfigSharedPtr config_;
   Network::ListenerFilterCallbacks* cb_;
   Event::FileEventPtr file_event_;
+  Event::TimerPtr timer_;
 
   bssl::UniquePtr<SSL> ssl_;
   uint64_t read_{0};
