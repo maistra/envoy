@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "bssl_wrapper/bssl_wrapper.h"
 #include "envoy/buffer/buffer.h"
 #include "envoy/common/crypto/crypto.h"
 

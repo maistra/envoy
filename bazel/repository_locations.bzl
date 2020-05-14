@@ -102,34 +102,43 @@ DEPENDENCY_REPOSITORIES_SPEC = dict(
         last_updated = "2020-10-01",
         use_category = ["build"],
     ),
-    boringssl = dict(
-        project_name = "BoringSSL",
-        project_desc = "Minimal OpenSSL fork",
-        project_url = "https://github.com/google/boringssl",
-        version = "597b810379e126ae05d32c1d94b1a9464385acd0",
-        sha256 = "1ea42456c020daf0a9b0f9e8d8bc3a403c9314f4f54230c617257af996cd5fa6",
-        strip_prefix = "boringssl-{version}",
-        # To update BoringSSL, which tracks Chromium releases:
-        # 1. Open https://omahaproxy.appspot.com/ and note <current_version> of linux/stable release.
-        # 2. Open https://chromium.googlesource.com/chromium/src/+/refs/tags/<current_version>/DEPS and note <boringssl_revision>.
-        # 3. Find a commit in BoringSSL's "master-with-bazel" branch that merges <boringssl_revision>.
-        #
-        # chromium-85.0.4183.83
-        urls = ["https://github.com/google/boringssl/archive/{version}.tar.gz"],
+    com_github_openssl_openssl = dict(
+    	project_name = "openssl",
+        project_desc = "Cryptography and TLS/SSL Toolkit",
+        project_url = "https://github.com/openssl/openssl",
+        version = "1.1.1",
+        sha256 = "cf26f056a955cff721d3a3c08d8126d1e4f69803e08c9600dac3b6b7158586d6",
+        strip_prefix = "openssl-894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596",
+        urls = ["https://github.com/openssl/openssl/archive/894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596.tar.gz"],
         use_category = ["controlplane", "dataplane_core"],
-        last_updated = "2020-06-23",
-        cpe = "cpe:2.3:a:google:boringssl:*",
+        cpe = "N/A",
+        last_updated = "2019-09-10",
+     ),
+    #EXTERNAL OPENSSL
+    bssl_wrapper = dict(
+        project_name = "OpenSSL BoringSSL Wrapper",
+        project_desc = "Calls to emulate BoringSSL calls in OpenSSL",
+        project_url = "https://github.com/maistra/bssl_wrapper",
+        version = "c9649facde3ab1d8bc871c7375a8946c50950e97",
+        sha256 = "d84ea7d190210145695e5b172e8e6fb23f3464360da5efab5a1ae1a973c21f57",
+        strip_prefix = "bssl_wrapper-c9649facde3ab1d8bc871c7375a8946c50950e97",
+        urls = ["https://github.com/maistra/bssl_wrapper/archive/c9649facde3ab1d8bc871c7375a8946c50950e97.tar.gz"],
+        use_category = ["controlplane", "dataplane_core"],
+        cpe = "N/A",
+        last_updated = "2020-03-09",
     ),
-    boringssl_fips = dict(
-        project_name = "BoringSSL (FIPS)",
-        project_desc = "FIPS compliant BoringSSL",
-        project_url = "https://boringssl.googlesource.com/boringssl/+/master/crypto/fipsmodule/FIPS.md",
-        version = "fips-20190808",
-        sha256 = "3b5fdf23274d4179c2077b5e8fa625d9debd7a390aac1d165b7e47234f648bb8",
-        urls = ["https://commondatastorage.googleapis.com/chromium-boringssl-fips/boringssl-ae223d6138807a13006342edfeef32e813246b39.tar.xz"],
+    #EXTERNAL OPENSSL
+    openssl_cbs = dict(
+        project_name = "Crypto ByteString",
+        project_desc = "CBS (Crypto ByteString) functionality provided by BoringSSL but not provided by OpenSSL",
+        project_url = "https://github.com/maistra/openssl-cbs",
+        version = "dab3282af49f134766abcda5f95cbb19057a53d1",
+        sha256 = "f466ca7bc4b876cfa9edb4870275207e580588f85f8fae268c40277846a6d8de",
+        strip_prefix = "openssl-cbs-dab3282af49f134766abcda5f95cbb19057a53d1",
+        urls = ["https://github.com/maistra/openssl-cbs/archive/dab3282af49f134766abcda5f95cbb19057a53d1.tar.gz"],
         use_category = ["controlplane", "dataplane_core"],
-        last_updated = "2019-08-08",
-        cpe = "cpe:2.3:a:google:boringssl:*",
+        cpe = "N/A",
+        last_updated = "2019-09-06",
     ),
     com_google_absl = dict(
         project_name = "Abseil",
@@ -451,14 +460,14 @@ DEPENDENCY_REPOSITORIES_SPEC = dict(
     com_github_google_jwt_verify = dict(
         project_name = "jwt_verify_lib",
         project_desc = "JWT verification library for C++",
-        project_url = "https://github.com/google/jwt_verify_lib",
-        version = "7276a339af8426724b744216f619c99152f8c141",
-        sha256 = "f1fde4f3ebb3b2d841332c7a02a4b50e0529a19709934c63bc6208d1bbe28fb1",
+        project_url = "https://github.com/maistra/jwt_verify_lib",
+        version = "73b3b3dba448b392efbe5e2894dd7b0a14d1e6f1",
+        sha256 = "ebc6a3ecdadcac401ac763ece02dd7020abbaffec7142318afcaef890607893c",
         strip_prefix = "jwt_verify_lib-{version}",
         urls = ["https://github.com/google/jwt_verify_lib/archive/{version}.tar.gz"],
         use_category = ["dataplane_ext"],
         extensions = ["envoy.filters.http.jwt_authn"],
-        last_updated = "2020-07-09",
+        last_updated = "2020-08-13",
         cpe = "N/A",
     ),
     com_github_nodejs_http_parser = dict(

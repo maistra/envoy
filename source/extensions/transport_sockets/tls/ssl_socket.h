@@ -22,6 +22,7 @@
 #include "absl/container/node_hash_map.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/optional.h"
+#include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/ssl.h"
 
 namespace Envoy {
@@ -83,7 +84,7 @@ private:
   ReadResult sslReadIntoSlice(Buffer::RawSlice& slice);
 
   Network::PostIoAction doHandshake();
-  void drainErrorQueue();
+  void drainErrorQueue(const bool show_errno = false);
   void shutdownSsl();
   bool isThreadSafe() const {
     return callbacks_ != nullptr && callbacks_->connection().dispatcher().isThreadSafe();

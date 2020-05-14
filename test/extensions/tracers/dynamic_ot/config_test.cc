@@ -22,7 +22,11 @@ namespace Tracers {
 namespace DynamicOt {
 namespace {
 
-TEST(DynamicOtTracerConfigTest, DynamicOpentracingHttpTracer) {
+// Disabled due to heapcheck reporting false positives when the test is statically linked with libstdc++
+// See https://github.com/envoyproxy/envoy/issues/7647 for the discussion
+// TODO (dmitri-d) there currently isn't a way to resolve this: some tests will fail when libstdc++ is
+// dynamically linked, this test fails when it's statically linked
+TEST(DynamicOtTracerConfigTest, DISABLED_DynamicOpentracingHttpTracer) {
   NiceMock<Server::Configuration::MockTracerFactoryContext> context;
   EXPECT_CALL(context.server_factory_context_.cluster_manager_, get(Eq("fake_cluster")))
       .WillRepeatedly(
@@ -52,7 +56,7 @@ TEST(DynamicOtTracerConfigTest, DynamicOpentracingHttpTracer) {
 }
 
 // Test that the deprecated extension name still functions.
-TEST(DynamicOtTracerConfigTest, DEPRECATED_FEATURE_TEST(DeprecatedExtensionFilterName)) {
+TEST(DISABLED_DynamicOtTracerConfigTest, DEPRECATED_FEATURE_TEST(DeprecatedExtensionFilterName)) {
   const std::string deprecated_name = "envoy.dynamic.ot";
 
   ASSERT_NE(nullptr, Registry::FactoryRegistry<Server::Configuration::TracerFactory>::getFactory(

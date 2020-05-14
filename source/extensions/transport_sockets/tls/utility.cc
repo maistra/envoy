@@ -1,5 +1,6 @@
 #include "extensions/transport_sockets/tls/utility.h"
 
+#include "openssl/err.h"
 #include "common/common/assert.h"
 #include "common/network/address_impl.h"
 
@@ -22,7 +23,7 @@ enum class CertName { Issuer, Subject };
  * @return std::string returns the desired name formatted as an RFC 2253 name.
  */
 std::string getRFC2253NameFromCertificate(X509& cert, CertName desired_name) {
-  bssl::UniquePtr<BIO> buf(BIO_new(BIO_s_mem()));
+ bssl::UniquePtr<BIO> buf(BIO_new(BIO_s_mem()));
   RELEASE_ASSERT(buf != nullptr, "");
 
   X509_NAME* name = nullptr;
@@ -34,7 +35,6 @@ std::string getRFC2253NameFromCertificate(X509& cert, CertName desired_name) {
     name = X509_get_subject_name(&cert);
     break;
   }
-
   // flags=XN_FLAG_RFC2253 is the documented parameter for single-line output in RFC 2253 format.
   // Example from the RFC:
   //   * Single value per Relative Distinguished Name (RDN): CN=Steve Kille,O=Isode Limited,C=GB
@@ -70,13 +70,16 @@ inline bssl::UniquePtr<ASN1_TIME> currentASN1_Time(TimeSource& time_source) {
 
 std::string Utility::getSerialNumberFromCertificate(X509& cert) {
   ASN1_INTEGER* serial_number = X509_get_serialNumber(&cert);
-  BIGNUM num_bn;
-  BN_init(&num_bn);
-  ASN1_INTEGER_to_BN(serial_number, &num_bn);
-  char* char_serial_number = BN_bn2hex(&num_bn);
-  BN_free(&num_bn);
+  BIGNUM* num_bn(BN_new());
+  ASN1_INTEGER_to_BN(serial_number, num_bn);
+  char* char_serial_number = BN_bn2hex(num_bn);
+  BN_free(num_bn);
   if (char_serial_number != nullptr) {
     std::string serial_number(char_serial_number);
+
+    // openssl is uppercase, boringssl is lowercase. So convert
+    std::transform(serial_number.begin(), serial_number.end(), serial_number.begin(), ::tolower);
+
     OPENSSL_free(char_serial_number);
     return serial_number;
   }
@@ -153,7 +156,7 @@ int32_t Utility::getDaysUntilExpiration(const X509* cert, TimeSource& time_sourc
   return 0;
 }
 
-absl::string_view Utility::getCertificateExtensionValue(X509& cert,
+absl::string_view Utility::getCertificateExtensionValue(const X509& cert,
                                                         absl::string_view extension_name) {
   bssl::UniquePtr<ASN1_OBJECT> oid(
       OBJ_txt2obj(std::string(extension_name).c_str(), 1 /* don't search names */));

@@ -28,7 +28,6 @@ envoy_cc_test(
     # TODO(wrowe): Diagnose timeout error on Windows (skipped for the moment)
     tags = ["fails_on_windows"],
     deps = [
-        ":test_private_key_method_provider_test_lib",
         "//include/envoy/network:transport_socket_interface",
         "//source/common/buffer:buffer_lib",
         "//source/common/common:empty_string",
@@ -43,6 +42,7 @@ envoy_cc_test(
         "//source/common/stream_info:stream_info_lib",
         "//source/extensions/transport_sockets/tls:context_config_lib",
         "//source/extensions/transport_sockets/tls:context_lib",
+        "//source/extensions/transport_sockets/tls:openssl_impl_lib",
         "//source/extensions/transport_sockets/tls:ssl_socket_lib",
         "//source/extensions/transport_sockets/tls:utility_lib",
         "//source/extensions/transport_sockets/tls/private_key:private_key_manager_lib",
@@ -104,16 +104,16 @@ envoy_cc_test(
     ],
 )
 
-envoy_cc_test(
-    name = "io_handle_bio_test",
-    srcs = ["io_handle_bio_test.cc"],
-    external_deps = ["ssl"],
-    deps = [
-        ":ssl_test_utils",
-        "//source/extensions/transport_sockets/tls:ssl_socket_lib",
-        "//test/mocks/network:io_handle_mocks",
-    ],
-)
+#envoy_cc_test(
+#    name = "io_handle_bio_test",
+#    srcs = ["io_handle_bio_test.cc"],
+#    external_deps = ["ssl"],
+#    deps = [
+#        ":ssl_test_utils",
+#        "//source/extensions/transport_sockets/tls:ssl_socket_lib",
+#        "//test/mocks/network:io_handle_mocks",
+#    ],
+#)
 
 envoy_cc_test(
     name = "utility_test",
@@ -125,7 +125,10 @@ envoy_cc_test(
         "//test/extensions/transport_sockets/tls/ocsp:gen_ocsp_data",
         "//test/extensions/transport_sockets/tls/test_data:certs",
     ],
-    external_deps = ["ssl"],
+    external_deps = [
+        "ssl",
+        "bssl_wrapper_lib",
+    ],
     deps = [
         ":ssl_test_utils",
         "//source/extensions/transport_sockets/tls:utility_lib",
@@ -143,27 +146,6 @@ envoy_cc_test_library(
     deps = [
         "//source/extensions/transport_sockets/tls:utility_lib",
         "//test/test_common:environment_lib",
-    ],
-)
-
-envoy_cc_test_library(
-    name = "test_private_key_method_provider_test_lib",
-    srcs = [
-        "test_private_key_method_provider.cc",
-    ],
-    hdrs = [
-        "test_private_key_method_provider.h",
-    ],
-    external_deps = ["ssl"],
-    deps = [
-        "//include/envoy/api:api_interface",
-        "//include/envoy/event:dispatcher_interface",
-        "//include/envoy/server:transport_socket_config_interface",
-        "//include/envoy/ssl/private_key:private_key_config_interface",
-        "//include/envoy/ssl/private_key:private_key_interface",
-        "//source/common/config:utility_lib",
-        "//source/common/protobuf:utility_lib",
-        "@envoy_api//envoy/extensions/transport_sockets/tls/v3:pkg_cc_proto",
     ],
 )
 

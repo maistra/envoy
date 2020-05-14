@@ -53,6 +53,7 @@ envoy_cc_test(
     name = "ads_integration_test",
     size = "enormous",
     srcs = ["ads_integration_test.cc"],
+    tags = ["fails_on_windows"],
     deps = [
         ":ads_integration_lib",
         ":http_integration_lib",
@@ -73,6 +74,7 @@ envoy_cc_test(
 envoy_cc_test(
     name = "api_listener_integration_test",
     srcs = ["api_listener_integration_test.cc"],
+    tags = ["fails_on_windows"],
     deps = [
         ":http_integration_lib",
         "//test/mocks/http:stream_encoder_mock",
@@ -83,6 +85,7 @@ envoy_cc_test(
 envoy_cc_test(
     name = "api_version_integration_test",
     srcs = ["api_version_integration_test.cc"],
+    tags = ["fails_on_windows"],
     deps = [
         ":http_integration_lib",
         "@envoy_api//envoy/api/v2:pkg_cc_proto",
