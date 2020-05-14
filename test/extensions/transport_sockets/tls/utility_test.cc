@@ -2,6 +2,7 @@
 #include <vector>
 
 #include "extensions/transport_sockets/tls/utility.h"
+#include "openssl/err.h"
 
 #include "test/extensions/transport_sockets/tls/ssl_test_utility.h"
 #include "test/extensions/transport_sockets/tls/test_data/long_validity_cert_info.h"
@@ -121,7 +122,7 @@ TEST(UtilityTest, GetLastCryptoError) {
 
   ERR_put_error(ERR_LIB_SSL, 0, ERR_R_MALLOC_FAILURE, __FILE__, __LINE__);
   EXPECT_EQ(Utility::getLastCryptoError().value(),
-            "error:10000041:SSL routines:OPENSSL_internal:malloc failure");
+            "error:14000041:SSL routines:SSL routines:malloc failure");
 
   // We consumed the last error, so back to not having an error to get.
   EXPECT_FALSE(Utility::getLastCryptoError().has_value());

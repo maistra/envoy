@@ -267,20 +267,20 @@ envoy_cc_test(
 )
 
 # Stand-alone quic test because of FIPS.
-envoy_cc_test(
-    name = "listener_manager_impl_quic_only_test",
-    srcs = ["listener_manager_impl_quic_only_test.cc"],
-    tags = ["nofips"],
-    deps = [
-        ":listener_manager_impl_test_lib",
-        ":utility_lib",
-        "//source/extensions/quic_listeners/quiche:quic_factory_lib",
-        "//source/extensions/transport_sockets/raw_buffer:config",
-        "//test/test_common:threadsafe_singleton_injector_lib",
-        "@envoy_api//envoy/config/core/v3:pkg_cc_proto",
-        "@envoy_api//envoy/config/listener/v3:pkg_cc_proto",
-    ],
-)
+#envoy_cc_test(
+#    name = "listener_manager_impl_quic_only_test",
+#    srcs = ["listener_manager_impl_quic_only_test.cc"],
+#    tags = ["nofips"],
+#    deps = [
+#        ":listener_manager_impl_test_lib",
+#        ":utility_lib",
+#        "//source/extensions/quic_listeners/quiche:quic_factory_lib",
+#        "//source/extensions/transport_sockets/raw_buffer:config",
+#        "//test/test_common:threadsafe_singleton_injector_lib",
+#        "@envoy_api//envoy/config/core/v3:pkg_cc_proto",
+#        "@envoy_api//envoy/config/listener/v3:pkg_cc_proto",
+#    ],
+#)
 
 envoy_cc_test(
     name = "filter_chain_manager_impl_test",
@@ -319,11 +319,14 @@ envoy_cc_fuzz_test(
     corpus = "server_corpus",
     deps = [
         "//source/common/thread_local:thread_local_lib",
+        "//source/server:proto_descriptors_lib",
         "//source/server:server_lib",
         "//test/integration:integration_lib",
         "//test/mocks/server:options_mocks",
         "//test/mocks/server:hot_restart_mocks",
+	"//test/mocks/stats:stats_mocks",
         "//test/test_common:environment_lib",
+        "//test/test_common:test_time_lib",
     ] + select({
         "//bazel:windows_x86_64": envoy_all_extensions(WINDOWS_SKIP_TARGETS),
         "//bazel:linux_ppc": envoy_all_extensions(PPC_SKIP_TARGETS),

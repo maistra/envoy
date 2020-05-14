@@ -17,7 +17,6 @@
 #include "absl/types/optional.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "openssl/bytestring.h"
 #include "openssl/hmac.h"
 #include "openssl/sha.h"
 #include "zlib.h"
@@ -354,7 +353,8 @@ TEST_P(WasmCommonTest, IntrinsicGlobals) {
   auto vm_configuration = "globals";
   auto plugin_configuration = "";
   std::string code;
-  if (GetParam() != "null") {
+  // TODO twghu upstream 1.8 has "null" in place of "v8".
+  if (GetParam() == "v8") {
     code = TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(
         absl::StrCat("{{ test_rundir }}/test/extensions/common/wasm/test_data/test_cpp.wasm")));
   } else {
@@ -462,7 +462,7 @@ TEST_P(WasmCommonTest, Stats) {
   auto vm_configuration = "stats";
   auto plugin_configuration = "";
   std::string code;
-  if (GetParam() != "null") {
+  if (GetParam() == "v8") {
     code = TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(
         absl::StrCat("{{ test_rundir }}/test/extensions/common/wasm/test_data/test_cpp.wasm")));
   } else {

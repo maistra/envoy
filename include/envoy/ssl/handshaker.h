@@ -7,6 +7,7 @@
 #include "envoy/protobuf/message_validator.h"
 
 #include "openssl/ssl.h"
+#include "bssl_wrapper/bssl_wrapper.h"
 
 namespace Envoy {
 namespace Ssl {
