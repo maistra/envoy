@@ -95,30 +95,8 @@ if [[ `uname -m` == "ppc64le" ]]; then
 fi
 
 # Build wee8.
-if [[ -f /etc/centos-release ]] && [[ $$(cat /etc/centos-release) =~ "CentOS Linux release 7" ]] && [[ -x "$$(command -v gn)" ]]; then
-  # Using system default gn tools
-  # This is done only for CentOS 7, as it has an old version of GLIBC which is otherwise incompatible
-  gn=$$(command -v gn)
-elif [[ "$$(uname -s)" == "Darwin" ]]; then
-  gn=buildtools/mac/gn
-elif [[ "$$(uname -s)-$$(uname -m)" == "Linux-x86_64" ]]; then
-  gn=buildtools/linux64/gn
-else
-  # Using system default gn tools
-  gn=$$(command -v gn)
-fi
-
-if [[ "$$(uname -s)" == "Darwin" ]]; then
-  ninja=third_party/depot_tools/ninja
-elif [[ "$$(uname -s)-$$(uname -m)" == "Linux-x86_64" ]]; then
-  ninja=third_party/depot_tools/ninja
-else
-  # Using system default ninja tools
-  ninja=$$(command -v ninja)
-fi
-
-"$$gn" gen out/wee8 --args="$$WEE8_BUILD_ARGS"
-"$$ninja" -C out/wee8 wee8
+third_party/depot_tools/gn gen out/wee8 --args="$$WEE8_BUILD_ARGS"
+ninja -C out/wee8 wee8
 
 # Move compiled library to the expected destinations.
 popd
