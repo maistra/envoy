@@ -322,7 +322,7 @@ public:
     static const std::vector<google::api::expr::runtime::CelAttributePattern> empty;
     return empty;
   }
-  const Protobuf::FieldMask unknown_paths() const override {
+  const Protobuf::FieldMask& unknown_paths() const override {
     return Protobuf::FieldMask::default_instance();
   }
 
@@ -345,6 +345,8 @@ public:
   virtual bool isSsl();
 
   void addAfterVmCallAction(std::function<void()> f);
+
+  void setInVmContextCreatedForTesting() { in_vm_context_created_ = true; }
 
 protected:
   friend class Wasm;
