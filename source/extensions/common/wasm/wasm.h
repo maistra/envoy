@@ -1,8 +1,8 @@
 #pragma once
 
 #include <atomic>
-#include <deque>
 #include <chrono>
+#include <deque>
 #include <map>
 #include <memory>
 
@@ -148,6 +148,7 @@ public:
   }
   void initializeLifecycle(Server::ServerLifecycleNotifier& lifecycle_notifier);
   void initializeStats();
+  void clearRootContexts() { root_contexts_.clear(); }
 
 private:
   friend class Context;
