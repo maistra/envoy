@@ -345,11 +345,19 @@ genrule(
     cmd = """>$@""",
 )
 
+genrule(
+    name = "generate_openssl_version",
+    outs = ["openssl_version.h"],
+    cmd = "$(location :generate_openssl_version.sh) >> $@",
+    tools = [":generate_openssl_version.sh"],
+)
+
 envoy_cc_library(
     name = "version_includes",
     hdrs = [
         "version.h",
         ":generate_version_number",
+        ":generate_openssl_version",
     ],
     deps = [
         "//source/common/singleton:const_singleton",
@@ -366,7 +374,6 @@ envoy_cc_library(
         # This is done so that the definitions linked via the linkstamp rule don't cause collisions.
         "//conditions:default": [":generate_version_linkstamp_empty"],
     }),
-    copts = ["-DENVOY_SSL_VERSION=\\\"OpenSSL_1.1.1d\\\""],
     linkstamp = "version_linkstamp.cc",
     strip_include_prefix = select({
         "//bazel:manual_stamp": "lib",

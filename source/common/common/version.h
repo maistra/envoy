@@ -5,6 +5,7 @@
 #include "envoy/config/core/v3/base.pb.h"
 
 #include "common/common/version_number.h"
+#include "common/common/openssl_version.h"
 #include "common/singleton/const_singleton.h"
 
 namespace Envoy {
