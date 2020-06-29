@@ -330,7 +330,6 @@ REPOSITORY_LOCATIONS = dict(
         strip_prefix = "upb-a1c2caeb25b21644700b9423da573b1ccddc35a7",
         # 2020-06-29
         urls = ["https://github.com/protocolbuffers/upb/archive/a1c2caeb25b21644700b9423da573b1ccddc35a7.tar.gz"],
-        urls = ["https://github.com/protocolbuffers/upb/archive/8a3ae1ef3e3e3f26b45dec735c5776737fc7247f.tar.gz"],
     ),
     kafka_source = dict(
         sha256 = "e7b748a62e432b5770db6dbb3b034c68c0ea212812cb51603ee7f3a8a35f06be",
