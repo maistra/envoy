@@ -326,9 +326,10 @@ REPOSITORY_LOCATIONS = dict(
         urls = ["https://github.com/fuzzitdev/fuzzit/releases/download/v2.4.76/fuzzit_Linux_x86_64.zip"],
     ),
     upb = dict(
-        sha256 = "e9f281c56ab1eb1f97a80ca8a83bb7ef73d230eabb8591f83876f4e7b85d9b47",
-        strip_prefix = "upb-8a3ae1ef3e3e3f26b45dec735c5776737fc7247f",
-        # 2019-11-19
+        sha256 = "91fa3fc98538f643904b86660298a26f38259e6a51d79eb6924f8be8bdc9975e",
+        strip_prefix = "upb-a1c2caeb25b21644700b9423da573b1ccddc35a7",
+        # 2020-06-29
+        urls = ["https://github.com/protocolbuffers/upb/archive/a1c2caeb25b21644700b9423da573b1ccddc35a7.tar.gz"],
         urls = ["https://github.com/protocolbuffers/upb/archive/8a3ae1ef3e3e3f26b45dec735c5776737fc7247f.tar.gz"],
     ),
     kafka_source = dict(
