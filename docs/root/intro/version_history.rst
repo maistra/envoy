@@ -7,6 +7,25 @@ Version history
 * listeners: fixed issue where :ref:`TLS inspector listener filter <config_listener_filters_tls_inspector>` could have been bypassed by a client using only TLS 1.3.
 * sds: fixed the SDS vulnerability that TLS validation context (e.g., subject alt name or hash) cannot be effectively validated in some cases.
 * http: added HTTP/1.1 flood protection. Can be temporarily disabled using the runtime feature `envoy.reloadable_features.http1_flood_protection`.
+1.12.5 (Pending)
+================
+* http: the :ref:`stream_idle_timeout <envoy_api_field_config.filter.network.http_connection_manager.v2.HttpConnectionManager.stream_idle_timeout>`
+  now also defends against an HTTP/2 peer that does not open stream window once an entire response has been buffered to be sent to a downstream client.
+* listener: add runtime support for `per-listener limits <config_listeners_runtime>` on active/accepted connections.
+* overload management: add runtime support for :ref:`global limits <config_overload_manager>` on active/accepted connections.
+
+1.12.4 (June 8, 2020)
+=====================
+* http: added :ref:`headers_with_underscores_action setting <envoy_api_field_core.HttpProtocolOptions.headers_with_underscores_action>` to control how client requests with header names containing underscore characters are handled. The options are to allow such headers, reject request or drop headers. The default is to allow headers, preserving existing behavior.
+* http: fixed CVE-2020-11080 by rejecting HTTP/2 SETTINGS frames with too many parameters.
+
+1.12.3 (March 3, 2020)
+======================
+* buffer: force copy when appending small slices to OwnedImpl buffer to avoid fragmentation.
+* http: added HTTP/1.1 flood protection. Can be temporarily disabled using the runtime feature `envoy.reloadable_features.http1_flood_protection`.
+* listeners: fixed issue where :ref:`TLS inspector listener filter <config_listener_filters_tls_inspector>` could have been bypassed by a client using only TLS 1.3.
+* rbac: added :ref:`url_path <envoy_api_field_config.rbac.v2.Permission.url_path>` for matching URL path without the query and fragment string.
+* sds: fixed the SDS vulnerability that TLS validation context (e.g., subject alt name or hash) cannot be effectively validated in some cases.
 
 1.12.2 (December 10, 2019)
 ==========================
