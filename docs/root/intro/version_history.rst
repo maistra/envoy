@@ -1,6 +1,20 @@
 Version history
 ---------------
 
+1.14.3 (Pending)
+================
+* http: the :ref:`stream_idle_timeout <envoy_api_field_config.filter.network.http_connection_manager.v2.HttpConnectionManager.stream_idle_timeout>`
+  now also defends against an HTTP/2 peer that does not open stream window once an entire response
+  has been buffered to be sent to a downstream client.
+* listener: add runtime support for `per-listener limits <config_listeners_runtime>` on
+  active/accepted connections.
+* overload management: add runtime support for :ref:`global limits <config_overload_manager>`
+  on active/accepted connections.
+
+1.14.2 (June 8, 2020)
+=====================
+* http: fixed CVE-2020-11080 by rejecting HTTP/2 SETTINGS frames with too many parameters.
+
 1.14.1 (April 8, 2020)
 ======================
 * request_id_extension: fixed static initialization for noop request id extension.
