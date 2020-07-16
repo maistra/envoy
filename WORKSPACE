@@ -25,3 +25,4 @@ new_local_repository(
     path = "/usr/lib64/",
     build_file = "openssl.BUILD"
 )
+
