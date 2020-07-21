@@ -95,10 +95,10 @@ DEPENDENCY_REPOSITORIES = dict(
         cpe = "N/A",
     ),
     com_google_absl = dict(
-        sha256 = "cd477bfd0d19f803f85d118c7943b7908930310d261752730afa981118fee230",
-        strip_prefix = "abseil-cpp-ca9856cabc23d771bcce634677650eb6fc4363ae",
-        # 2020-04-30
-        urls = ["https://github.com/abseil/abseil-cpp/archive/ca9856cabc23d771bcce634677650eb6fc4363ae.tar.gz"],
+        sha256 = "ec8ef47335310cc3382bdc0d0cc1097a001e67dc83fcba807845aa5696e7e1e4",
+        strip_prefix = "abseil-cpp-302b250e1d917ede77b5ff00a6fd9f28430f1563",
+        # 2020-07-13
+        urls = ["https://github.com/abseil/abseil-cpp/archive/302b250e1d917ede77b5ff00a6fd9f28430f1563.tar.gz"],
         use_category = ["dataplane", "controlplane"],
         cpe = "N/A",
     ),
@@ -387,20 +387,6 @@ DEPENDENCY_REPOSITORIES = dict(
         urls = ["https://files.pythonhosted.org/packages/dd/bf/4138e7bfb757de47d1f4b6994648ec67a51efe58fa907c1e11e350cddfca/six-1.12.0.tar.gz"],
         use_category = ["other"],
     ),
-    org_llvm_llvm = dict(
-        sha256 = "44787a6d02f7140f145e2250d56c9f849334e11f9ae379827510ed72f12b75e7",
-        strip_prefix = "llvm-8.0.1.src",
-        urls = ["https://github.com/llvm/llvm-project/releases/download/llvmorg-8.0.1/llvm-8.0.1.src.tar.xz"],
-        use_category = ["dataplane"],
-        cpe = "N/A",
-    ),
-    com_github_wavm_wavm = dict(
-        sha256 = "48939906ff44a0e26e2c4c63132eebd75cfd768fac989a874395121e139933ec",
-        strip_prefix = "WAVM-1ec06cd202a922015c9041c5ed84f875453c4dc7",
-        urls = ["https://github.com/WAVM/WAVM/archive/1ec06cd202a922015c9041c5ed84f875453c4dc7.tar.gz"],
-        use_category = ["dataplane"],
-        cpe = "N/A",
-    ),
     io_opencensus_cpp = dict(
         sha256 = "193ffb4e13bd7886757fd22b61b7f7a400634412ad8e7e1071e73f57bedd7fc6",
         strip_prefix = "opencensus-cpp-04ed0211931f12b03c1a76b3907248ca4db7bc90",
@@ -502,16 +488,16 @@ DEPENDENCY_REPOSITORIES = dict(
         use_category = ["test"],
     ),
     proxy_wasm_cpp_sdk = dict(
-        sha256 = "76f4d8e8a41b59668272e58e68ded1661a0f9c1672bdab8673a076ebf20d1fe5",
-        strip_prefix = "proxy-wasm-cpp-sdk-35163bbf32fccfbde7b95d909a392dc1dc562596",
-        urls = ["https://github.com/proxy-wasm/proxy-wasm-cpp-sdk/archive/35163bbf32fccfbde7b95d909a392dc1dc562596.tar.gz"],
+        sha256 = "eba429ae0068508c4c20980803fd20b991c3d5d1604e8ef61ac8cb309e6867ed",
+        strip_prefix = "proxy-wasm-cpp-sdk-4ee6ace4fe529b9fdbffa76f34eb6deffe72c1a2",
+        urls = ["https://github.com/proxy-wasm/proxy-wasm-cpp-sdk/archive/4ee6ace4fe529b9fdbffa76f34eb6deffe72c1a2.tar.gz"],
         use_category = ["dataplane"],
         cpe = "N/A",
     ),
     proxy_wasm_cpp_host = dict(
-        sha256 = "3148cbf247aaf416af1c32ba525acc6d12ff4b92a08e24f7c875b54c44866c86",
-        strip_prefix = "proxy-wasm-cpp-host-b6c4b8183afaada2cd4b6c79948d72b9426952f8",
-        urls = ["https://github.com/proxy-wasm/proxy-wasm-cpp-host/archive/b6c4b8183afaada2cd4b6c79948d72b9426952f8.tar.gz"],
+        sha256 = "a93aabeed810ef65078aeb6f10f9594c74ce131a5c1bdb064b1a6e92a36d8b78",
+        strip_prefix = "proxy-wasm-cpp-host-646d814b32692e2c40a8bd97cd3a100fb97dfb26",
+        urls = ["https://github.com/proxy-wasm/proxy-wasm-cpp-host/archive/646d814b32692e2c40a8bd97cd3a100fb97dfb26.tar.gz"],
         use_category = ["dataplane"],
         cpe = "N/A",
     ),

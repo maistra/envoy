@@ -64,12 +64,7 @@ public:
   void SetUp() { clearCodeCacheForTesting(false); }
 };
 
-INSTANTIATE_TEST_SUITE_P(Runtimes, WasmCommonTest,
-                         testing::Values("v8",
-#if defined(ENVOY_WASM_WAVM)
-                                         "wavm",
-#endif
-                                         "null"));
+INSTANTIATE_TEST_SUITE_P(Runtimes, WasmCommonTest, testing::Values("v8", "null"));
 TEST_P(WasmCommonTest, Logging) {
   Stats::IsolatedStoreImpl stats_store;
   Api::ApiPtr api = Api::createApiForTest(stats_store);
@@ -83,7 +78,7 @@ TEST_P(WasmCommonTest, Logging) {
   auto vm_configuration = "logging";
   auto plugin_configuration = "configure-test";
   std::string code;
-  if (GetParam() == "v8") {
+  if (GetParam() != "null") {
     code = TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(
         absl::StrCat("{{ test_rundir }}/test/extensions/common/wasm/test_data/test_cpp.wasm")));
   } else {
