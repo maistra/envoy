@@ -205,6 +205,7 @@ public:
   // General
   WasmResult log(uint32_t level, absl::string_view message) override;
   uint64_t getCurrentTimeNanoseconds() override;
+  absl::string_view getConfiguration() override;
   std::pair<uint32_t, absl::string_view> getStatus() override;
 
   // State accessors
@@ -219,6 +220,11 @@ public:
   WasmResult sendLocalResponse(uint32_t response_code, absl::string_view body_text,
                                Pairs additional_headers, uint32_t grpc_status,
                                absl::string_view details) override;
+  void clearRouteCache() override {
+    if (decoder_callbacks_) {
+      decoder_callbacks_->clearRouteCache();
+    }
+  }
 
   // Header/Trailer/Metadata Maps
   WasmResult addHeaderMapValue(WasmHeaderMapType type, absl::string_view key,
@@ -309,13 +315,6 @@ protected:
 
   void addAfterVmCallAction(std::function<void()> f);
   void onCloseTCP();
-
-  virtual absl::string_view getConfiguration();
-  virtual void clearRouteCache() {
-    if (decoder_callbacks_) {
-      decoder_callbacks_->clearRouteCache();
-    }
-  }
 
   struct AsyncClientHandler : public Http::AsyncClient::Callbacks {
     // Http::AsyncClient::Callbacks
