@@ -16,6 +16,7 @@ envoy_extension_cc_test(
     size = "large",
     srcs = ["wasm_filter_test.cc"],
     data = [
+        "//test/extensions/filters/http/wasm/test_data:modules",
         "//test/extensions/filters/http/wasm/test_data:test_cpp.wasm",
     ],
     extension_name = "envoy.filters.http.wasm",
@@ -30,6 +31,7 @@ envoy_extension_cc_test(
     name = "config_test",
     srcs = ["config_test.cc"],
     data = [
+        "//test/extensions/filters/http/wasm/test_data:modules",
         "//test/extensions/filters/http/wasm/test_data:test_cpp.wasm",
     ],
     extension_name = "envoy.filters.http.wasm",

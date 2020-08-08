@@ -37,14 +37,14 @@ public:
   MOCK_CONTEXT_LOG_;
 };
 
-class WasmNetworkFilterTest
-    : public Common::Wasm::WasmNetworkFilterTestBase<testing::TestWithParam<std::string>> {
+class WasmNetworkFilterTest : public Common::Wasm::WasmNetworkFilterTestBase<
+                                  testing::TestWithParam<std::tuple<std::string, std::string>>> {
 public:
   WasmNetworkFilterTest() {}
   ~WasmNetworkFilterTest() {}
 
   void setupConfig(const std::string& code) {
-    setupBase(GetParam(), code,
+    setupBase(std::get<0>(GetParam()), code,
               [](Wasm* wasm, const std::shared_ptr<Plugin>& plugin) -> ContextBase* {
                 return new TestRoot(wasm, plugin);
               });
@@ -55,7 +55,8 @@ public:
   TestFilter& filter() { return *static_cast<TestFilter*>(context_.get()); }
 };
 
-INSTANTIATE_TEST_SUITE_P(Runtimes, WasmNetworkFilterTest, testing::Values("v8", "null"));
+INSTANTIATE_TEST_SUITE_P(RuntimesAndLanguages, WasmNetworkFilterTest,
+                         testing::Combine(testing::Values("v8"), testing::Values("cpp", "rust")));
 
 // Bad code in initial config.
 TEST_P(WasmNetworkFilterTest, BadCode) {
@@ -71,9 +72,10 @@ TEST_P(WasmNetworkFilterTest, BadCode) {
 // Test happy path.
 TEST_P(WasmNetworkFilterTest, HappyPath) {
   const std::string code =
-      GetParam() != "null"
-          ? TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(
-                "{{ test_rundir }}/test/extensions/filters/network/wasm/test_data/test_cpp.wasm"))
+      std::get<0>(GetParam()) != "null"
+          ? TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(absl::StrCat(
+                "{{ test_rundir }}/test/extensions/filters/network/wasm/test_data/",
+                std::get<1>(GetParam()) == "cpp" ? "test_cpp" : "logging_rust", ".wasm")))
           : "NetworkTestCpp";
   setupConfig(code);
   setupFilter();
