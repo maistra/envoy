@@ -73,24 +73,26 @@ DEPENDENCY_REPOSITORIES = dict(
         urls = ["https://github.com/envoyproxy/envoy-build-tools/archive/557ee9b44a3d08cf38d9ce6f08adb872c385d6a5.tar.gz"],
         use_category = ["build"],
     ),
-    boringssl = dict(
-        sha256 = "07f1524766b9ed1543674b48e7fce7e3569b6e2b6c0c43ec124dedee9b60f641",
-        strip_prefix = "boringssl-a0899df79b3a63e606448c72d63a090d86bdb75b",
-        # To update BoringSSL, which tracks Chromium releases:
-        # 1. Open https://omahaproxy.appspot.com/ and note <current_version> of linux/stable release.
-        # 2. Open https://chromium.googlesource.com/chromium/src/+/refs/tags/<current_version>/DEPS and note <boringssl_revision>.
-        # 3. Find a commit in BoringSSL's "master-with-bazel" branch that merges <boringssl_revision>.
-        #
-        # chromium-84.0.4147.45(beta)
-        # 2020-05-14
-        urls = ["https://github.com/google/boringssl/archive/a0899df79b3a63e606448c72d63a090d86bdb75b.tar.gz"],
+    com_github_openssl_openssl = dict(
+        sha256 = "cf26f056a955cff721d3a3c08d8126d1e4f69803e08c9600dac3b6b7158586d6",
+        strip_prefix = "openssl-894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596",
+        urls = ["https://github.com/openssl/openssl/archive/894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596.tar.gz"],
+        use_category = ["dataplane"],
+        cpe = "N/A",
+     ),
+    #EXTERNAL OPENSSL
+    bssl_wrapper = dict(
+        sha256 = "d84ea7d190210145695e5b172e8e6fb23f3464360da5efab5a1ae1a973c21f57",
+        strip_prefix = "bssl_wrapper-c9649facde3ab1d8bc871c7375a8946c50950e97",
+        urls = ["https://github.com/maistra/bssl_wrapper/archive/c9649facde3ab1d8bc871c7375a8946c50950e97.tar.gz"],
         use_category = ["dataplane"],
         cpe = "N/A",
     ),
-    boringssl_fips = dict(
-        sha256 = "3b5fdf23274d4179c2077b5e8fa625d9debd7a390aac1d165b7e47234f648bb8",
-        # fips-20190808
-        urls = ["https://commondatastorage.googleapis.com/chromium-boringssl-fips/boringssl-ae223d6138807a13006342edfeef32e813246b39.tar.xz"],
+    #EXTERNAL OPENSSL
+    openssl_cbs = dict(
+        sha256 = "f466ca7bc4b876cfa9edb4870275207e580588f85f8fae268c40277846a6d8de",
+        strip_prefix = "openssl-cbs-dab3282af49f134766abcda5f95cbb19057a53d1",
+        urls = ["https://github.com/maistra/openssl-cbs/archive/dab3282af49f134766abcda5f95cbb19057a53d1.tar.gz"],
         use_category = ["dataplane"],
         cpe = "N/A",
     ),

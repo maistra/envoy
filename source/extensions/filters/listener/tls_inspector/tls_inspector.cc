@@ -16,6 +16,7 @@
 #include "extensions/transport_sockets/well_known_names.h"
 
 #include "openssl/ssl.h"
+#include "ssl/ssl_locl.h"
 
 namespace Envoy {
 namespace Extensions {
@@ -28,7 +29,8 @@ const unsigned Config::TLS_MAX_SUPPORTED_VERSION = TLS1_3_VERSION;
 
 Config::Config(Stats::Scope& scope, uint32_t max_client_hello_size)
     : stats_{ALL_TLS_INSPECTOR_STATS(POOL_COUNTER_PREFIX(scope, "tls_inspector."))},
-      ssl_ctx_(SSL_CTX_new(TLS_with_buffers_method())),
+      ssl_ctx_(
+          SSL_CTX_new(TLS_method())),
       max_client_hello_size_(max_client_hello_size) {
 
   if (max_client_hello_size_ > TLS_MAX_CLIENT_HELLO) {
@@ -40,27 +42,26 @@ Config::Config(Stats::Scope& scope, uint32_t max_client_hello_size)
   SSL_CTX_set_max_proto_version(ssl_ctx_.get(), TLS_MAX_SUPPORTED_VERSION);
   SSL_CTX_set_options(ssl_ctx_.get(), SSL_OP_NO_TICKET);
   SSL_CTX_set_session_cache_mode(ssl_ctx_.get(), SSL_SESS_CACHE_OFF);
-  SSL_CTX_set_select_certificate_cb(
-      ssl_ctx_.get(), [](const SSL_CLIENT_HELLO* client_hello) -> ssl_select_cert_result_t {
-        const uint8_t* data;
-        size_t len;
-        if (SSL_early_callback_ctx_extension_get(
-                client_hello, TLSEXT_TYPE_application_layer_protocol_negotiation, &data, &len)) {
-          Filter* filter = static_cast<Filter*>(SSL_get_app_data(client_hello->ssl));
-          filter->onALPN(data, len);
-        }
-        return ssl_select_cert_success;
-      });
+
   SSL_CTX_set_tlsext_servername_callback(
-      ssl_ctx_.get(), [](SSL* ssl, int* out_alert, void*) -> int {
+      ssl_ctx_.get(), +[](SSL* ssl, int* out_alert, void* arg) -> int {
         Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
         filter->onServername(
             absl::NullSafeStringView(SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)));
 
-        // Return an error to stop the handshake; we have what we wanted already.
         *out_alert = SSL_AD_USER_CANCELLED;
-        return SSL_TLSEXT_ERR_ALERT_FATAL;
+        return SSL_TLSEXT_ERR_OK;
       });
+
+  auto cert_cb = [](SSL* ssl, void* arg) -> int {
+    Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
+    // TODO (dmitri-d) move access to SSL internals into bssl_wrapper
+    filter->onALPN(ssl->s3->alpn_proposed, ssl->s3->alpn_proposed_len);
+
+    // Return an error to stop the handshake; we have what we wanted already.
+    return 0;
+  };
+  SSL_CTX_set_cert_cb(ssl_ctx_.get(), cert_cb, nullptr);
 }
 
 bssl::UniquePtr<SSL> Config::newSsl() { return bssl::UniquePtr<SSL>{SSL_new(ssl_ctx_.get())}; }
@@ -78,6 +79,7 @@ Network::FilterStatus Filter::onAccept(Network::ListenerFilterCallbacks& cb) {
   ENVOY_LOG(debug, "tls inspector: new connection accepted");
   Network::ConnectionSocket& socket = cb.socket();
   ASSERT(file_event_ == nullptr);
+
   cb_ = &cb;
 
   ParseState parse_state = onRead();
@@ -122,20 +124,9 @@ Network::FilterStatus Filter::onAccept(Network::ListenerFilterCallbacks& cb) {
 }
 
 void Filter::onALPN(const unsigned char* data, unsigned int len) {
-  CBS wire, list;
-  CBS_init(&wire, reinterpret_cast<const uint8_t*>(data), static_cast<size_t>(len));
-  if (!CBS_get_u16_length_prefixed(&wire, &list) || CBS_len(&wire) != 0 || CBS_len(&list) < 2) {
-    // Don't produce errors, let the real TLS stack do it.
+  std::vector<absl::string_view> protocols = getAlpnProtocols(data, len);
+  if (protocols.empty()) {
     return;
-  }
-  CBS name;
-  std::vector<absl::string_view> protocols;
-  while (CBS_len(&list) > 0) {
-    if (!CBS_get_u8_length_prefixed(&list, &name) || CBS_len(&name) == 0) {
-      // Don't produce errors, let the real TLS stack do it.
-      return;
-    }
-    protocols.emplace_back(reinterpret_cast<const char*>(CBS_data(&name)), CBS_len(&name));
   }
   cb_->socket().setRequestedApplicationProtocols(protocols);
   alpn_found_ = true;
@@ -153,6 +144,7 @@ void Filter::onServername(absl::string_view name) {
 }
 
 ParseState Filter::onRead() {
+	
   // This receive code is somewhat complicated, because it must be done as a MSG_PEEK because
   // there is no way for a listener-filter to pass payload data to the ConnectionImpl and filters
   // that get created later.
@@ -231,10 +223,26 @@ ParseState Filter::parseClientHello(const void* data, size_t len) {
     } else {
       config_->stats().tls_not_found_.inc();
     }
-    return ParseState::Done;
+      return ParseState::Done;
   default:
     return ParseState::Error;
   }
+}
+
+std::vector<absl::string_view> Filter::getAlpnProtocols(const unsigned char* data, unsigned int len) {
+  std::vector<absl::string_view> protocols;
+  absl::string_view str(reinterpret_cast<const char*>(data));
+  for (int i = 0; i < len;) {
+    uint32_t protocol_length = 0;
+    protocol_length <<= 8;
+    protocol_length |= data[i];
+    ++i;
+    absl::string_view protocol(str.substr(i, protocol_length));
+    protocols.push_back(protocol);
+    i += protocol_length;
+  }
+
+  return protocols;
 }
 
 } // namespace TlsInspector

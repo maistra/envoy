@@ -1224,16 +1224,16 @@ envoy_cc_fuzz_test(
     ],
 )
 
-envoy_cc_fuzz_test(
-    name = "h2_capture_direct_response_persistent_fuzz_test",
-    srcs = ["h2_capture_direct_response_fuzz_test.cc"],
-    copts = ["-DPERSISTENT_FUZZER"],
-    corpus = "h2_corpus",
-    deps = [
-        ":h2_fuzz_persistent_lib",
-        "@envoy_api//envoy/extensions/filters/network/http_connection_manager/v3:pkg_cc_proto",
-    ],
-)
+#envoy_cc_fuzz_test(
+#    name = "h2_capture_direct_response_persistent_fuzz_test",
+#    srcs = ["h2_capture_direct_response_fuzz_test.cc"],
+#    copts = ["-DPERSISTENT_FUZZER"],
+#    corpus = "h2_corpus",
+#    deps = [
+#        ":h2_fuzz_persistent_lib",
+#        "@envoy_api//envoy/extensions/filters/network/http_connection_manager/v3:pkg_cc_proto",
+#    ],
+#)
 
 envoy_cc_test(
     name = "scoped_rds_integration_test",

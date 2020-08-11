@@ -189,10 +189,11 @@ PostIoAction SslSocket::doHandshake() {
       ENVOY_CONN_LOG(debug, "handshake expecting {}", callbacks_->connection(),
                      err == SSL_ERROR_WANT_READ ? "read" : "write");
       return PostIoAction::KeepOpen;
-    case SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
-      ENVOY_CONN_LOG(debug, "handshake continued asynchronously", callbacks_->connection());
-      state_ = SocketState::HandshakeInProgress;
-      return PostIoAction::KeepOpen;
+// BoringSSL-specific error code
+//    case SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
+//      ENVOY_CONN_LOG(debug, "handshake continued asynchronously", callbacks_->connection());
+//      state_ = SocketState::HandshakeInProgress;
+//      return PostIoAction::KeepOpen;
     default:
       ENVOY_CONN_LOG(debug, "handshake error: {}", callbacks_->connection(), err);
       drainErrorQueue();
@@ -201,7 +202,7 @@ PostIoAction SslSocket::doHandshake() {
   }
 }
 
-void SslSocket::drainErrorQueue() {
+void SslSocket::drainErrorQueue(const bool show_errno) {
   bool saw_error = false;
   bool saw_counted_error = false;
   while (uint64_t err = ERR_get_error()) {
@@ -221,6 +222,9 @@ void SslSocket::drainErrorQueue() {
     failure_reason_.append(absl::StrCat(" ", err, ":", ERR_lib_error_string(err), ":",
                                         ERR_func_error_string(err), ":",
                                         ERR_reason_error_string(err)));
+  }
+  if (show_errno) {
+    ENVOY_CONN_LOG(debug, "errno:{}:{}", callbacks_->connection(), errno, strerror(errno), failure_reason_);
   }
   ENVOY_CONN_LOG(debug, "{}", callbacks_->connection(), failure_reason_);
   if (saw_error && !saw_counted_error) {
@@ -270,7 +274,7 @@ Network::IoResult SslSocket::doWrite(Buffer::Instance& write_buffer, bool end_st
       case SSL_ERROR_WANT_READ:
       // Renegotiation has started. We don't handle renegotiation so just fall through.
       default:
-        drainErrorQueue();
+        drainErrorQueue(err == SSL_ERROR_SYSCALL);
         return {PostIoAction::Close, total_bytes_written, false};
       }
 

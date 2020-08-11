@@ -249,27 +249,6 @@ envoy_cc_test(
     ],
 )
 
-# Stand-alone quic test because of FIPS.
-envoy_cc_test(
-    name = "listener_manager_impl_quic_only_test",
-    srcs = ["listener_manager_impl_quic_only_test.cc"],
-    tags = [
-        "nofips",
-        # Skipping as quiche quic_stream_send_buffer.cc does not currently compile on Windows
-        "skip_on_windows",
-    ],
-    deps = [
-        ":listener_manager_impl_test_lib",
-        ":utility_lib",
-        "//source/extensions/quic_listeners/quiche:active_quic_listener_config_lib",
-        "//source/extensions/quic_listeners/quiche:quic_transport_socket_factory_lib",
-        "//source/extensions/transport_sockets/raw_buffer:config",
-        "//test/test_common:threadsafe_singleton_injector_lib",
-        "@envoy_api//envoy/config/core/v3:pkg_cc_proto",
-        "@envoy_api//envoy/config/listener/v3:pkg_cc_proto",
-    ],
-)
-
 envoy_cc_test(
     name = "filter_chain_manager_impl_test",
     srcs = ["filter_chain_manager_impl_test.cc"],

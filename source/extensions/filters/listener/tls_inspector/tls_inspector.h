@@ -8,6 +8,7 @@
 
 #include "common/common/logger.h"
 
+#include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/ssl.h"
 
 namespace Envoy {
@@ -44,6 +45,7 @@ enum class ParseState {
   // Parser reports unrecoverable error.
   Error
 };
+
 /**
  * Global configuration for TLS inspector.
  */
@@ -76,12 +78,14 @@ public:
 
   // Network::ListenerFilter
   Network::FilterStatus onAccept(Network::ListenerFilterCallbacks& cb) override;
+  void onALPN(const unsigned char* data, unsigned int len);
+  void onCert();
 
 private:
+  std::vector<absl::string_view> getAlpnProtocols(const unsigned char* data, unsigned int len);
   ParseState parseClientHello(const void* data, size_t len);
   ParseState onRead();
   void done(bool success);
-  void onALPN(const unsigned char* data, unsigned int len);
   void onServername(absl::string_view name);
 
   ConfigSharedPtr config_;

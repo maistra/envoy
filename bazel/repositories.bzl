@@ -151,12 +151,13 @@ def envoy_dependencies(skip_targets = []):
     # Binding to an alias pointing to the selected version of BoringSSL:
     # - BoringSSL FIPS from @boringssl_fips//:ssl,
     # - non-FIPS BoringSSL from @boringssl//:ssl.
-    _boringssl()
-    _boringssl_fips()
-    native.bind(
-        name = "ssl",
-        actual = "@envoy//bazel:boringssl",
-    )
+
+    # EXTERNAL OPENSSL
+    _openssl()
+    _openssl_includes()
+    _bssl_wrapper()
+    _openssl_cbs()
+
 
     # The long repo names (`com_github_fmtlib_fmt` instead of `fmtlib`) are
     # semi-standard in the Bazel community, intended to avoid both duplicate
@@ -227,23 +228,44 @@ def envoy_dependencies(skip_targets = []):
         actual = "@bazel_tools//tools/cpp/runfiles",
     )
 
-def _boringssl():
+#EXTERNAL OPENSSL
+def _openssl():
+    native.bind(
+        name = "ssl",
+        actual = "@openssl//:openssl-lib",
+)
+
+def _openssl_includes():
     _repository_impl(
-        name = "boringssl",
+        name = "com_github_openssl_openssl",
+        build_file = "@envoy//bazel/external:openssl_includes.BUILD",
+        patches = [
+            "@envoy//bazel/external:openssl_includes-1.patch",
+        ],
         patch_args = ["-p1"],
-        patches = ["@envoy//bazel:boringssl_static.patch"],
+    )
+    native.bind(
+        name = "openssl_includes_lib",
+        actual = "@com_github_openssl_openssl//:openssl_includes_lib",
+)
+
+
+#EXTERNAL OPENSSL
+def _bssl_wrapper():
+    _repository_impl("bssl_wrapper")
+    native.bind(
+        name = "bssl_wrapper_lib",
+        actual = "@bssl_wrapper//:bssl_wrapper_lib",
     )
 
-def _boringssl_fips():
-    location = REPOSITORY_LOCATIONS["boringssl_fips"]
-    genrule_repository(
-        name = "boringssl_fips",
-        urls = location["urls"],
-        sha256 = location["sha256"],
-        genrule_cmd_file = "@envoy//bazel/external:boringssl_fips.genrule_cmd",
-        build_file = "@envoy//bazel/external:boringssl_fips.BUILD",
-        patches = ["@envoy//bazel/external:boringssl_fips.patch"],
+#EXTERNAL OPENSSL
+def _openssl_cbs():
+    _repository_impl("openssl_cbs")
+    native.bind(
+        name = "openssl_cbs_lib",
+        actual = "@openssl_cbs//:openssl_cbs_lib",
     )
+
 
 def _com_github_circonus_labs_libcircllhist():
     _repository_impl(

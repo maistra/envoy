@@ -924,11 +924,7 @@ TEST_F(ClientContextConfigImplTest, RSA1024Cert) {
 
   std::string error_msg(
       "Failed to load certificate chain from .*selfsigned_rsa_1024_cert.pem, only RSA certificates "
-#ifdef BORINGSSL_FIPS
-      "with 2048-bit or 3072-bit keys are supported in FIPS mode"
-#else
       "with 2048-bit or larger keys are supported"
-#endif
   );
   EXPECT_THROW_WITH_REGEX(manager.createSslClientContext(store, client_context_config),
                           EnvoyException, error_msg);
@@ -968,14 +964,7 @@ TEST_F(ClientContextConfigImplTest, RSA4096Cert) {
   Event::SimulatedTimeSystem time_system;
   ContextManagerImpl manager(time_system);
   Stats::IsolatedStoreImpl store;
-#ifdef BORINGSSL_FIPS
-  EXPECT_THROW_WITH_REGEX(
-      manager.createSslClientContext(store, client_context_config), EnvoyException,
-      "Failed to load certificate chain from .*selfsigned_rsa_4096_cert.pem, only RSA certificates "
-      "with 2048-bit or 3072-bit keys are supported in FIPS mode");
-#else
   manager.createSslClientContext(store, client_context_config);
-#endif
 }
 
 // Validate that P256 ECDSA certs load.
@@ -1527,6 +1516,8 @@ TEST_F(ServerContextConfigImplTest, PrivateKeyMethodLoadFailureNoProvider) {
       "Failed to load incomplete certificate from ");
 }
 
+// TODO (dmitri-d) we do not support key providers under OpenSSL atm.
+/*
 TEST_F(ServerContextConfigImplTest, PrivateKeyMethodLoadFailureNoMethod) {
   envoy::extensions::transport_sockets::tls::v3::DownstreamTlsContext tls_context;
   tls_context.mutable_common_tls_context()->add_tls_certificates();
@@ -1561,6 +1552,7 @@ TEST_F(ServerContextConfigImplTest, PrivateKeyMethodLoadFailureNoMethod) {
           manager.createSslServerContext(store, server_context_config, std::vector<std::string>{})),
       EnvoyException, "Failed to get BoringSSL private key method from provider");
 }
+*/
 
 TEST_F(ServerContextConfigImplTest, PrivateKeyMethodLoadSuccess) {
   envoy::extensions::transport_sockets::tls::v3::DownstreamTlsContext tls_context;

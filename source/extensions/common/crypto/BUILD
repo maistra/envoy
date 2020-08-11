@@ -20,6 +20,7 @@ envoy_cc_extension(
     ],
     external_deps = [
         "ssl",
+	"bssl_wrapper_lib",
     ],
     security_posture = "unknown",
     undocumented = True,
