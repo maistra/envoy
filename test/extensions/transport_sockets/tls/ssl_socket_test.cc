@@ -3282,17 +3282,15 @@ TEST_P(SslSocketTest, ProtocolVersions) {
   client_params->clear_tls_minimum_protocol_version();
   client_params->clear_tls_maximum_protocol_version();
 
-  // Connection using TLSv1.3 (client) and defaults (server) succeeds (non-FIPS) or fails (FIPS).
+  // Connection using TLSv1.3 (client) and defaults (server) succeeds.
   client_params->set_tls_minimum_protocol_version(envoy::api::v2::auth::TlsParameters::TLSv1_3);
   client_params->set_tls_maximum_protocol_version(envoy::api::v2::auth::TlsParameters::TLSv1_3);
   TestUtilOptionsV2 tls_v1_3_test_options =
       createProtocolTestOptions(listener, client, GetParam(), "TLSv1.3");
   TestUtilOptionsV2 error_test_options(listener, client, false, GetParam());
   error_test_options.setExpectedServerStats("ssl.connection_error")
-      .setExpectedTransportFailureReasonContains("tlsv1 alert protocol version");
-
+      .setExpectedTransportFailureReasonContains("TLSV1_ALERT_PROTOCOL_VERSION");
   testUtilV2(tls_v1_3_test_options);
-
   client_params->clear_tls_minimum_protocol_version();
   client_params->clear_tls_maximum_protocol_version();
 
@@ -3300,7 +3298,6 @@ TEST_P(SslSocketTest, ProtocolVersions) {
   client_params->set_tls_minimum_protocol_version(envoy::api::v2::auth::TlsParameters::TLSv1_0);
   client_params->set_tls_maximum_protocol_version(envoy::api::v2::auth::TlsParameters::TLSv1_3);
   testUtilV2(tls_v1_3_test_options);
-
   client_params->clear_tls_minimum_protocol_version();
   client_params->clear_tls_maximum_protocol_version();
 
