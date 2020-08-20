@@ -3289,7 +3289,7 @@ TEST_P(SslSocketTest, ProtocolVersions) {
       createProtocolTestOptions(listener, client, GetParam(), "TLSv1.3");
   TestUtilOptionsV2 error_test_options(listener, client, false, GetParam());
   error_test_options.setExpectedServerStats("ssl.connection_error")
-      .setExpectedTransportFailureReasonContains("TLSV1_ALERT_PROTOCOL_VERSION");
+      .setExpectedTransportFailureReasonContains("tlsv1 alert protocol version");
   testUtilV2(tls_v1_3_test_options);
   client_params->clear_tls_minimum_protocol_version();
   client_params->clear_tls_maximum_protocol_version();
