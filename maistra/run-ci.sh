@@ -28,5 +28,6 @@ time bazel test \
   --local_resources 12288,4.0,1.0 \
   --jobs=4 \
   --build_tests_only \
+  --test_env=ENVOY_IP_TEST_VERSIONS=v4only \
   --test_output=all \
   //test/...
