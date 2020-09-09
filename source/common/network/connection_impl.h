@@ -178,6 +178,7 @@ private:
   void onDelayedCloseTimeout();
 
   void initializeDelayedCloseTimer();
+  void enableDelayedCloseTimer();
   bool inDelayedClose() const { return delayed_close_state_ != DelayedCloseState::None; }
 
   static std::atomic<uint64_t> next_global_id_;
@@ -200,6 +201,7 @@ private:
   Event::Dispatcher& dispatcher_;
   const uint64_t id_;
   Event::TimerPtr delayed_close_timer_;
+  MonotonicTime last_timer_enable_;
   std::list<ConnectionCallbacks*> callbacks_;
   std::list<BytesSentCb> bytes_sent_callbacks_;
   // Tracks the number of times reads have been disabled. If N different components call
