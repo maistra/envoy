@@ -150,6 +150,7 @@ protected:
   Buffer::InstancePtr write_buffer_;
   uint32_t read_buffer_limit_ = 0;
   std::chrono::milliseconds delayed_close_timeout_{0};
+  MonotonicTime last_timer_enable_;
 
 protected:
   bool connecting_{false};
@@ -201,7 +202,6 @@ private:
   Event::Dispatcher& dispatcher_;
   const uint64_t id_;
   Event::TimerPtr delayed_close_timer_;
-  MonotonicTime last_timer_enable_;
   std::list<ConnectionCallbacks*> callbacks_;
   std::list<BytesSentCb> bytes_sent_callbacks_;
   // Tracks the number of times reads have been disabled. If N different components call

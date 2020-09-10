@@ -685,6 +685,7 @@ void ConnectionImpl::initializeDelayedCloseTimer() {
   const auto timeout = delayed_close_timeout_.count();
   ASSERT(delayed_close_timer_ == nullptr && timeout > 0);
   delayed_close_timer_ = dispatcher_.createTimer([this]() -> void { onDelayedCloseTimeout(); });
+  enableDelayedCloseTimer();
 }
 
 void ConnectionImpl::enableDelayedCloseTimer() {
