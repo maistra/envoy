@@ -1207,13 +1207,11 @@ TEST_F(ClientContextConfigImplTest, RSA1024Cert) {
   ContextManagerImpl manager(time_system);
   Stats::IsolatedStoreImpl store;
 
+  // Depending on the environment, openssl may refuse to load certificates with short keys on its own.
+  // In which case Envoy's own check won't be reached and a different error message will be produced.
   std::string error_msg(
       "Failed to load certificate chain from .*selfsigned_rsa_1024_cert.pem, only RSA certificates "
-#ifdef BORINGSSL_FIPS
-      "with 2048-bit or 3072-bit keys are supported in FIPS mode"
-#else
-      "with 2048-bit or larger keys are supported"
-#endif
+      "with 2048-bit or larger keys are supported|Failed to load certificate chain from .*selfsigned_rsa_1024_cert.pem, please see log for details"
   );
   EXPECT_THROW_WITH_REGEX(manager.createSslClientContext(store, client_context_config),
                           EnvoyException, error_msg);
