@@ -358,7 +358,7 @@ ClientContextConfigImpl::ClientContextConfigImpl(
 const unsigned ServerContextConfigImpl::DEFAULT_MIN_VERSION = TLS1_VERSION;
 
 // FIPS configuration
-const unsigned ServerContextConfigImpl::DEFAULT_FIPS_MAX_VERSION = TLS1_3_VERSION;
+const unsigned ServerContextConfigImpl::DEFAULT_FIPS_MAX_VERSION = TLS1_2_VERSION;
 const std::string ServerContextConfigImpl::DEFAULT_FIPS_CIPHER_SUITES =
     "ECDHE-ECDSA-AES128-GCM-SHA256:"
     "ECDHE-RSA-AES128-GCM-SHA256:"
@@ -375,7 +375,7 @@ const std::string ServerContextConfigImpl::DEFAULT_FIPS_CIPHER_SUITES =
 const std::string ServerContextConfigImpl::DEFAULT_FIPS_CURVES =
     "P-256";
 // Non FIPS configuration
-const unsigned ServerContextConfigImpl::DEFAULT_NON_FIPS_MAX_VERSION = TLS1_2_VERSION;
+const unsigned ServerContextConfigImpl::DEFAULT_NON_FIPS_MAX_VERSION = TLS1_3_VERSION;
 const std::string ServerContextConfigImpl::DEFAULT_NON_FIPS_CIPHER_SUITES =
     "[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]:"
     "[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]:"
