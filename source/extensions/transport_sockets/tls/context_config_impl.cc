@@ -348,7 +348,7 @@ const unsigned ClientContextConfigImpl::DEFAULT_MAX_VERSION = TLS1_2_VERSION;
 
 // FIPS configuration
 const std::string ClientContextConfigImpl::DEFAULT_FIPS_CIPHER_SUITES =
-"ECDHE-ECDSA-AES128-GCM-SHA256:"
+    "ECDHE-ECDSA-AES128-GCM-SHA256:"
     "ECDHE-RSA-AES128-GCM-SHA256:"
     "ECDHE-ECDSA-AES128-SHA:"
     "ECDHE-RSA-AES128-SHA:"
@@ -406,7 +406,7 @@ ClientContextConfigImpl::ClientContextConfigImpl(
 const unsigned ServerContextConfigImpl::DEFAULT_MIN_VERSION = TLS1_VERSION;
 
 // FIPS configuration
-// TLS 1.3 is not supported on systems working in FIPS mode. As a result, 
+// TLS 1.3 is not supported on systems working in FIPS mode. As a result,
 // connections that require TLS 1.3 for interoperability do not function
 // on a system working in FIPS mode.
 // see https://bugzilla.redhat.com/show_bug.cgi?id=1724250
