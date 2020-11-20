@@ -78,6 +78,7 @@ Bug Fixes
 * rocketmq_proxy: fixed an issue involving incorrect header lengths. In debug mode it causes crash and in release mode it causes underflow.
 * thrift_proxy: fixed crashing bug on request overflow.
 * udp_proxy: fixed a crash due to UDP packets being processed after listener removal.
+* tls: fix detection of the upstream connection close event.
 
 Removed Config or Runtime
 -------------------------

@@ -853,11 +853,7 @@ BufferInterface* Context::getBuffer(WasmBufferType type) {
 void Context::onDownstreamConnectionClose(CloseType close_type) {
   ContextBase::onDownstreamConnectionClose(close_type);
   downstream_closed_ = true;
-  // Call close on TCP connection, if upstream connection closed or there was a failure seen in
-  // this connection.
-  if (upstream_closed_ || getRequestStreamInfo()->hasAnyResponseFlag()) {
-    onCloseTCP();
-  }
+  onCloseTCP();
 }
 
 void Context::onUpstreamConnectionClose(CloseType close_type) {
@@ -1488,12 +1484,14 @@ WasmResult Context::continueStream(WasmStreamType stream_type) {
   switch (stream_type) {
   case WasmStreamType::Request:
     if (decoder_callbacks_) {
-      decoder_callbacks_->continueDecoding();
+      // We are in a reentrant call, so defer.
+      wasm()->addAfterVmCallAction([this] { decoder_callbacks_->continueDecoding(); });
     }
     break;
   case WasmStreamType::Response:
     if (encoder_callbacks_) {
-      encoder_callbacks_->continueEncoding();
+      // We are in a reentrant call, so defer.
+      wasm()->addAfterVmCallAction([this] { encoder_callbacks_->continueEncoding(); });
     }
     break;
   default:

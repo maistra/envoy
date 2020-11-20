@@ -689,10 +689,10 @@ DEPENDENCY_REPOSITORIES_SPEC = dict(
         project_name = "V8",
         project_desc = "Google’s open source high-performance JavaScript and WebAssembly engine, written in C++",
         project_url = "https://v8.dev",
-        version = "8.5.210.20",
+        version = "8.7.220.10",
         # This archive was created using https://storage.googleapis.com/envoyproxy-wee8/wee8-archive.sh
         # and contains complete checkout of V8 with all dependencies necessary to build wee8.
-        sha256 = "ef404643d7da6854b76b9fb9950a79a1acbd037b7a26f02c585ac379b0f7dee1",
+        sha256 = "f22734640e0515bc34d1ca3772513aef24374fafa44d0489d3a9a57cadec69fb",
         urls = ["https://storage.googleapis.com/envoyproxy-wee8/wee8-{version}.tar.gz"],
         use_category = ["dataplane_ext"],
         extensions = [
@@ -702,7 +702,7 @@ DEPENDENCY_REPOSITORIES_SPEC = dict(
             "envoy.filters.network.wasm",
             "envoy.stat_sinks.wasm",
         ],
-        last_updated = "2020-08-31",
+        last_updated = "2020-10-27",
         cpe = "cpe:2.3:a:google:v8:*",
     ),
     com_googlesource_quiche = dict(
@@ -869,9 +869,8 @@ DEPENDENCY_REPOSITORIES_SPEC = dict(
         project_name = "WebAssembly for Proxies (C++ host implementation)",
         project_desc = "WebAssembly for Proxies (C++ host implementation)",
         project_url = "https://github.com/proxy-wasm/proxy-wasm-cpp-host",
-        # 2020-09-10
-        version = "49ed20e895b728aae6b811950a2939ecbaf76f7c",
-        sha256 = "fa03293d01450b9164f8f56ef9227301f7d1af4f373f996400f75c93f6ebc822",
+        version = "a044a3a5bec75ce57c12d9e2b0e95e2a14f9f944",
+        sha256 = "619e61997682931e07e92f5b64a4268715598d3aa22a41cadeeca816103d731f",
         strip_prefix = "proxy-wasm-cpp-host-{version}",
         urls = ["https://github.com/proxy-wasm/proxy-wasm-cpp-host/archive/{version}.tar.gz"],
         use_category = ["dataplane_ext"],
@@ -882,7 +881,7 @@ DEPENDENCY_REPOSITORIES_SPEC = dict(
             "envoy.filters.network.wasm",
             "envoy.stat_sinks.wasm",
         ],
-        last_updated = "2020-07-29",
+        last_updated = "2020-11-12",
         cpe = "N/A",
     ),
     # TODO: upgrade to the latest version (1.41 currently fails tests)
@@ -904,14 +903,14 @@ DEPENDENCY_REPOSITORIES_SPEC = dict(
         project_name = "Bazel rust rules",
         project_desc = "Bazel rust rules (used by Wasm)",
         project_url = "https://github.com/bazelbuild/rules_rust",
-        version = "fda9a1ce6482973adfda022cadbfa6b300e269c3",
-        sha256 = "484a2b2b67cd2d1fa1054876de7f8d291c4b203fd256bc8cbea14d749bb864ce",
+        version = "fb90a7484800157fbb8a5904fbeb608dc1effc0c",
+        sha256 = "cbb253b8c5ab1a3c1787790f900e7d6774e95ba038714fc0f710935e62f30f5f",
         # Last commit where "out_binary = True" works.
         # See: https://github.com/bazelbuild/rules_rust/issues/386
         strip_prefix = "rules_rust-{version}",
         urls = ["https://github.com/bazelbuild/rules_rust/archive/{version}.tar.gz"],
-        use_category = ["build"],
-        last_updated = "2020-07-29",
+        use_category = ["test_only"],
+        last_updated = "2020-10-15",
     ),
     rules_antlr = dict(
         project_name = "ANTLR Rules for Bazel",
