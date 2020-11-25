@@ -166,6 +166,38 @@ TEST_P(UdpListenerImplTest, UseActualDstUdp) {
   dispatcher_->run(Event::Dispatcher::RunType::Block);
 }
 
+// Test a large datagram that gets dropped using recvmsg.
+TEST_P(UdpListenerImplTest, LargeDatagramRecvmsg) {
+  client_socket_ = createClientSocket(false);
+
+  // This will get dropped.
+  const std::string first(4096, 'a');
+  const void* void_pointer = static_cast<const void*>(first.c_str());
+  Buffer::RawSlice first_slice{const_cast<void*>(void_pointer), first.length()};
+  const std::string second("second");
+  void_pointer = static_cast<const void*>(second.c_str());
+  Buffer::RawSlice second_slice{const_cast<void*>(void_pointer), second.length()};
+  // This will get dropped.
+  const std::string third(4096, 'b');
+  void_pointer = static_cast<const void*>(third.c_str());
+  Buffer::RawSlice third_slice{const_cast<void*>(void_pointer), third.length()};
+
+  auto send_rc = client_socket_->ioHandle().sendto(first_slice, 0, *send_to_addr_);
+  send_rc = client_socket_->ioHandle().sendto(second_slice, 0, *send_to_addr_);
+  send_rc = client_socket_->ioHandle().sendto(third_slice, 0, *send_to_addr_);
+
+  EXPECT_CALL(listener_callbacks_, onData_(_)).WillOnce(Invoke([&](const UdpRecvData& data) -> void {
+    validateRecvCallbackParams(data);
+    EXPECT_EQ(data.buffer_->toString(), second);
+
+    dispatcher_->exit();
+  }));
+  EXPECT_CALL(listener_callbacks_, onWriteReady_(_));
+
+  dispatcher_->run(Event::Dispatcher::RunType::Block);
+  EXPECT_EQ(2, listener_->packetsDropped());
+}
+
 /**
  * Tests UDP listener for read and write callbacks with actual data.
  */

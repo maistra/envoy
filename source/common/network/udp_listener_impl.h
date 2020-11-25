@@ -26,6 +26,7 @@ public:
                   TimeSource& time_source);
 
   ~UdpListenerImpl() override;
+  uint32_t packetsDropped() { return packets_dropped_; }
 
   // Network::Listener Interface
   void disable() override;

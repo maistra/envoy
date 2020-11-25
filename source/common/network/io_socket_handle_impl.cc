@@ -255,8 +255,15 @@ Api::IoCallUint64Result IoSocketHandleImpl::recvmsg(Buffer::RawSlice* slices,
   hdr.msg_control = cmsg;
   hdr.msg_controllen = cmsg_space;
   auto& os_sys_calls = Api::OsSysCallsSingleton::get();
-  const Api::SysCallSizeResult result = os_sys_calls.recvmsg(fd_, &hdr, 0);
+  Api::SysCallSizeResult result = os_sys_calls.recvmsg(fd_, &hdr, MSG_TRUNC);
   if (result.rc_ < 0) {
+    return sysCallResultToIoCallResult(result);
+  }
+  if ((hdr.msg_flags & MSG_TRUNC) != 0) {
+    ENVOY_LOG_MISC(debug, "Dropping truncated UDP packet with size: {}.", result.rc_);
+    result.rc_ = 0;
+    (*output.dropped_packets_)++;
+    output.truncated_and_dropped_ = true;
     return sysCallResultToIoCallResult(result);
   }
 
@@ -298,7 +305,7 @@ Api::IoCallUint64Result IoSocketHandleImpl::recvmsg(Buffer::RawSlice* slices,
       if (output.dropped_packets_ != nullptr) {
         absl::optional<uint32_t> maybe_dropped = maybeGetPacketsDroppedFromHeader(*cmsg);
         if (maybe_dropped) {
-          *output.dropped_packets_ = *maybe_dropped;
+          *output.dropped_packets_ += *maybe_dropped;
         }
       }
     }
