@@ -544,7 +544,7 @@ Api::IoCallUint64Result Utility::readFromSocket(Network::Socket& socket,
   Api::IoCallUint64Result result =
       socket.ioHandle().recvmsg(&slice, num_slices, socket.localAddress()->ip()->port(), output);
 
-  if (!result.ok()) {
+  if (!result.ok() || output.truncated_and_dropped_) {
     return result;
   }
 

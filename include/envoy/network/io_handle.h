@@ -97,6 +97,9 @@ public:
     std::shared_ptr<const Address::Instance> local_address_;
     // The the source address from transport header.
     std::shared_ptr<const Address::Instance> peer_address_;
+    // If true indicates a successful syscall, but the packet was dropped due to truncation. We do
+    // not support receiving truncated packets.
+    bool truncated_and_dropped_{false};
   };
 
   /**
