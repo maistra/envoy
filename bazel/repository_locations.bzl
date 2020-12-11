@@ -849,10 +849,10 @@ DEPENDENCY_REPOSITORIES_SPEC = dict(
         project_name = "WebAssembly for Proxies (C++ SDK)",
         project_desc = "WebAssembly for Proxies (C++ SDK)",
         project_url = "https://github.com/proxy-wasm/proxy-wasm-cpp-sdk",
-        version = "7afb39d868a973caa6216a535c24e37fb666b6f3",
-        sha256 = "213d0b441bcc3df2c87933b24a593b5fd482fa8f4db158b707c60005b9e70040",
+        version = "f5ecda129d1e45de36cb7898641ac225a50ce7f0",
+        sha256 = "0f675ef5c4f8fdcf2fce8152868c6c6fd33251a0deb4a8fc1ef721f9ed387dbc",
         strip_prefix = "proxy-wasm-cpp-sdk-{version}",
-        # 2020-09-10
+        # 2020-12-03
         urls = ["https://github.com/proxy-wasm/proxy-wasm-cpp-sdk/archive/{version}.tar.gz"],
         use_category = ["dataplane_ext"],
         extensions = [
@@ -862,7 +862,7 @@ DEPENDENCY_REPOSITORIES_SPEC = dict(
             "envoy.filters.network.wasm",
             "envoy.stat_sinks.wasm",
         ],
-        last_updated = "2020-07-29",
+        last_updated = "2020-12-11",
         cpe = "N/A",
     ),
     proxy_wasm_cpp_host = dict(
