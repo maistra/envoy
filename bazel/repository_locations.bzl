@@ -881,6 +881,16 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         sha256 = "ce7a5c76e8b425aca874cea329fd9ac44b203b777053453b6a37b4496c5ce34f",
         strip_prefix = "emsdk-{version}",
         urls = ["https://github.com/emscripten-core/emsdk/archive/{version}.tar.gz"],
+        patch_cmds = [
+            "./emsdk install 2.0.7-upstream",
+            "./emsdk activate --embedded 2.0.7-upstream",
+            # Maistra change.
+            # Relies on the host tooling, instead of emsdk's. Requires clang with wasm32 target enabled and binaryen.
+            "rm -rf upstream/bin/*",
+            "ln -s /usr/bin/clang* upstream/bin/",
+            "ln -s /usr/bin/ll* upstream/bin/",
+            "ln -s /usr/bin/wasm* upstream/bin/",
+        ],
         use_category = ["build"],
         release_date = "2020-10-13",
     ),
