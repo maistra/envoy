@@ -909,6 +909,12 @@ DEPENDENCY_REPOSITORIES_SPEC = dict(
             "ln -s /usr/bin/clang* upstream/bin/",
             "ln -s /usr/bin/ll* upstream/bin/",
             "ln -s /usr/bin/wasm* upstream/bin/",
+            # Also use host's nodejs
+            "rm -rf node/12.9.1_64bit/*",
+            "mkdir node/12.9.1_64bit/bin",
+            "ln -s /usr/bin/node node/12.9.1_64bit/bin/",
+            "ln -s /usr/bin/npm node/12.9.1_64bit/bin/",
+            "ln -s /usr/bin/npx node/12.9.1_64bit/bin/",
         ],
         strip_prefix = "emsdk-{version}.6",
         urls = ["https://github.com/emscripten-core/emsdk/archive/{version}.6.tar.gz"],
