@@ -781,7 +781,11 @@ def _upb():
     )
 
 def _proxy_wasm_cpp_sdk():
-    external_http_archive(name = "proxy_wasm_cpp_sdk")
+    external_http_archive(
+        name = "proxy_wasm_cpp_sdk",
+        patches = ["@envoy//bazel/external:0001-Fix-the-cxx-builtin-directories-for-maistra-proxy.patch"],
+        patch_args = ["-p1"],
+    )
 
 def _proxy_wasm_cpp_host():
     external_http_archive(
