@@ -5962,13 +5962,9 @@ TEST_P(SslSocketTest, CipherUsageGetsCounted) {
   const std::vector<std::string> ciphers = {
       "ECDHE-RSA-CHACHA20-POLY1305", "ECDHE-RSA-AES128-GCM-SHA256",
       "ECDHE-RSA-AES256-GCM-SHA384", "AES256-SHA256",
-      "AEAD-AES128-GCM-SHA256",      "ECDHE-ECDSA-AES128-GCM-SHA256",
-      "ECDHE-RSA-AES128-SHA",        "TLS_AES_128_GCM_SHA256",
-      "TLS_AES_128_GCM_SHA256",      "TLS_AES_256_GCM_SHA384",
-      "TLS_AES_128_GCM_SHA256"};
-
+      "ECDHE-RSA-AES128-SHA"};
   for (const auto& cipher : ciphers) {
-    const std::string stats = "ssl.ciphers." + cipher;   
+    const std::string stats = "ssl.ciphers." + cipher;
     client_params->clear_cipher_suites();
     server_params->clear_cipher_suites();
     client_params->add_cipher_suites(cipher);
