@@ -402,20 +402,30 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
   parsed_alpn_protocols_ = parseAlpnProtocols(config.alpnProtocols());
 
   // Use the SSL library to iterate over the configured ciphers.
+  //
+  // Note that if a negotiated cipher suite is outside of this set, we'll issue an ENVOY_BUG.
   for (const SSL_CIPHER* cipher : SSL_CTX_get_ciphers(tls_context_.ssl_ctx_.get())) {
     stat_name_set_->rememberBuiltin(SSL_CIPHER_get_name(cipher));
   }
 
-  // Add hardcoded cipher suites from the TLS 1.3 spec:
-  // https://tools.ietf.org/html/rfc8446
+  // Ciphers
+  const STACK_OF(SSL_CIPHER) *ciphers = SSL_CTX_get_ciphers(tls_context_.ssl_ctx_.get());
+  for (size_t i = 0; i < sk_SSL_CIPHER_num(ciphers); i++) {
+    const SSL_CIPHER *cipher = sk_SSL_CIPHER_value(ciphers, i);
+    stat_name_set_->rememberBuiltin(SSL_CIPHER_get_name(cipher));
+  }
+  // Add supported cipher suites from the TLS 1.3 spec:
+  // https://tools.ietf.org/html/rfc8446#appendix-B.4
+  // AES-CCM cipher suites are removed (no BoringSSL support).
+  //
+  // Note that if a negotiated cipher suite is outside of this set, we'll issue an ENVOY_BUG.
   stat_name_set_->rememberBuiltins(
       {"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_AES_128_GCM_SHA256"});
-
-  // Curves from
-  // https://github.com/google/boringssl/blob/f4d8b969200f1ee2dd872ffb85802e6a0976afe7/ssl/ssl_key_share.cc#L384
+  
+  // All supported curves. Source:
+  // https://github.com/google/boringssl/blob/3743aafdacff2f7b083615a043a37101f740fa53/ssl/ssl_key_share.cc#L302-L309
   //
-  // Note that if a curve is configured outside this set, we'll issue an ENVOY_BUG so
-  // it will hopefully be caught.
+  // Note that if a negotiated curve is outside of this set, we'll issue an ENVOY_BUG.
   stat_name_set_->rememberBuiltins(
       {"P-224", "P-256", "P-384", "P-521", "X25519", "CECPQ2", "CECPQ2b"});
 
