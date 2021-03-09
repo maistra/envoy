@@ -44,6 +44,7 @@ configure_make(
     }),
     lib_source = "@com_github_luajit_luajit//:all",
     make_commands = [],
+    out_include_dir = "include/luajit-2.1",
     static_libraries = [
         "libluajit-5.1.a",
     ],
