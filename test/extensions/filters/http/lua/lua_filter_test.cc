@@ -745,7 +745,7 @@ TEST_F(LuaHttpFilterTest, HttpCall) {
           [":method"] = "POST",
           [":path"] = "/",
           [":authority"] = "foo",
-          ["set-cookie"] = { "flavor=chocolate; Path=/", "variant=chewy; Path=/" }
+          ["set-cookie"] = "flavor=chocolate; Path=/" 
         },
         "hello world",
         5000)
@@ -768,13 +768,12 @@ TEST_F(LuaHttpFilterTest, HttpCall) {
       .WillOnce(
           Invoke([&](Http::MessagePtr& message, Http::AsyncClient::Callbacks& cb,
                      const Http::AsyncClient::RequestOptions&) -> Http::AsyncClient::Request* {
-            EXPECT_EQ((Http::TestHeaderMapImpl{{":path", "/"},
+            EXPECT_TRUE(TestUtility::headerMapEqualIgnoreOrder(Http::TestHeaderMapImpl{{":path", "/"},
                                                {":method", "POST"},
                                                {":authority", "foo"},
                                                {"set-cookie", "flavor=chocolate; Path=/"},
-                                               {"set-cookie", "variant=chewy; Path=/"},
-                                               {"content-length", "11"}}),
-                      message->headers());
+                                               {"content-length", "11"}},
+                      message->headers()));
             callbacks = &cb;
             return &request;
           }));
@@ -845,11 +844,11 @@ TEST_F(LuaHttpFilterTest, DoubleHttpCall) {
       .WillOnce(
           Invoke([&](Http::MessagePtr& message, Http::AsyncClient::Callbacks& cb,
                      const Http::AsyncClient::RequestOptions&) -> Http::AsyncClient::Request* {
-            EXPECT_EQ((Http::TestHeaderMapImpl{{":path", "/"},
+            EXPECT_TRUE(TestUtility::headerMapEqualIgnoreOrder(Http::TestHeaderMapImpl{{":path", "/"},
                                                {":method", "POST"},
                                                {":authority", "foo"},
-                                               {"content-length", "11"}}),
-                      message->headers());
+                                               {"content-length", "11"}},
+                      message->headers()));
             callbacks = &cb;
             return &request;
           }));
@@ -868,9 +867,9 @@ TEST_F(LuaHttpFilterTest, DoubleHttpCall) {
       .WillOnce(
           Invoke([&](Http::MessagePtr& message, Http::AsyncClient::Callbacks& cb,
                      const Http::AsyncClient::RequestOptions&) -> Http::AsyncClient::Request* {
-            EXPECT_EQ((Http::TestHeaderMapImpl{
-                          {":path", "/bar"}, {":method", "GET"}, {":authority", "foo"}}),
-                      message->headers());
+            EXPECT_TRUE(TestUtility::headerMapEqualIgnoreOrder(Http::TestHeaderMapImpl{
+                          {":path", "/bar"}, {":method", "GET"}, {":authority", "foo"}},
+                      message->headers()));
             callbacks = &cb;
             return &request;
           }));
@@ -924,9 +923,9 @@ TEST_F(LuaHttpFilterTest, HttpCallNoBody) {
       .WillOnce(
           Invoke([&](Http::MessagePtr& message, Http::AsyncClient::Callbacks& cb,
                      const Http::AsyncClient::RequestOptions&) -> Http::AsyncClient::Request* {
-            EXPECT_EQ((Http::TestHeaderMapImpl{
-                          {":path", "/"}, {":method", "GET"}, {":authority", "foo"}}),
-                      message->headers());
+            EXPECT_TRUE(TestUtility::headerMapEqualIgnoreOrder(Http::TestHeaderMapImpl{
+                          {":path", "/"}, {":method", "GET"}, {":authority", "foo"}},
+                      message->headers()));
             callbacks = &cb;
             return &request;
           }));
@@ -982,9 +981,9 @@ TEST_F(LuaHttpFilterTest, HttpCallImmediateResponse) {
       .WillOnce(
           Invoke([&](Http::MessagePtr& message, Http::AsyncClient::Callbacks& cb,
                      const Http::AsyncClient::RequestOptions&) -> Http::AsyncClient::Request* {
-            EXPECT_EQ((Http::TestHeaderMapImpl{
-                          {":path", "/"}, {":method", "GET"}, {":authority", "foo"}}),
-                      message->headers());
+            EXPECT_TRUE(TestUtility::headerMapEqualIgnoreOrder(Http::TestHeaderMapImpl{
+                          {":path", "/"}, {":method", "GET"}, {":authority", "foo"}},
+                      message->headers()));
             callbacks = &cb;
             return &request;
           }));
