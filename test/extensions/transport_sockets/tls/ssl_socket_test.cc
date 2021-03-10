@@ -815,7 +815,7 @@ TEST_P(SslSocketTest, GetCertDigest) {
 )EOF";
 
   TestUtilOptions test_options(client_ctx_yaml, server_ctx_yaml, true, GetParam());
-  testUtil(test_options.setExpectedDigest(TEST_NO_SAN_CERT_HASH)
+  testUtil(test_options.setExpectedDigest(TEST_NO_SAN_CERT_256_HASH)
                .setExpectedSerialNumber(TEST_NO_SAN_CERT_SERIAL));
 }
 
@@ -888,7 +888,7 @@ TEST_P(SslSocketTest, GetCertDigestServerCertWithIntermediateCA) {
 )EOF";
 
   TestUtilOptions test_options(client_ctx_yaml, server_ctx_yaml, true, GetParam());
-  testUtil(test_options.setExpectedDigest(TEST_NO_SAN_CERT_HASH)
+  testUtil(test_options.setExpectedDigest(TEST_NO_SAN_CERT_256_HASH)
                .setExpectedSerialNumber(TEST_NO_SAN_CERT_SERIAL));
 }
 
@@ -915,7 +915,7 @@ TEST_P(SslSocketTest, GetCertDigestServerCertWithoutCommonName) {
 )EOF";
 
   TestUtilOptions test_options(client_ctx_yaml, server_ctx_yaml, true, GetParam());
-  testUtil(test_options.setExpectedDigest(TEST_NO_SAN_CERT_HASH)
+  testUtil(test_options.setExpectedDigest(TEST_NO_SAN_CERT_256_HASH)
                .setExpectedSerialNumber(TEST_NO_SAN_CERT_SERIAL));
 }
 
