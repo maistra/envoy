@@ -110,8 +110,8 @@ REPOSITORY_LOCATIONS = dict(
     ),
     com_github_luajit_luajit = dict(
         sha256 = "20a159c38a98ecdb6368e8d655343b6036622a29a1621da9dc303f7ed9bf37f3",
-	strip_prefix = "LuaJIT-1d8b747c161db457e032a023ebbff511f5de5ec2",
-	urls = ["https://github.com/LuaJIT/LuaJIT/archive/1d8b747c161db457e032a023ebbff511f5de5ec2.tar.gz"],
+        strip_prefix = "LuaJIT-1d8b747c161db457e032a023ebbff511f5de5ec2",
+        urls = ["https://github.com/LuaJIT/LuaJIT/archive/1d8b747c161db457e032a023ebbff511f5de5ec2.tar.gz"],
     ),
     com_github_nanopb_nanopb = dict(
         sha256 = "cbc8fba028635d959033c9ba8d8186a713165e94a9de02a030a20b3e64866a04",
