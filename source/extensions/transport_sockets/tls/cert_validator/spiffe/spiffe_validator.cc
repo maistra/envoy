@@ -1,30 +1,18 @@
 #include "extensions/transport_sockets/tls/cert_validator/spiffe/spiffe_validator.h"
 
-#include <algorithm>
-#include <array>
-#include <cstdint>
-#include <deque>
-#include <functional>
-#include <string>
-#include <vector>
-
-#include "envoy/common/pure.h"
 #include "envoy/extensions/transport_sockets/tls/v3/tls_spiffe_validator_config.pb.h"
 #include "envoy/network/transport_socket.h"
 #include "envoy/registry/registry.h"
-#include "envoy/ssl/context.h"
 #include "envoy/ssl/context_config.h"
-#include "envoy/ssl/private_key/private_key.h"
 #include "envoy/ssl/ssl_socket_extended_info.h"
 
-#include "common/common/matchers.h"
-#include "common/common/regex.h"
 #include "common/config/datasource.h"
 #include "common/config/utility.h"
 #include "common/protobuf/message_validator_impl.h"
 #include "common/stats/symbol_table_impl.h"
 
 #include "extensions/transport_sockets/tls/cert_validator/factory.h"
+#include "extensions/transport_sockets/tls/cert_validator/utility.h"
 #include "extensions/transport_sockets/tls/cert_validator/well_known_names.h"
 #include "extensions/transport_sockets/tls/stats.h"
 #include "extensions/transport_sockets/tls/utility.h"
@@ -43,6 +31,7 @@ SPIFFEValidator::SPIFFEValidator(const Envoy::Ssl::CertificateValidationContextC
                                  SslStats& stats, TimeSource& time_source)
     : stats_(stats), time_source_(time_source) {
   ASSERT(config != nullptr);
+  allow_expired_certificate_ = config->allowExpiredCertificate();
 
   SPIFFEConfig message;
   Config::Utility::translateOpaqueConfig(config->customValidatorConfig().value().typed_config(),
@@ -170,6 +159,9 @@ int SPIFFEValidator::doVerifyCertChain(X509_STORE_CTX* store_ctx,
   X509_VERIFY_PARAM* verify_params = X509_VERIFY_PARAM_new();
   X509_VERIFY_PARAM_inherit(verify_params, X509_STORE_CTX_get0_param(store_ctx));
   X509_STORE_CTX_set0_param(verify_ctx.get(), verify_params);
+  if (allow_expired_certificate_) {
+    X509_STORE_CTX_set_verify_cb(verify_ctx.get(), CertValidatorUtil::ignoreCertificateExpirationCallback);
+  }
   auto ret = X509_verify_cert(verify_ctx.get());
   if (ssl_extended_info) {
     ssl_extended_info->setCertificateValidationStatus(
