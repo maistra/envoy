@@ -38,7 +38,13 @@ SPIFFEValidator::SPIFFEValidator(const Envoy::Ssl::CertificateValidationContextC
                                          ProtobufWkt::Struct(),
                                          ProtobufMessage::getStrictValidationVisitor(), message);
 
-  auto size = message.trust_domains().size();
+  if (!config->subjectAltNameMatchers().empty()) {
+    for (const auto& matcher : config->subjectAltNameMatchers()) {
+      subject_alt_name_matchers_.push_back(Matchers::StringMatcherImpl(matcher));
+    }
+  }
+
+  const auto size = message.trust_domains().size();
   trust_bundle_stores_.reserve(size);
   for (auto& domain : message.trust_domains()) {
     if (trust_bundle_stores_.find(domain.name()) != trust_bundle_stores_.end()) {
@@ -153,7 +159,7 @@ int SPIFFEValidator::doVerifyCertChain(X509_STORE_CTX* store_ctx,
   // We make a copy of X509_VERIFY_PARAMs in the store_ctx that we received as a parameter.
   // This is a precaution mostly, as Envoy doesn't configure any X509_VERIFY_PARAMs.
   // Note that there's no api to copy crls from one store_ctx to another; the assumption is that 
-  // neither X509_V_FLAG_CRL_CHECK nor X509_V_FLAG_CRL_CHECK_ALL verify_params are not used.
+  // X509_V_FLAG_CRL_CHECK/X509_V_FLAG_CRL_CHECK_ALL verify_params are not used.
   // Should this change, consider opening up X509_STORE_CTX struct, which is internal atm. 
   X509_STORE_CTX_init(verify_ctx.get(), trust_bundle, &leaf_cert, X509_STORE_CTX_get0_chain(store_ctx));
   X509_VERIFY_PARAM* verify_params = X509_VERIFY_PARAM_new();
@@ -163,17 +169,26 @@ int SPIFFEValidator::doVerifyCertChain(X509_STORE_CTX* store_ctx,
     X509_STORE_CTX_set_verify_cb(verify_ctx.get(), CertValidatorUtil::ignoreCertificateExpirationCallback);
   }
   auto ret = X509_verify_cert(verify_ctx.get());
-  if (ssl_extended_info) {
-    ssl_extended_info->setCertificateValidationStatus(
-        ret == 1 ? Envoy::Ssl::ClientValidationStatus::Validated
-                 : Envoy::Ssl::ClientValidationStatus::Failed);
-  }
   if (!ret) {
+    if (ssl_extended_info) {
+      ssl_extended_info->setCertificateValidationStatus(Envoy::Ssl::ClientValidationStatus::Failed);
+    }
     stats_.fail_verify_error_.inc();
+    return 0;
   }
 
+  // Do SAN matching.
+  const bool san_match = subject_alt_name_matchers_.empty() ? true : matchSubjectAltName(leaf_cert);
+  if (!san_match) {
+    stats_.fail_verify_error_.inc();
+  }
+  if (ssl_extended_info) {
+    ssl_extended_info->setCertificateValidationStatus(
+        san_match ? Envoy::Ssl::ClientValidationStatus::Validated
+                  : Envoy::Ssl::ClientValidationStatus::Failed);
+  }
   X509_STORE_CTX_cleanup(verify_ctx.get());
-  return ret;
+  return san_match;
 }
 
 X509_STORE* SPIFFEValidator::getTrustBundleStore(X509* leaf_cert) {
@@ -206,13 +221,37 @@ X509_STORE* SPIFFEValidator::getTrustBundleStore(X509* leaf_cert) {
 bool SPIFFEValidator::certificatePrecheck(X509* leaf_cert) {
   // Check basic constrains and key usage.
   // https://github.com/spiffe/spiffe/blob/master/standards/X509-SVID.md#52-leaf-validation
-  auto ext = X509_get_extension_flags(leaf_cert);
+  const auto ext = X509_get_extension_flags(leaf_cert);
   if (ext & EXFLAG_CA) {
     return false;
   }
 
-  auto us = X509_get_key_usage(leaf_cert);
+  const auto us = X509_get_key_usage(leaf_cert);
   return (us & (KU_CRL_SIGN | KU_KEY_CERT_SIGN)) == 0;
+}
+
+bool SPIFFEValidator::matchSubjectAltName(X509& leaf_cert) {
+  bssl::UniquePtr<GENERAL_NAMES> san_names(static_cast<GENERAL_NAMES*>(
+      X509_get_ext_d2i(&leaf_cert, NID_subject_alt_name, nullptr, nullptr)));
+  // We must not have san_names == nullptr here because this function is called after the
+  // SPIFFE cert validation algorithm succeeded, which requires exactly one URI SAN in the leaf
+  // cert.
+  ASSERT(san_names != nullptr,
+         "san_names should have at least one name after SPIFFE cert validation");
+
+  // Only match against URI SAN since SPIFFE specification does not restrict values in other SAN
+  // types. See the discussion: https://github.com/envoyproxy/envoy/issues/15392
+  for (const GENERAL_NAME* general_name : san_names.get()) {
+    if (general_name->type == GEN_URI) {
+      const std::string san = Utility::generalNameAsString(general_name);
+      for (const auto& config_san_matcher : subject_alt_name_matchers_) {
+        if (config_san_matcher.match(san)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
 }
 
 std::string SPIFFEValidator::extractTrustDomain(const std::string& san) {
