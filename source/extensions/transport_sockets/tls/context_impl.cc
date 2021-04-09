@@ -1044,8 +1044,8 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
     SSL_CTX_set_timeout(tls_context_.ssl_ctx_.get(), uint32_t(timeout));
   }
 
-  int rc =
-      SSL_CTX_set_session_id_context(tls_context_.ssl_ctx_.get(), session_id.data(), session_id.size());
+  int rc = SSL_CTX_set_session_id_context(
+               tls_context_.ssl_ctx_.get(), session_id.data(), session_id.size());
   RELEASE_ASSERT(rc == 1, Utility::getLastCryptoError().value_or(""));
 
   for (uint32_t i = 0; i < tls_certificates.size(); ++i) {

@@ -73,7 +73,7 @@ envoy_cc_library(
         "abseil_optional",
         "abseil_synchronization",
         "ssl",
-	"bssl_wrapper_lib",
+        "bssl_wrapper_lib",
     ],
     # TLS is core functionality.
     visibility = ["//visibility:public"],
@@ -197,6 +197,6 @@ envoy_cc_library(
     ],
     external_deps = [
         "ssl",
-	"bssl_wrapper_lib",
+        "bssl_wrapper_lib",
     ],
 )
