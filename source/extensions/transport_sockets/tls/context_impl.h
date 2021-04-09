@@ -256,7 +256,10 @@ private:
                          unsigned int inlen);
   int sessionTicketProcess(SSL* ssl, uint8_t* key_name, uint8_t* iv, EVP_CIPHER_CTX* ctx,
                            HMAC_CTX* hmac_ctx, int encrypt);
+  // returns true if client-side of the SSL connection requested OCSP
   bool isClientOcspCapable(SSL* ssl);
+  // returns a reference to a CertContext created in ContextImpl ctor
+  // matching cert SHA1 digest
   const ContextImpl::CertContext& certificateContext(X509* cert);
   OcspStapleAction ocspStapleAction(const ContextImpl::CertContext& cert_context,
                                     bool client_ocsp_capable);
