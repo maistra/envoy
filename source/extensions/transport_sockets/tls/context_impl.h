@@ -18,27 +18,20 @@
 #include "common/stats/symbol_table_impl.h"
 
 #include "extensions/transport_sockets/tls/context_manager_impl.h"
+#include "extensions/transport_sockets/tls/ocsp/ocsp.h"
 #include "extensions/transport_sockets/tls/openssl_impl.h"
 
 #include "absl/synchronization/mutex.h"
 #include "absl/types/optional.h"
+#include "absl/container/flat_hash_map.h"
 #include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/ssl.h"
 #include "openssl/x509v3.h"
 
 namespace Envoy {
-#ifndef OPENSSL_IS_BORINGSSL
-#error Envoy requires BoringSSL
-#endif
-
 namespace Extensions {
 namespace TransportSockets {
 namespace Tls {
-
-namespace Ocsp {
-  class OcspResponseWrapper {};
-  using OcspResponseWrapperPtr = std::unique_ptr<OcspResponseWrapper>;
-}
 
 #define ALL_SSL_STATS(COUNTER, GAUGE, HISTOGRAM)                                                   \
   COUNTER(connection_error)                                                                        \
@@ -110,9 +103,7 @@ public:
   size_t daysUntilFirstCertExpires() const override;
   Envoy::Ssl::CertificateDetailsPtr getCaCertInformation() const override;
   std::vector<Envoy::Ssl::CertificateDetailsPtr> getCertChainInformation() const override;
-  absl::optional<uint64_t> secondsUntilFirstOcspResponseExpires() const override {
-    return absl::nullopt;
-  }
+  absl::optional<uint64_t> secondsUntilFirstOcspResponseExpires() const override;
   std::vector<Ssl::PrivateKeyMethodProviderSharedPtr> getPrivateKeyMethodProviders();
 
   bool verifyCertChain(X509& leaf_cert, STACK_OF(X509) & intermediates, std::string& error_details);
@@ -176,31 +167,32 @@ protected:
   certificateDetails(X509* cert, const std::string& path,
                      const Ocsp::OcspResponseWrapper* ocsp_response) const;
 
-  struct TlsContext {
-    // Each certificate specified for the context has its own SSL_CTX. SSL_CTXs
-    // are identical with the exception of certificate material, and can be
-    // safely substituted via SSL_set_SSL_CTX() during the
-    // SSL_CTX_set_select_certificate_cb() callback following ClientHello.
-    bssl::UniquePtr<SSL_CTX> ssl_ctx_;
+  struct CertContext {
     bssl::UniquePtr<X509> cert_chain_;
     std::string cert_chain_file_path_;
     Ocsp::OcspResponseWrapperPtr ocsp_response_;
     bool is_ecdsa_{};
     bool is_must_staple_{};
-    Ssl::PrivateKeyMethodProviderSharedPtr private_key_method_provider_{};
-
     std::string getCertChainFileName() const { return cert_chain_file_path_; };
-    void addClientValidationContext(const Envoy::Ssl::CertificateValidationContextConfig& config,
-                                    bool require_client_cert);
-    bool isCipherEnabled(uint16_t cipher_id, uint16_t client_version);
+    Ssl::PrivateKeyMethodProviderSharedPtr private_key_method_provider_{};
     Envoy::Ssl::PrivateKeyMethodProviderSharedPtr getPrivateKeyMethodProvider() {
       return private_key_method_provider_;
     }
   };
 
   // Use a single context for certificates instead of one context per certificate as in the BoringSSL case.
-  // A single context is required to hold all certificates for OpenSSL.
-  // The use of certificate selection is handled by OpenSSL.
+  // A single context is required to hold all certificates for OpenSSL, certificate selection is handled by OpenSSL.
+  struct TlsContext {
+    bssl::UniquePtr<SSL_CTX> ssl_ctx_;
+    std::vector<CertContext> cert_contexts_;
+    // a map of cert hashes as calculated by X509_digest with EVP_sha1 to cert contexts
+    absl::flat_hash_map<std::string, std::reference_wrapper<CertContext>> cert_context_lookup_;
+
+    void addClientValidationContext(const Envoy::Ssl::CertificateValidationContextConfig& config,
+                                    bool require_client_cert);
+    bool isCipherEnabled(uint16_t cipher_id, uint16_t client_version);
+  };
+
   TlsContext tls_context_;
   bool verify_trusted_ca_{false};
   std::vector<std::string> verify_subject_alt_name_list_;
@@ -264,9 +256,14 @@ private:
                          unsigned int inlen);
   int sessionTicketProcess(SSL* ssl, uint8_t* key_name, uint8_t* iv, EVP_CIPHER_CTX* ctx,
                            HMAC_CTX* hmac_ctx, int encrypt);
-  OcspStapleAction ocspStapleAction(const ServerContextImpl::TlsContext& ctx,
+  // returns true if client-side of the SSL connection requested OCSP
+  bool isClientOcspCapable(SSL* ssl);
+  // returns a reference to a CertContext created in ContextImpl ctor
+  // matching cert SHA1 digest
+  const ContextImpl::CertContext& certificateContext(X509* cert);
+  OcspStapleAction ocspStapleAction(const ContextImpl::CertContext& cert_context,
                                     bool client_ocsp_capable);
-
+  int handleOcspStapling(SSL* ssl, void*);
   SessionContextID generateHashForSessionContextId(const std::vector<std::string>& server_names);
 
   const std::vector<Envoy::Ssl::ServerContextConfig::SessionTicketKey> session_ticket_keys_;

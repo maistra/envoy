@@ -38,6 +38,15 @@ namespace Extensions {
 namespace TransportSockets {
 namespace Tls {
 
+namespace {
+  std::string certificateDigest(X509* cert) {
+    std::vector<unsigned char> digest(EVP_MAX_MD_SIZE);
+    unsigned int n;
+    X509_digest(cert, EVP_sha1(), digest.data(), &n);
+    return Hex::encode(digest);
+  }
+}
+
 int ContextImpl::sslExtendedSocketInfoIndex() {
   CONSTRUCT_ON_FIRST_USE(int, []() -> int {
     int ssl_context_index = SSL_get_ex_new_index(0, nullptr, nullptr, nullptr, nullptr);
@@ -61,6 +70,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
       ssl_sigalgs_(stat_name_set_->add("ssl.sigalgs")), capabilities_(config.capabilities()) {
   const auto tls_certificates = config.tlsCertificates();
 
+  tls_context_.cert_contexts_.resize(std::max(static_cast<size_t>(1), tls_certificates.size()));
   tls_context_.ssl_ctx_.reset(SSL_CTX_new(TLS_method()));
 
   int rc = SSL_CTX_set_app_data(tls_context_.ssl_ctx_.get(), this);
@@ -200,7 +210,6 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
     X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
   }
 
-
   const Envoy::Ssl::CertificateValidationContextConfig* cert_validation_config =
       config.certificateValidationContext();
   if (cert_validation_config != nullptr) {
@@ -255,23 +264,24 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
   absl::node_hash_set<int> cert_pkey_ids;
   if (!capabilities_.provides_certificates) {
     for (uint32_t i = 0; i < tls_certificates.size(); ++i) {
+      auto& cert_context = tls_context_.cert_contexts_[i];
       // Load certificate chain.
       const auto& tls_certificate = tls_certificates[i].get();
-      tls_context_.cert_chain_file_path_ = tls_certificate.certificateChainPath();
+      cert_context.cert_chain_file_path_ = tls_certificate.certificateChainPath();
       bssl::UniquePtr<BIO> bio(
           BIO_new_mem_buf(const_cast<char*>(tls_certificate.certificateChain().data()),
                           tls_certificate.certificateChain().size()));
       RELEASE_ASSERT(bio != nullptr, "");
-      tls_context_.cert_chain_.reset(PEM_read_bio_X509_AUX(bio.get(), nullptr, nullptr, nullptr));
-      if (tls_context_.cert_chain_ == nullptr ||
-          !SSL_CTX_use_certificate(tls_context_.ssl_ctx_.get(), tls_context_.cert_chain_.get())) {
+      cert_context.cert_chain_.reset(PEM_read_bio_X509_AUX(bio.get(), nullptr, nullptr, nullptr));
+      if (cert_context.cert_chain_ == nullptr ||
+          !SSL_CTX_use_certificate(tls_context_.ssl_ctx_.get(), cert_context.cert_chain_.get())) {
         while (uint64_t err = ERR_get_error()) {
           ENVOY_LOG_MISC(error, "SSL error: {}:{}:{}:{}", err, ERR_lib_error_string(err),
                          ERR_func_error_string(err), ERR_GET_REASON(err),
                          ERR_reason_error_string(err));
         }
         throw EnvoyException(
-            absl::StrCat("Failed to load certificate chain from ", tls_context_.cert_chain_file_path_, ", please see log for details"));
+            absl::StrCat("Failed to load certificate chain from ", cert_context.cert_chain_file_path_, ", please see log for details"));
       }
       // Read rest of the certificate chain.
       while (true) {
@@ -281,7 +291,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
         }
         if (!SSL_CTX_add_extra_chain_cert(tls_context_.ssl_ctx_.get(), cert.get())) {
           throw EnvoyException(
-              absl::StrCat("Failed to load certificate chain from ", tls_context_.cert_chain_file_path_));
+              absl::StrCat("Failed to load certificate chain from ", cert_context.cert_chain_file_path_));
         }
         // SSL_CTX_add_extra_chain_cert() takes ownership.
         cert.release();
@@ -292,26 +302,27 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
         ERR_clear_error();
       } else {
         throw EnvoyException(
-            absl::StrCat("Failed to load certificate chain from ", tls_context_.cert_chain_file_path_));
+            absl::StrCat("Failed to load certificate chain from ", cert_context.cert_chain_file_path_));
       }
 
       // The must staple extension means the certificate promises to carry
       // with it an OCSP staple. https://tools.ietf.org/html/rfc7633#section-6
       constexpr absl::string_view tls_feature_ext = "1.3.6.1.5.5.7.1.24";
       constexpr absl::string_view must_staple_ext_value = "\x30\x3\x02\x01\x05";
-      auto must_staple = Utility::getCertificateExtensionValue(*tls_context_.cert_chain_, tls_feature_ext);
+      auto must_staple = Utility::getCertificateExtensionValue(*cert_context.cert_chain_, tls_feature_ext);      
+      tls_context_.cert_context_lookup_.emplace(certificateDigest(cert_context.cert_chain_.get()), 
+                                        std::reference_wrapper<CertContext>(cert_context));
       if (must_staple == must_staple_ext_value) {
-        tls_context_.is_must_staple_ = true;
+        cert_context.is_must_staple_ = true;
       }
-
-      bssl::UniquePtr<EVP_PKEY> public_key(X509_get_pubkey(tls_context_.cert_chain_.get()));
+      bssl::UniquePtr<EVP_PKEY> public_key(X509_get_pubkey(cert_context.cert_chain_.get()));
       const int pkey_id = EVP_PKEY_id(public_key.get());
       if (!cert_pkey_ids.insert(pkey_id).second) {
         throw EnvoyException(fmt::format("Failed to load certificate chain from {}, at most one "
                                          "certificate of a given type may be specified",
-										 tls_context_.cert_chain_file_path_));
+										 cert_context.cert_chain_file_path_));
       }
-      tls_context_.is_ecdsa_ = pkey_id == EVP_PKEY_EC;
+      cert_context.is_ecdsa_ = pkey_id == EVP_PKEY_EC;
       switch (pkey_id) {
       case EVP_PKEY_EC: {
         // We only support P-256 ECDSA today.
@@ -323,9 +334,9 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
             EC_GROUP_get_curve_name(ecdsa_group) != NID_X9_62_prime256v1) {
           throw EnvoyException(fmt::format("Failed to load certificate chain from {}, only P-256 "
                                            "ECDSA certificates are supported",
-                                           tls_context_.cert_chain_file_path_));
+                                           cert_context.cert_chain_file_path_));
         }
-        tls_context_.is_ecdsa_ = true;
+        cert_context.is_ecdsa_ = true;
       } break;
       case EVP_PKEY_RSA: {
         // We require RSA certificates with 2048-bit or larger keys.
@@ -338,7 +349,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
           throw EnvoyException(
               fmt::format("Failed to load certificate chain from {}, only RSA "
                           "certificates with 2048-bit or larger keys are supported",
-                          tls_context_.cert_chain_file_path_));
+                          cert_context.cert_chain_file_path_));
         } 
       } break;
       }
@@ -630,10 +641,12 @@ void ContextImpl::logHandshake(SSL* ssl) const {
 std::vector<Ssl::PrivateKeyMethodProviderSharedPtr> ContextImpl::getPrivateKeyMethodProviders() {
   std::vector<Envoy::Ssl::PrivateKeyMethodProviderSharedPtr> providers;
 
-  Envoy::Ssl::PrivateKeyMethodProviderSharedPtr provider =
-      tls_context_.getPrivateKeyMethodProvider();
-  if (provider) {
-    providers.push_back(provider);
+  for (auto& cert : tls_context_.cert_contexts_) {
+    Envoy::Ssl::PrivateKeyMethodProviderSharedPtr provider =
+        cert.getPrivateKeyMethodProvider();
+    if (provider) {
+      providers.push_back(provider);
+    }
   }
 
   return providers;
@@ -749,12 +762,27 @@ SslStats ContextImpl::generateStats(Stats::Scope& store) {
 
 size_t ContextImpl::daysUntilFirstCertExpires() const {
   int daysUntilExpiration = Utility::getDaysUntilExpiration(ca_cert_.get(), time_source_);
-  daysUntilExpiration = std::min<int>(
-      Utility::getDaysUntilExpiration(tls_context_.cert_chain_.get(), time_source_), daysUntilExpiration);
+  for (auto& cert : tls_context_.cert_contexts_) {
+    daysUntilExpiration = std::min<int>(
+        Utility::getDaysUntilExpiration(cert.cert_chain_.get(), time_source_), daysUntilExpiration);
+  }
   if (daysUntilExpiration < 0) { // Ensure that the return value is unsigned
     return 0;
   }
   return daysUntilExpiration;
+}
+
+absl::optional<uint64_t> ContextImpl::secondsUntilFirstOcspResponseExpires() const {
+  absl::optional<uint64_t> secs_until_expiration;
+  for (auto& cert : tls_context_.cert_contexts_) {
+    if (cert.ocsp_response_) {
+      uint64_t next_expiration = cert.ocsp_response_->secondsUntilExpiration();
+      secs_until_expiration = std::min<uint64_t>(
+          next_expiration, secs_until_expiration.value_or(std::numeric_limits<uint64_t>::max()));
+    }
+  }
+
+  return secs_until_expiration;
 }
 
 Envoy::Ssl::CertificateDetailsPtr ContextImpl::getCaCertInformation() const {
@@ -766,11 +794,13 @@ Envoy::Ssl::CertificateDetailsPtr ContextImpl::getCaCertInformation() const {
 
 std::vector<Envoy::Ssl::CertificateDetailsPtr> ContextImpl::getCertChainInformation() const {
   std::vector<Envoy::Ssl::CertificateDetailsPtr> cert_details;
-  if (tls_context_.cert_chain_ == nullptr) {
-    return cert_details;
+  for (auto& cert : tls_context_.cert_contexts_) {
+    if (cert.cert_chain_ == nullptr) {
+      continue;
+    }
+    cert_details.emplace_back(certificateDetails(cert.cert_chain_.get(), cert.getCertChainFileName(),
+                                                  cert.ocsp_response_.get()));
   }
-  cert_details.emplace_back(certificateDetails(tls_context_.cert_chain_.get(), tls_context_.getCertChainFileName(),
-                                                 tls_context_.ocsp_response_.get()));
   return cert_details;
 }
 
@@ -783,6 +813,13 @@ ContextImpl::certificateDetails(X509* cert, const std::string& path,
   certificate_details->set_serial_number(Utility::getSerialNumberFromCertificate(*cert));
   certificate_details->set_days_until_expiration(
       Utility::getDaysUntilExpiration(cert, time_source_));
+  if (ocsp_response) {
+    auto* ocsp_details = certificate_details->mutable_ocsp_details();
+    ProtobufWkt::Timestamp* valid_from = ocsp_details->mutable_valid_from();
+    TimestampUtil::systemClockToTimestamp(ocsp_response->getThisUpdate(), *valid_from);
+    ProtobufWkt::Timestamp* expiration = ocsp_details->mutable_expiration();
+    TimestampUtil::systemClockToTimestamp(ocsp_response->getNextUpdate(), *expiration);
+  }
   ProtobufWkt::Timestamp* valid_from = certificate_details->mutable_valid_from();
   TimestampUtil::systemClockToTimestamp(Utility::getValidFrom(*cert), *valid_from);
   ProtobufWkt::Timestamp* expiration_time = certificate_details->mutable_expiration_time();
@@ -984,6 +1021,8 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
         this);
   }
 
+  // If the handshaker handles session tickets natively, don't call
+  // `SSL_CTX_set_tlsext_ticket_key_cb`.
   if (config.disableStatelessSessionResumption()) {
     SSL_CTX_set_options(tls_context_.ssl_ctx_.get(), SSL_OP_NO_TICKET);
   } else if (!session_ticket_keys_.empty() && !config.capabilities().handles_alpn_selection) {
@@ -1005,32 +1044,41 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
     SSL_CTX_set_timeout(tls_context_.ssl_ctx_.get(), uint32_t(timeout));
   }
 
-  int rc =
-      SSL_CTX_set_session_id_context(tls_context_.ssl_ctx_.get(), session_id.data(), session_id.size());
+  int rc = SSL_CTX_set_session_id_context(
+               tls_context_.ssl_ctx_.get(), session_id.data(), session_id.size());
   RELEASE_ASSERT(rc == 1, Utility::getLastCryptoError().value_or(""));
 
-//    
-// TODO (dmitri-d) return to this to sort out certificate stapling/ocsp response parsing
-//
-//    for (uint32_t i = 0; i < tls_certificates.size(); ++i) {
-//      auto& ocsp_resp_bytes = tls_certificates[i].get().ocspStaple();
-//      if (ocsp_resp_bytes.empty()) {
-//        if (Runtime::runtimeFeatureEnabled(
-//                "envoy.reloadable_features.require_ocsp_response_for_must_staple_certs") &&
-//            tls_context_.is_must_staple_) {
-//          throw EnvoyException("OCSP response is required for must-staple certificate");
-//        }
-//        if (ocsp_staple_policy_ == Ssl::ServerContextConfig::OcspStaplePolicy::MustStaple) {
-//          throw EnvoyException("Required OCSP response is missing from TLS context");
-//        }
-//      } else {
-//        auto response = std::make_unique<Ocsp::OcspResponseWrapper>(ocsp_resp_bytes, time_source_);
-//        if (!response->matchesCertificate(*tls_context_.cert_chain_)) {
-//          throw EnvoyException("OCSP response does not match its TLS certificate");
-//        }
-//        tls_context_.ocsp_response_ = std::move(response);
-//      }
-//    }
+  for (uint32_t i = 0; i < tls_certificates.size(); ++i) {
+    auto& ocsp_resp_bytes = tls_certificates[i].get().ocspStaple();
+    if (ocsp_resp_bytes.empty()) {
+      if (Runtime::runtimeFeatureEnabled(
+              "envoy.reloadable_features.require_ocsp_response_for_must_staple_certs") &&
+          tls_context_.cert_contexts_[i].is_must_staple_) {
+        throw EnvoyException("OCSP response is required for must-staple certificate");
+      }
+      if (ocsp_staple_policy_ == Ssl::ServerContextConfig::OcspStaplePolicy::MustStaple) {
+        throw EnvoyException("Required OCSP response is missing from TLS context");
+      }
+    } else {
+      auto response = std::make_unique<Ocsp::OcspResponseWrapper>(ocsp_resp_bytes, time_source_);
+      if (!response->matchesCertificate(*tls_context_.cert_contexts_[i].cert_chain_)) {
+        throw EnvoyException("OCSP response does not match its TLS certificate");
+      }
+      if (response->isExpired()) {
+        ENVOY_LOG_MISC(warn, "Expired OCSP response has been loaded for the certificate chain {}", 
+          tls_context_.cert_contexts_[i].getCertChainFileName());
+      }
+      tls_context_.cert_contexts_[i].ocsp_response_ = std::move(response);
+    }
+  }
+
+  // this and the next call always succeed
+  SSL_CTX_set_tlsext_status_cb(
+    tls_context_.ssl_ctx_.get(),
+    +[](SSL* ssl, void* arg) -> int {
+      return static_cast<ServerContextImpl*>(arg)->handleOcspStapling(ssl, arg);
+    });
+  SSL_CTX_set_tlsext_status_arg(tls_context_.ssl_ctx_.get(), this);
 }
 
 ServerContextImpl::SessionContextID
@@ -1227,6 +1275,101 @@ int ServerContextImpl::sessionTicketProcess(SSL*, uint8_t* key_name, uint8_t* iv
 
     return 0; // decryption failed
   }
+}
+
+bool ServerContextImpl::isClientOcspCapable(SSL* ssl) {
+  if (TLSEXT_STATUSTYPE_ocsp == SSL_get_tlsext_status_type(ssl)) {
+    return true;
+  }
+
+  return false;
+}
+
+const ContextImpl::CertContext& ServerContextImpl::certificateContext(X509* cert) {
+  const auto matched_cert = tls_context_.cert_context_lookup_.find(certificateDigest(cert));
+  RELEASE_ASSERT(matched_cert != tls_context_.cert_context_lookup_.end(), "");
+  return matched_cert->second.get();
+}
+
+OcspStapleAction ServerContextImpl::ocspStapleAction(const ContextImpl::CertContext& cert_context,
+                                                     bool client_ocsp_capable) {
+  if (!client_ocsp_capable) {
+    return OcspStapleAction::ClientNotCapable;
+  }
+
+  auto& response = cert_context.ocsp_response_;
+  if (!Runtime::runtimeFeatureEnabled("envoy.reloadable_features.check_ocsp_policy")) {
+    // Expiration check is disabled. Proceed as if the policy is LenientStapling and the response
+    // is not expired.
+    return response ? OcspStapleAction::Staple : OcspStapleAction::NoStaple;
+  }
+
+  auto policy = ocsp_staple_policy_;
+  if (cert_context.is_must_staple_) {
+    // The certificate has the must-staple extension, so upgrade the policy to match.
+    policy = Ssl::ServerContextConfig::OcspStaplePolicy::MustStaple;
+  }
+
+  const bool valid_response = response && !response->isExpired();
+
+  switch (policy) {
+  case Ssl::ServerContextConfig::OcspStaplePolicy::LenientStapling:
+    if (!valid_response) {
+      return OcspStapleAction::NoStaple;
+    }
+    return OcspStapleAction::Staple;
+
+  case Ssl::ServerContextConfig::OcspStaplePolicy::StrictStapling:
+    if (valid_response) {
+      return OcspStapleAction::Staple;
+    }
+    if (response) {
+      // Expired response.
+      return OcspStapleAction::Fail;
+    }
+    return OcspStapleAction::NoStaple;
+
+  case Ssl::ServerContextConfig::OcspStaplePolicy::MustStaple:
+    if (!valid_response) {
+      return OcspStapleAction::Fail;
+    }
+    return OcspStapleAction::Staple;
+
+  default:
+    NOT_REACHED_GCOVR_EXCL_LINE;
+  }
+}
+
+int ServerContextImpl::handleOcspStapling(SSL* ssl, void*) {
+    const bool client_ocsp_capable = isClientOcspCapable(ssl);
+     // returns server cert selected for this connection
+     // see https://www.openssl.org/docs/man1.1.1/man3/SSL_set_tlsext_status_ocsp_resp.html
+     // for details
+    auto* selected_cert = SSL_get_certificate(ssl);
+    const auto& cert_context = certificateContext(selected_cert);
+    auto ocsp_staple_action = ocspStapleAction(cert_context, client_ocsp_capable);
+
+    switch (ocsp_staple_action) {
+    case OcspStapleAction::Staple: {
+      // We avoid setting the OCSP response if the client didn't request it, but doing so is safe.
+      RELEASE_ASSERT(cert_context.ocsp_response_,
+                    "OCSP response must be present under OcspStapleAction::Staple");
+      auto& resp_bytes = cert_context.ocsp_response_->rawBytes();
+      int rc = SSL_set_tlsext_status_ocsp_resp(ssl, const_cast<unsigned char *>(resp_bytes.data()), resp_bytes.size());
+      RELEASE_ASSERT(rc != 0, "Error setting ocsp response");
+      stats_.ocsp_staple_responses_.inc();
+    } return SSL_TLSEXT_ERR_OK;
+    case OcspStapleAction::NoStaple:
+      stats_.ocsp_staple_omitted_.inc();
+      return SSL_TLSEXT_ERR_NOACK;
+    case OcspStapleAction::Fail:
+      stats_.ocsp_staple_failed_.inc();
+      return SSL_TLSEXT_ERR_ALERT_FATAL;
+    case OcspStapleAction::ClientNotCapable:
+      return SSL_TLSEXT_ERR_NOACK;
+    }
+
+    return SSL_TLSEXT_ERR_OK;
 }
 
 void ServerContextImpl::TlsContext::addClientValidationContext(
