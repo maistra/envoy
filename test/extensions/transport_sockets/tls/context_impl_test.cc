@@ -694,9 +694,7 @@ TEST_F(SslServerContextImplOcspTest, TestInlineStringOcspStapleConfigFails) {
                             "OCSP staple cannot be provided via inline_string");
 }
 
-// TODO (dmitri-d) Disabling ocsp-related tests, re-enable when ocsp support is
-// ported to OpenSSL
-TEST_F(SslServerContextImplOcspTest, DISABLED_TestMismatchedOcspStapleConfigFails) {
+TEST_F(SslServerContextImplOcspTest, TestMismatchedOcspStapleConfigFails) {
   const std::string tls_context_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -713,9 +711,7 @@ TEST_F(SslServerContextImplOcspTest, DISABLED_TestMismatchedOcspStapleConfigFail
                             "OCSP response does not match its TLS certificate");
 }
 
-// TODO (dmitri-d) Disabling ocsp-related tests, re-enable when ocsp support is
-// ported to OpenSSL
-TEST_F(SslServerContextImplOcspTest, DISABLED_TestStaplingRequiredWithoutStapleConfigFails) {
+TEST_F(SslServerContextImplOcspTest, TestStaplingRequiredWithoutStapleConfigFails) {
   const std::string tls_context_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -730,9 +726,7 @@ TEST_F(SslServerContextImplOcspTest, DISABLED_TestStaplingRequiredWithoutStapleC
                             "Required OCSP response is missing from TLS context");
 }
 
-// TODO (dmitri-d) Disabling ocsp-related tests, re-enable when ocsp support is
-// ported to OpenSSL
-TEST_F(SslServerContextImplOcspTest, DISABLED_TestUnsuccessfulOcspResponseConfigFails) {
+TEST_F(SslServerContextImplOcspTest, TestUnsuccessfulOcspResponseConfigFails) {
   std::vector<uint8_t> data = {
       // SEQUENCE
       0x30, 3,
@@ -759,9 +753,7 @@ TEST_F(SslServerContextImplOcspTest, DISABLED_TestUnsuccessfulOcspResponseConfig
                             "OCSP response was unsuccessful");
 }
 
-// TODO (dmitri-d) Disabling ocsp-related tests, re-enable when ocsp support is
-// ported to OpenSSL
-TEST_F(SslServerContextImplOcspTest, DISABLED_TestMustStapleCertWithoutStapleConfigFails) {
+TEST_F(SslServerContextImplOcspTest, TestMustStapleCertWithoutStapleConfigFails) {
   const std::string tls_context_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -793,9 +785,7 @@ TEST_F(SslServerContextImplOcspTest, TestMustStapleCertWithoutStapleFeatureFlagO
   loadConfigYaml(tls_context_yaml);
 }
 
-// TODO (dmitri-d) Disabling ocsp-related tests, re-enable when ocsp support is
-// ported to OpenSSL
-TEST_F(SslServerContextImplOcspTest, DISABLED_TestGetCertInformationWithOCSP) {
+TEST_F(SslServerContextImplOcspTest, TestGetCertInformationWithOCSP) {
   const std::string yaml = R"EOF(
   common_tls_context:
     tls_certificates:

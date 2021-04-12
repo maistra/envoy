@@ -117,9 +117,7 @@ def envoy_dependencies(skip_targets = []):
     # EXTERNAL OPENSSL
     _openssl()
     _openssl_includes()
-    _bssl_wrapper()
-    _openssl_cbs()
-
+    _com_github_maistra_bssl_wrapper()
 
     # The long repo names (`com_github_fmtlib_fmt` instead of `fmtlib`) are
     # semi-standard in the Bazel community, intended to avoid both duplicate
@@ -217,23 +215,14 @@ def _openssl_includes():
     native.bind(
         name = "openssl_includes_lib",
         actual = "@com_github_openssl_openssl//:openssl_includes_lib",
-)
+    )
 
-
-def _bssl_wrapper():
-    _repository_impl("bssl_wrapper")
+def _com_github_maistra_bssl_wrapper():
+    _repository_impl("com_github_maistra_bssl_wrapper")
     native.bind(
         name = "bssl_wrapper_lib",
-        actual = "@bssl_wrapper//:bssl_wrapper_lib",
+        actual = "@com_github_maistra_bssl_wrapper//:bssl_wrapper",
     )
-
-def _openssl_cbs():
-    _repository_impl("openssl_cbs")
-    native.bind(
-        name = "openssl_cbs_lib",
-        actual = "@openssl_cbs//:openssl_cbs_lib",
-    )
-
 
 def _com_github_circonus_labs_libcircllhist():
     external_http_archive(

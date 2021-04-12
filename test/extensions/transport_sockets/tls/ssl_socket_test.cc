@@ -353,7 +353,7 @@ void testUtil(const TestUtilOptions& options) {
   if (options.ocspStaplingEnabled()) {
     const SslHandshakerImpl* ssl_socket =
         dynamic_cast<const SslHandshakerImpl*>(client_connection->ssl().get());
-    //SSL_enable_ocsp_stapling(ssl_socket->ssl());
+    SSL_set_tlsext_status_type(ssl_socket->ssl(), TLSEXT_STATUSTYPE_ocsp);
   }
 
   Network::MockConnectionCallbacks client_connection_callbacks;
@@ -440,16 +440,16 @@ void testUtil(const TestUtilOptions& options) {
                   server_connection->ssl()->urlEncodedPemEncodedPeerCertificateChain());
       }
 
-      // TODO (dmitri-d) certificate stapling is disabled under OpenSSL atm
-      // 
-      //const SslHandshakerImpl* ssl_socket =
-      //    dynamic_cast<const SslHandshakerImpl*>(client_connection->ssl().get());
-      //SSL* client_ssl_socket = ssl_socket->ssl();
-      //const uint8_t* response_head;
-      //size_t response_len;
-      //SSL_get0_ocsp_response(client_ssl_socket, &response_head, &response_len);
-      //std::string ocsp_response{reinterpret_cast<const char*>(response_head), response_len};
-      //EXPECT_EQ(options.expectedOcspResponse(), ocsp_response);
+      if (options.expectedOcspResponse().size() > 0) {
+        const SslHandshakerImpl* ssl_socket =
+          dynamic_cast<const SslHandshakerImpl*>(client_connection->ssl().get());
+        SSL* client_ssl_socket = ssl_socket->ssl();
+        const uint8_t* response_head;
+        long response_len = SSL_get_tlsext_status_ocsp_resp(client_ssl_socket, &response_head);
+        EXPECT_TRUE(response_len > 0);
+        std::string ocsp_response{reinterpret_cast<const char*>(response_head), response_len};
+        EXPECT_EQ(options.expectedOcspResponse(), ocsp_response);
+      }
 
       // By default, the session is not created with session resumption. The
       // client should see a session ID but the server should not.
@@ -5187,7 +5187,7 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderAsyncDecryptSuccess) {
   common_tls_context:
     tls_params:
       cipher_suites:
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
 
   TestUtilOptions successful_test_options(successful_client_ctx_yaml, server_ctx_yaml, true,
@@ -5259,7 +5259,7 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderSyncDecryptSuccess) {
   common_tls_context:
     tls_params:
       cipher_suites:
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
 
   TestUtilOptions successful_test_options(successful_client_ctx_yaml, server_ctx_yaml, true,
@@ -5405,7 +5405,7 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderDecryptFailure) {
   common_tls_context:
     tls_params:
       cipher_suites:
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
 
   TestUtilOptions failing_test_options(failing_client_ctx_yaml, server_ctx_yaml, false, GetParam());
@@ -5477,7 +5477,7 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderAsyncSignCompleteFailure) {
   common_tls_context:
     tls_params:
       cipher_suites:
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
 
   TestUtilOptions failing_test_options(failing_client_ctx_yaml, server_ctx_yaml, false, GetParam());
@@ -5698,8 +5698,7 @@ TEST_P(SslSocketTest, RsaAndEcdsaPrivateKeyProviderMultiCertFail) {
 }
 */
 
-// TODO (dmitri-d) re-enable when ocsp is sorted out
-TEST_P(SslSocketTest, DISABLED_TestStaplesOcspResponseSuccess) {
+TEST_P(SslSocketTest, TestStaplesOcspResponseSuccess) {
   const std::string server_ctx_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -5716,7 +5715,7 @@ TEST_P(SslSocketTest, DISABLED_TestStaplesOcspResponseSuccess) {
   common_tls_context:
     tls_params:
       cipher_suites:
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
   TestUtilOptions test_options(client_ctx_yaml, server_ctx_yaml, true, GetParam());
 
@@ -5730,8 +5729,7 @@ TEST_P(SslSocketTest, DISABLED_TestStaplesOcspResponseSuccess) {
                .setExpectedServerStats("ssl.ocsp_staple_responses"));
 }
 
-// TODO (dmitri-d) re-enable when ocsp is sorted out
-TEST_P(SslSocketTest, DISABLED_TestNoOcspStapleWhenNotEnabledOnClient) {
+TEST_P(SslSocketTest, TestNoOcspStapleWhenNotEnabledOnClient) {
   const std::string server_ctx_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -5748,14 +5746,13 @@ TEST_P(SslSocketTest, DISABLED_TestNoOcspStapleWhenNotEnabledOnClient) {
   common_tls_context:
     tls_params:
       cipher_suites:
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
   TestUtilOptions test_options(client_ctx_yaml, server_ctx_yaml, true, GetParam());
   testUtil(test_options);
 }
 
-// TODO (dmitri-d) re-enable when ocsp is sorted out
-TEST_P(SslSocketTest, DISABLED_TestOcspStapleOmittedOnSkipStaplingAndResponseExpired) {
+TEST_P(SslSocketTest, TestOcspStapleOmittedOnSkipStaplingAndResponseExpired) {
   const std::string server_ctx_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -5772,14 +5769,13 @@ TEST_P(SslSocketTest, DISABLED_TestOcspStapleOmittedOnSkipStaplingAndResponseExp
   common_tls_context:
     tls_params:
       cipher_suites:
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
   TestUtilOptions test_options(client_ctx_yaml, server_ctx_yaml, true, GetParam());
   testUtil(test_options.setExpectedServerStats("ssl.ocsp_staple_omitted").enableOcspStapling());
 }
 
-// TODO (dmitri-d) re-enable when ocsp is sorted out
-TEST_P(SslSocketTest, DISABLED_TestConnectionFailsOnStapleRequiredAndOcspExpired) {
+TEST_P(SslSocketTest, TestConnectionFailsOnStapleRequiredAndOcspExpired) {
   const std::string server_ctx_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -5796,14 +5792,13 @@ TEST_P(SslSocketTest, DISABLED_TestConnectionFailsOnStapleRequiredAndOcspExpired
   common_tls_context:
     tls_params:
       cipher_suites:
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
   TestUtilOptions test_options(client_ctx_yaml, server_ctx_yaml, false, GetParam());
   testUtil(test_options.setExpectedServerStats("ssl.ocsp_staple_failed").enableOcspStapling());
 }
 
-// TODO (dmitri-d) re-enable when ocsp is sorted out
-TEST_P(SslSocketTest, DISABLED_TestConnectionSucceedsWhenRejectOnExpiredNoOcspResponse) {
+TEST_P(SslSocketTest, TestConnectionSucceedsWhenRejectOnExpiredNoOcspResponse) {
   const std::string server_ctx_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -5818,14 +5813,13 @@ TEST_P(SslSocketTest, DISABLED_TestConnectionSucceedsWhenRejectOnExpiredNoOcspRe
   common_tls_context:
     tls_params:
       cipher_suites:
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
   TestUtilOptions test_options(client_ctx_yaml, server_ctx_yaml, true, GetParam());
   testUtil(test_options.setExpectedServerStats("ssl.ocsp_staple_omitted").enableOcspStapling());
 }
 
-// TODO (dmitri-d) re-enable when ocsp is sorted out
-TEST_P(SslSocketTest, DISABLED_TestConnectionFailsWhenRejectOnExpiredAndResponseExpired) {
+TEST_P(SslSocketTest, TestConnectionFailsWhenRejectOnExpiredAndResponseExpired) {
   const std::string server_ctx_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -5842,15 +5836,14 @@ TEST_P(SslSocketTest, DISABLED_TestConnectionFailsWhenRejectOnExpiredAndResponse
   common_tls_context:
     tls_params:
       cipher_suites:
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
 
   TestUtilOptions test_options(client_ctx_yaml, server_ctx_yaml, false, GetParam());
   testUtil(test_options.setExpectedServerStats("ssl.ocsp_staple_failed").enableOcspStapling());
 }
 
-// TODO (dmitri-d) re-enable when ocsp is sorted out
-TEST_P(SslSocketTest, DISABLED_TestConnectionFailsWhenCertIsMustStapleAndResponseExpired) {
+TEST_P(SslSocketTest, TestConnectionFailsWhenCertIsMustStapleAndResponseExpired) {
   const std::string server_ctx_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -5867,15 +5860,14 @@ TEST_P(SslSocketTest, DISABLED_TestConnectionFailsWhenCertIsMustStapleAndRespons
   common_tls_context:
     tls_params:
       cipher_suites:
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
 
   TestUtilOptions test_options(client_ctx_yaml, server_ctx_yaml, false, GetParam());
   testUtil(test_options.setExpectedServerStats("ssl.ocsp_staple_failed").enableOcspStapling());
 }
 
-// TODO (dmitri-d) re-enable when ocsp is sorted out
-TEST_P(SslSocketTest, DISABLED_TestConnectionSucceedsForMustStapleCertExpirationValidationOff) {
+TEST_P(SslSocketTest, TestConnectionSucceedsForMustStapleCertExpirationValidationOff) {
   const std::string server_ctx_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -5892,7 +5884,7 @@ TEST_P(SslSocketTest, DISABLED_TestConnectionSucceedsForMustStapleCertExpiration
   common_tls_context:
     tls_params:
       cipher_suites:
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
 
   TestScopedRuntime scoped_runtime;
@@ -5910,8 +5902,7 @@ TEST_P(SslSocketTest, DISABLED_TestConnectionSucceedsForMustStapleCertExpiration
                .setExpectedOcspResponse(expected_response));
 }
 
-// TODO (dmitri-d) re-enable when ocsp is sorted out
-TEST_P(SslSocketTest, DISABLED_TestConnectionSucceedsForMustStapleCertNoValidationNoResponse) {
+TEST_P(SslSocketTest, TestConnectionSucceedsForMustStapleCertNoValidationNoResponse) {
   const std::string server_ctx_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -5926,7 +5917,7 @@ TEST_P(SslSocketTest, DISABLED_TestConnectionSucceedsForMustStapleCertNoValidati
   common_tls_context:
     tls_params:
       cipher_suites:
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
 
   TestScopedRuntime scoped_runtime;
@@ -5939,7 +5930,13 @@ TEST_P(SslSocketTest, DISABLED_TestConnectionSucceedsForMustStapleCertNoValidati
                .setExpectedOcspResponse(""));
 }
 
-// TODO (dmitri-d) re-enable when ocsp is sorted out
+// TODO (dmitri-d) we currently rely on OpenSSL to setup server-side certificate chain to use.
+// OpenSSL selection process doesn't take into account presence and status of an OCSP response.
+// This test failure under OpenSSL as only one of the configured certificate chains has a valid
+// OSCP response, which is expected to be used.
+// A possible approach is to use a cert_cb (see https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_cert_cb.html)
+// and check OCSP response validity then. 
+// Using this callback raises a question of cert chain compatibility with the client side and how to handle it. 
 TEST_P(SslSocketTest, DISABLED_TestFilterMultipleCertsFilterByOcspPolicyFallbackOnFirst) {
   const std::string server_ctx_yaml = R"EOF(
   common_tls_context:
@@ -5964,7 +5961,7 @@ TEST_P(SslSocketTest, DISABLED_TestFilterMultipleCertsFilterByOcspPolicyFallback
     tls_params:
       cipher_suites:
       - ECDHE-ECDSA-AES128-GCM-SHA256
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
 
   std::string ocsp_response_path =
@@ -5977,8 +5974,7 @@ TEST_P(SslSocketTest, DISABLED_TestFilterMultipleCertsFilterByOcspPolicyFallback
                .setExpectedOcspResponse(expected_response));
 }
 
-// TODO (dmitri-d) re-enable when ocsp is sorted out
-TEST_P(SslSocketTest, DISABLED_TestConnectionFailsOnMultipleCertificatesNonePassOcspPolicy) {
+TEST_P(SslSocketTest, TestConnectionFailsOnMultipleCertificatesNonePassOcspPolicy) {
   const std::string server_ctx_yaml = R"EOF(
   common_tls_context:
     tls_certificates:
@@ -6002,7 +5998,7 @@ TEST_P(SslSocketTest, DISABLED_TestConnectionFailsOnMultipleCertificatesNonePass
     tls_params:
       cipher_suites:
       - ECDHE-ECDSA-AES128-GCM-SHA256
-      - TLS_RSA_WITH_AES_128_GCM_SHA256
+      - AES128-GCM-SHA256
 )EOF";
 
   TestUtilOptions test_options(client_ctx_yaml, server_ctx_yaml, false, GetParam());
