@@ -17,9 +17,11 @@
 #include "common/common/matchers.h"
 #include "common/stats/symbol_table_impl.h"
 
+#include "extensions/transport_sockets/tls/cert_validator/cert_validator.h"
 #include "extensions/transport_sockets/tls/context_manager_impl.h"
 #include "extensions/transport_sockets/tls/ocsp/ocsp.h"
 #include "extensions/transport_sockets/tls/openssl_impl.h"
+#include "extensions/transport_sockets/tls/stats.h"
 
 #include "absl/synchronization/mutex.h"
 #include "absl/types/optional.h"
@@ -32,27 +34,6 @@ namespace Envoy {
 namespace Extensions {
 namespace TransportSockets {
 namespace Tls {
-
-#define ALL_SSL_STATS(COUNTER, GAUGE, HISTOGRAM)                                                   \
-  COUNTER(connection_error)                                                                        \
-  COUNTER(handshake)                                                                               \
-  COUNTER(session_reused)                                                                          \
-  COUNTER(no_certificate)                                                                          \
-  COUNTER(fail_verify_no_cert)                                                                     \
-  COUNTER(fail_verify_error)                                                                       \
-  COUNTER(fail_verify_san)                                                                         \
-  COUNTER(fail_verify_cert_hash)                                                                   \
-  COUNTER(ocsp_staple_failed)                                                                      \
-  COUNTER(ocsp_staple_omitted)                                                                     \
-  COUNTER(ocsp_staple_responses)                                                                   \
-  COUNTER(ocsp_staple_requests)
-
-/**
- * Wrapper struct for SSL stats. @see stats_macros.h
- */
-struct SslStats {
-  ALL_SSL_STATS(GENERATE_COUNTER_STRUCT, GENERATE_GAUGE_STRUCT, GENERATE_HISTOGRAM_STRUCT)
-};
 
 class ContextImpl : public virtual Envoy::Ssl::Context {
 public:
@@ -194,6 +175,7 @@ protected:
   };
 
   TlsContext tls_context_;
+  CertValidatorPtr cert_validator_;
   bool verify_trusted_ca_{false};
   std::vector<std::string> verify_subject_alt_name_list_;
   std::vector<Matchers::StringMatcherImpl> subject_alt_name_matchers_;

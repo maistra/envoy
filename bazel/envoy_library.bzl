@@ -62,6 +62,37 @@ EXTENSION_SECURITY_POSTURES = [
     "data_plane_agnostic",
 ]
 
+# Extension categories as defined by factories
+EXTENSION_CATEGORIES = [
+    "envoy.access_loggers",
+    "envoy.bootstrap",
+    "envoy.clusters",
+    "envoy.compression.compressor",
+    "envoy.compression.decompressor",
+    "envoy.filters.http",
+    "envoy.filters.listener",
+    "envoy.filters.network",
+    "envoy.filters.udp_listener",
+    "envoy.grpc_credentials",
+    "envoy.guarddog_actions",
+    "envoy.health_checkers",
+    "envoy.internal_redirect_predicates",
+    "envoy.io_socket",
+    "envoy.rate_limit_descriptors",
+    "envoy.resource_monitors",
+    "envoy.retry_host_predicates",
+    "envoy.retry_priorities",
+    "envoy.stats_sinks",
+    "envoy.thrift_proxy.filters",
+    "envoy.tracers",
+    "envoy.transport_sockets.downstream",
+    "envoy.transport_sockets.upstream",
+    "envoy.tls.cert_validator",
+    "envoy.upstreams",
+    "envoy.wasm.runtime",
+    "DELIBERATELY_OMITTED",
+]
+
 EXTENSION_STATUS_VALUES = [
     # This extension is stable and is expected to be production usable.
     "stable",

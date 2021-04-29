@@ -23,6 +23,8 @@
 #include "common/stats/utility.h"
 
 #include "extensions/transport_sockets/tls/openssl_impl.h"
+#include "extensions/transport_sockets/tls/cert_validator/factory.h"
+#include "extensions/transport_sockets/tls/context_impl.h"
 #include "extensions/transport_sockets/tls/utility.h"
 
 #include "absl/container/node_hash_set.h"
@@ -68,6 +70,19 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
       ssl_versions_(stat_name_set_->add("ssl.versions")),
       ssl_curves_(stat_name_set_->add("ssl.curves")),
       ssl_sigalgs_(stat_name_set_->add("ssl.sigalgs")), capabilities_(config.capabilities()) {
+
+  auto cert_validator_name = getCertValidatorName(config.certificateValidationContext());
+  auto cert_validator_factory =
+      Registry::FactoryRegistry<CertValidatorFactory>::getFactory(cert_validator_name);
+
+  if (!cert_validator_factory) {
+    throw EnvoyException(
+        absl::StrCat("Failed to get certificate validator factory for ", cert_validator_name));
+  }
+
+  cert_validator_ = cert_validator_factory->createCertValidator(
+      config.certificateValidationContext(), stats_, time_source_);
+
   const auto tls_certificates = config.tlsCertificates();
 
   tls_context_.cert_contexts_.resize(std::max(static_cast<size_t>(1), tls_certificates.size()));
