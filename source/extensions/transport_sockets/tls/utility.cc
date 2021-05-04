@@ -4,14 +4,71 @@
 #include "common/common/assert.h"
 #include "common/common/empty_string.h"
 #include "common/network/address_impl.h"
+#include "common/protobuf/utility.h"
 
 #include "absl/strings/str_join.h"
 #include "openssl/x509v3.h"
+#include "openssl/ssl.h"
 
 namespace Envoy {
 namespace Extensions {
 namespace TransportSockets {
 namespace Tls {
+
+static constexpr absl::string_view SSL_ERROR_NONE_MESSAGE = "NONE";
+static constexpr absl::string_view SSL_ERROR_SSL_MESSAGE = "SSL";
+static constexpr absl::string_view SSL_ERROR_WANT_READ_MESSAGE = "WANT_READ";
+static constexpr absl::string_view SSL_ERROR_WANT_WRITE_MESSAGE = "WANT_WRITE";
+static constexpr absl::string_view SSL_ERROR_WANT_X509_LOOPUP_MESSAGE = "WANT_X509_LOOKUP";
+static constexpr absl::string_view SSL_ERROR_SYSCALL_MESSAGE = "SYSCALL";
+static constexpr absl::string_view SSL_ERROR_ZERO_RETURN_MESSAGE = "ZERO_RETURN";
+static constexpr absl::string_view SSL_ERROR_WANT_CONNECT_MESSAGE = "WANT_CONNECT";
+static constexpr absl::string_view SSL_ERROR_WANT_ACCEPT_MESSAGE = "WANT_ACCEPT";
+static constexpr absl::string_view SSL_ERROR_WANT_CHANNEL_ID_LOOKUP_MESSAGE =
+    "WANT_CHANNEL_ID_LOOKUP";
+static constexpr absl::string_view SSL_ERROR_PENDING_SESSION_MESSAGE = "PENDING_SESSION";
+static constexpr absl::string_view SSL_ERROR_PENDING_CERTIFICATE_MESSAGE = "PENDING_CERTIFICATE";
+static constexpr absl::string_view SSL_ERROR_WANT_PRIVATE_KEY_OPERATION_MESSAGE =
+    "WANT_PRIVATE_KEY_OPERATION";
+static constexpr absl::string_view SSL_ERROR_PENDING_TICKET_MESSAGE = "PENDING_TICKET";
+static constexpr absl::string_view SSL_ERROR_EARLY_DATA_REJECTED_MESSAGE = "EARLY_DATA_REJECTED";
+static constexpr absl::string_view SSL_ERROR_WANT_CERTIFICATE_VERIFY_MESSAGE =
+    "WANT_CERTIFICATE_VERIFY";
+static constexpr absl::string_view SSL_ERROR_HANDOFF_MESSAGE = "HANDOFF";
+static constexpr absl::string_view SSL_ERROR_HANDBACK_MESSAGE = "HANDBACK";
+static constexpr absl::string_view SSL_ERROR_UNKNOWN_ERROR_MESSAGE = "UNKNOWN_ERROR";
+
+Envoy::Ssl::CertificateDetailsPtr Utility::certificateDetails(X509* cert, const std::string& path,
+                                                              TimeSource& time_source) {
+  Envoy::Ssl::CertificateDetailsPtr certificate_details =
+      std::make_unique<envoy::admin::v3::CertificateDetails>();
+  certificate_details->set_path(path);
+  certificate_details->set_serial_number(Utility::getSerialNumberFromCertificate(*cert));
+  certificate_details->set_days_until_expiration(
+      Utility::getDaysUntilExpiration(cert, time_source));
+
+  ProtobufWkt::Timestamp* valid_from = certificate_details->mutable_valid_from();
+  TimestampUtil::systemClockToTimestamp(Utility::getValidFrom(*cert), *valid_from);
+  ProtobufWkt::Timestamp* expiration_time = certificate_details->mutable_expiration_time();
+  TimestampUtil::systemClockToTimestamp(Utility::getExpirationTime(*cert), *expiration_time);
+
+  for (auto& dns_san : Utility::getSubjectAltNames(*cert, GEN_DNS)) {
+    envoy::admin::v3::SubjectAlternateName& subject_alt_name =
+        *certificate_details->add_subject_alt_names();
+    subject_alt_name.set_dns(dns_san);
+  }
+  for (auto& uri_san : Utility::getSubjectAltNames(*cert, GEN_URI)) {
+    envoy::admin::v3::SubjectAlternateName& subject_alt_name =
+        *certificate_details->add_subject_alt_names();
+    subject_alt_name.set_uri(uri_san);
+  }
+  for (auto& ip_san : Utility::getSubjectAltNames(*cert, GEN_IPADD)) {
+    envoy::admin::v3::SubjectAlternateName& subject_alt_name =
+        *certificate_details->add_subject_alt_names();
+    subject_alt_name.set_ip_address(ip_san);
+  }
+  return certificate_details;
+}
 
 namespace {
 
@@ -234,23 +291,23 @@ absl::string_view Utility::getErrorDescription(int err) {
     return SSL_ERROR_WANT_CONNECT_MESSAGE;
   case SSL_ERROR_WANT_ACCEPT:
     return SSL_ERROR_WANT_ACCEPT_MESSAGE;
-  case SSL_ERROR_WANT_CHANNEL_ID_LOOKUP:
+  case 9: // SSL_ERROR_WANT_CHANNEL_ID_LOOKUP not available in OpenSSL 1.1.x
     return SSL_ERROR_WANT_CHANNEL_ID_LOOKUP_MESSAGE;
-  case SSL_ERROR_PENDING_SESSION:
+  case 11: // SSL_ERROR_PENDING_SESSION not available in OpenSSL 1.1.x
     return SSL_ERROR_PENDING_SESSION_MESSAGE;
-  case SSL_ERROR_PENDING_CERTIFICATE:
+  case 12: // SSL_ERROR_PENDING_CERTIFICATE:
     return SSL_ERROR_PENDING_CERTIFICATE_MESSAGE;
-  case SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
+  case 13: // SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
     return SSL_ERROR_WANT_PRIVATE_KEY_OPERATION_MESSAGE;
-  case SSL_ERROR_PENDING_TICKET:
+  case 14: // SSL_ERROR_PENDING_TICKET:
     return SSL_ERROR_PENDING_TICKET_MESSAGE;
-  case SSL_ERROR_EARLY_DATA_REJECTED:
+  case 15: // SSL_ERROR_EARLY_DATA_REJECTED:
     return SSL_ERROR_EARLY_DATA_REJECTED_MESSAGE;
-  case SSL_ERROR_WANT_CERTIFICATE_VERIFY:
+  case 16: // SSL_ERROR_WANT_CERTIFICATE_VERIFY:
     return SSL_ERROR_WANT_CERTIFICATE_VERIFY_MESSAGE;
-  case SSL_ERROR_HANDOFF:
+  case 17: // SSL_ERROR_HANDOFF:
     return SSL_ERROR_HANDOFF_MESSAGE;
-  case SSL_ERROR_HANDBACK:
+  case 18: // SSL_ERROR_HANDBACK:
     return SSL_ERROR_HANDBACK_MESSAGE;
   default:
     ENVOY_BUG(false, "Unknown BoringSSL error had occurred");
