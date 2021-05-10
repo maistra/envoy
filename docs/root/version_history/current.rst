@@ -23,5 +23,7 @@ Removed Config or Runtime
 New Features
 ------------
 
+* tls peer certificate validation: added :ref:`SPIFFE validator <envoy_v3_api_msg_extensions.transport_sockets.tls.v3.SPIFFECertValidatorConfig>` for supporting isolated multiple trust bundles in a single listener or cluster.
+
 Deprecated
 ----------

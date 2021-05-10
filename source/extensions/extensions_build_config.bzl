@@ -236,6 +236,12 @@ EXTENSIONS = {
     #
 
     "envoy.rate_limit_descriptors.expr":                "//source/extensions/rate_limit_descriptors/expr:config",
+
+    #
+    # TLS peer certification validators
+    #
+
+    "envoy.tls.cert_validator.spiffe":                  "//source/extensions/transport_sockets/tls/cert_validator/spiffe:config",
 }
 
 # These can be changed to ["//visibility:public"], for  downstream builds which

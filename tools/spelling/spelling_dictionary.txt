@@ -42,6 +42,7 @@ CHMOD
 CHLOS
 CHLOs
 CIDR
+CITT
 CLA
 CLI
 CMSG
@@ -306,6 +307,7 @@ STL
 STRLEN
 STS
 SVG
+SVID
 Symbolizer
 TBD
 TCLAP
@@ -477,7 +479,7 @@ ci
 ciphersuite
 ciphersuites
 circllhist
-CITT
+clientcert
 cloneable
 cloneability
 cmd
@@ -510,6 +512,7 @@ coverity
 cplusplus
 cpuset
 creds
+cRLSign
 crypto
 cryptographic
 cryptographically
