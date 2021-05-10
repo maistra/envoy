@@ -17,8 +17,10 @@
 #include "common/common/matchers.h"
 #include "common/stats/symbol_table_impl.h"
 
+#include "extensions/transport_sockets/tls/cert_validator/cert_validator.h"
 #include "extensions/transport_sockets/tls/context_manager_impl.h"
 #include "extensions/transport_sockets/tls/ocsp/ocsp.h"
+#include "extensions/transport_sockets/tls/stats.h"
 #include "extensions/transport_sockets/tls/openssl_impl.h"
 
 #include "absl/synchronization/mutex.h"
@@ -33,25 +35,30 @@ namespace Extensions {
 namespace TransportSockets {
 namespace Tls {
 
-#define ALL_SSL_STATS(COUNTER, GAUGE, HISTOGRAM)                                                   \
-  COUNTER(connection_error)                                                                        \
-  COUNTER(handshake)                                                                               \
-  COUNTER(session_reused)                                                                          \
-  COUNTER(no_certificate)                                                                          \
-  COUNTER(fail_verify_no_cert)                                                                     \
-  COUNTER(fail_verify_error)                                                                       \
-  COUNTER(fail_verify_san)                                                                         \
-  COUNTER(fail_verify_cert_hash)                                                                   \
-  COUNTER(ocsp_staple_failed)                                                                      \
-  COUNTER(ocsp_staple_omitted)                                                                     \
-  COUNTER(ocsp_staple_responses)                                                                   \
-  COUNTER(ocsp_staple_requests)
+struct CertContext {
+  bssl::UniquePtr<X509> cert_chain_;
+  std::string cert_chain_file_path_;
+  Ocsp::OcspResponseWrapperPtr ocsp_response_;
+  bool is_ecdsa_{};
+  bool is_must_staple_{};
+  std::string getCertChainFileName() const { return cert_chain_file_path_; };
+  Ssl::PrivateKeyMethodProviderSharedPtr private_key_method_provider_{};
+  Envoy::Ssl::PrivateKeyMethodProviderSharedPtr getPrivateKeyMethodProvider() {
+    return private_key_method_provider_;
+  }
+};
 
-/**
- * Wrapper struct for SSL stats. @see stats_macros.h
- */
-struct SslStats {
-  ALL_SSL_STATS(GENERATE_COUNTER_STRUCT, GENERATE_GAUGE_STRUCT, GENERATE_HISTOGRAM_STRUCT)
+// Use a single context for certificates instead of one context per certificate as in the BoringSSL case.
+// A single context is required to hold all certificates for OpenSSL, certificate selection is handled by OpenSSL.
+struct TlsContext {
+  bssl::UniquePtr<SSL_CTX> ssl_ctx_;
+  std::vector<CertContext> cert_contexts_;
+  // a map of cert hashes as calculated by X509_digest with EVP_sha1 to cert contexts
+  absl::flat_hash_map<std::string, std::reference_wrapper<CertContext>> cert_context_lookup_;
+
+  void addClientValidationContext(const Envoy::Ssl::CertificateValidationContextConfig& config,
+                                  bool require_client_cert);
+  bool isCipherEnabled(uint16_t cipher_id, uint16_t client_version);
 };
 
 class ContextImpl : public virtual Envoy::Ssl::Context {
@@ -63,33 +70,6 @@ public:
    * @param ssl the connection to log
    */
   void logHandshake(SSL* ssl) const;
-
-  /**
-   * Performs subjectAltName verification
-   * @param ssl the certificate to verify
-   * @param subject_alt_names the configured subject_alt_names to match
-   * @return true if the verification succeeds
-   */
-  static bool verifySubjectAltName(X509* cert, const std::vector<std::string>& subject_alt_names);
-
-  /**
-   * Performs subjectAltName matching with the provided matchers.
-   * @param ssl the certificate to verify
-   * @param subject_alt_name_matchers the configured matchers to match
-   * @return true if the verification succeeds
-   */
-  static bool
-  matchSubjectAltName(X509* cert,
-                      const std::vector<Matchers::StringMatcherImpl>& subject_alt_name_matchers);
-
-  /**
-   * Determines whether the given name matches 'pattern' which may optionally begin with a wildcard.
-   * NOTE:  public for testing
-   * @param dns_name the DNS name to match
-   * @param pattern the pattern to match against (*.example.com)
-   * @return true if the san matches pattern
-   */
-  static bool dnsNameMatch(const absl::string_view dns_name, const absl::string_view pattern);
 
   SslStats& stats() { return stats_; }
 
@@ -118,94 +98,22 @@ protected:
    */
   static int sslContextIndex();
 
-  // A X509_STORE_CTX_verify_cb callback for ignoring cert expiration in X509_verify_cert().
-  static int ignoreCertificateExpirationCallback(int ok, X509_STORE_CTX* store_ctx);
-
   // A SSL_CTX_set_cert_verify_callback for custom cert validation.
   static int verifyCallback(X509_STORE_CTX* store_ctx, void* arg);
-
-  // Called by verifyCallback to do the actual cert chain verification.
-  int doVerifyCertChain(X509_STORE_CTX* store_ctx, Ssl::SslExtendedSocketInfo* ssl_extended_info,
-                        X509& leaf_cert,
-                        const Network::TransportSocketOptions* transport_socket_options);
-
-  Envoy::Ssl::ClientValidationStatus
-  verifyCertificate(X509* cert, const std::vector<std::string>& verify_san_list,
-                    const std::vector<Matchers::StringMatcherImpl>& subject_alt_name_matchers);
-
-  /**
-   * Verifies certificate hash for pinning. The hash is a hex-encoded SHA-256 of the DER-encoded
-   * certificate.
-   *
-   * @param ssl the certificate to verify
-   * @param expected_hashes the configured list of certificate hashes to match
-   * @return true if the verification succeeds
-   */
-  static bool verifyCertificateHashList(X509* cert,
-                                        const std::vector<std::vector<uint8_t>>& expected_hashes);
-
-  /**
-   * Verifies certificate hash for pinning. The hash is a base64-encoded SHA-256 of the DER-encoded
-   * Subject Public Key Information (SPKI) of the certificate.
-   *
-   * @param ssl the certificate to verify
-   * @param expected_hashes the configured list of certificate hashes to match
-   * @return true if the verification succeeds
-   */
-  static bool verifyCertificateSpkiList(X509* cert,
-                                        const std::vector<std::vector<uint8_t>>& expected_hashes);
 
   bool parseAndSetAlpn(const std::vector<std::string>& alpn, SSL& ssl);
   std::vector<uint8_t> parseAlpnProtocols(const std::string& alpn_protocols);
   static SslStats generateStats(Stats::Scope& scope);
 
-  std::string getCaFileName() const { return ca_file_path_; };
   void incCounter(const Stats::StatName name, absl::string_view value,
                   const Stats::StatName fallback) const;
 
-  Envoy::Ssl::CertificateDetailsPtr
-  certificateDetails(X509* cert, const std::string& path,
-                     const Ocsp::OcspResponseWrapper* ocsp_response) const;
-
-  struct CertContext {
-    bssl::UniquePtr<X509> cert_chain_;
-    std::string cert_chain_file_path_;
-    Ocsp::OcspResponseWrapperPtr ocsp_response_;
-    bool is_ecdsa_{};
-    bool is_must_staple_{};
-    std::string getCertChainFileName() const { return cert_chain_file_path_; };
-    Ssl::PrivateKeyMethodProviderSharedPtr private_key_method_provider_{};
-    Envoy::Ssl::PrivateKeyMethodProviderSharedPtr getPrivateKeyMethodProvider() {
-      return private_key_method_provider_;
-    }
-  };
-
-  // Use a single context for certificates instead of one context per certificate as in the BoringSSL case.
-  // A single context is required to hold all certificates for OpenSSL, certificate selection is handled by OpenSSL.
-  struct TlsContext {
-    bssl::UniquePtr<SSL_CTX> ssl_ctx_;
-    std::vector<CertContext> cert_contexts_;
-    // a map of cert hashes as calculated by X509_digest with EVP_sha1 to cert contexts
-    absl::flat_hash_map<std::string, std::reference_wrapper<CertContext>> cert_context_lookup_;
-
-    void addClientValidationContext(const Envoy::Ssl::CertificateValidationContextConfig& config,
-                                    bool require_client_cert);
-    bool isCipherEnabled(uint16_t cipher_id, uint16_t client_version);
-  };
-
   TlsContext tls_context_;
-  bool verify_trusted_ca_{false};
-  std::vector<std::string> verify_subject_alt_name_list_;
-  std::vector<Matchers::StringMatcherImpl> subject_alt_name_matchers_;
-  std::vector<std::vector<uint8_t>> verify_certificate_hash_list_;
-  std::vector<std::vector<uint8_t>> verify_certificate_spki_list_;
-  bool allow_untrusted_certificate_{false};
+  CertValidatorPtr cert_validator_;
   Stats::Scope& scope_;
   SslStats stats_;
   std::vector<uint8_t> parsed_alpn_protocols_;
-  bssl::UniquePtr<X509> ca_cert_;
   bssl::UniquePtr<X509> cert_chain_;
-  std::string ca_file_path_;
   std::string cert_chain_file_path_;
   TimeSource& time_source_;
   const unsigned tls_max_version_;
@@ -260,9 +168,8 @@ private:
   bool isClientOcspCapable(SSL* ssl);
   // returns a reference to a CertContext created in ContextImpl ctor
   // matching cert SHA1 digest
-  const ContextImpl::CertContext& certificateContext(X509* cert);
-  OcspStapleAction ocspStapleAction(const ContextImpl::CertContext& cert_context,
-                                    bool client_ocsp_capable);
+  const CertContext& certificateContext(X509* cert);
+  OcspStapleAction ocspStapleAction(const CertContext& cert_context, bool client_ocsp_capable);
   int handleOcspStapling(SSL* ssl, void*);
   SessionContextID generateHashForSessionContextId(const std::vector<std::string>& server_names);
 

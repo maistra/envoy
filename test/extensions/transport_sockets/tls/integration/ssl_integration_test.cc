@@ -42,6 +42,7 @@ void SslIntegrationTestBase::initialize() {
                                   .setOcspStapleRequired(ocsp_staple_required_)
                                   .setTlsV13(server_tlsv1_3_)
                                   .setExpectClientEcdsaCert(client_ecdsa_cert_));
+
   HttpIntegrationTest::initialize();
 
   context_manager_ =
