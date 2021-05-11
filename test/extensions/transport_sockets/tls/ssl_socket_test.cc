@@ -4782,7 +4782,6 @@ TEST_P(SslSocketTest, UpstreamNotReadySslSocket) {
 TEST_P(SslSocketTest, TestTransportSocketCallback) {
   // Make MockTransportSocketCallbacks.
   Network::MockIoHandle io_handle;
-  EXPECT_CALL(io_handle, fdDoNotUse()).Times(1);
   NiceMock<Network::MockTransportSocketCallbacks> callbacks;
   ON_CALL(callbacks, ioHandle()).WillByDefault(ReturnRef(io_handle));
 
