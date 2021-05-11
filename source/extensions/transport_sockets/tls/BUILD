@@ -52,16 +52,16 @@ envoy_cc_library(
     ],
 )
 
-#envoy_cc_library(
-#    name = "io_handle_bio_lib",
-#    srcs = ["io_handle_bio.cc"],
-#    hdrs = ["io_handle_bio.h"],
-#    external_deps = ["ssl"],
-#    deps = [
-#        "//include/envoy/buffer:buffer_interface",
-#        "//include/envoy/network:io_handle_interface",
-#    ],
-#)
+envoy_cc_library(
+    name = "io_handle_bio_lib",
+    srcs = ["io_handle_bio.cc"],
+    hdrs = ["io_handle_bio.h"],
+    external_deps = ["ssl"],
+    deps = [
+        "//include/envoy/buffer:buffer_interface",
+        "//include/envoy/network:io_handle_interface",
+    ],
+)
 
 envoy_cc_library(
     name = "ssl_socket_lib",
@@ -80,7 +80,7 @@ envoy_cc_library(
     deps = [
         ":context_config_lib",
         ":context_lib",
-#        ":io_handle_bio_lib",
+        ":io_handle_bio_lib",
         ":ssl_handshaker_lib",
         ":utility_lib",
         "//include/envoy/network:connection_interface",
