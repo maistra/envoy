@@ -192,6 +192,7 @@ envoy_cc_benchmark_binary(
     external_deps = [
         "benchmark",
         "ssl",
+        "bssl_wrapper_lib",
     ],
     # Uses raw POSIX syscalls, does not build on Windows.
     tags = ["skip_on_windows"],

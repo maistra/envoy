@@ -65,8 +65,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         strip_prefix = "openssl-894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596",
         urls = ["https://github.com/openssl/openssl/archive/894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596.tar.gz"],
         use_category = ["controlplane", "dataplane_core"],
+	release_date = "2019-09-10",
         cpe = "N/A",
-        last_updated = "2019-09-10",
      ),
     com_github_maistra_bssl_wrapper = dict(
         project_name = "BoringSSL compatibility layer",
@@ -78,7 +78,7 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/maistra/bssl_wrapper/archive/48bb791c5e06c9b5774ac7c71c04f7b8b94f0d6b.tar.gz"],
         use_category = ["controlplane", "dataplane_core"],
         cpe = "N/A",
-        last_updated = "2021-03-30",
+        release_date = "2021-03-30",
     ),
     com_google_absl = dict(
         project_name = "Abseil",

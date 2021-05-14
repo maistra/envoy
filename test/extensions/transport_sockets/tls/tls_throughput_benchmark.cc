@@ -4,6 +4,8 @@
 
 #include "benchmark/benchmark.h"
 #include "openssl/ssl.h"
+#include "openssl/err.h"
+#include "bssl_wrapper/bssl_wrapper.h"
 #include "tools/cpp/runfiles/runfiles.h"
 
 namespace Envoy {

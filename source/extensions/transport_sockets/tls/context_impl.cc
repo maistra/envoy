@@ -281,7 +281,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
                          ERR_reason_error_string(err));
         }
         throw EnvoyException(
-            absl::StrCat("Failed to load certificate chain from ", tls_context_.cert_chain_file_path_, ", please see log for details"));
+            absl::StrCat("Failed to load certificate chain from ", cert_context.cert_chain_file_path_, ", please see log for details"));
       }
       // Read rest of the certificate chain.
       while (true) {
@@ -402,10 +402,8 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
   parsed_alpn_protocols_ = parseAlpnProtocols(config.alpnProtocols());
 
   // Use the SSL library to iterate over the configured ciphers.
-  for (TlsContext& tls_context : tls_contexts_) {
-    for (const SSL_CIPHER* cipher : SSL_CTX_get_ciphers(tls_context.ssl_ctx_.get())) {
-      stat_name_set_->rememberBuiltin(SSL_CIPHER_get_name(cipher));
-    }
+  for (const SSL_CIPHER* cipher : SSL_CTX_get_ciphers(tls_context_.ssl_ctx_.get())) {
+    stat_name_set_->rememberBuiltin(SSL_CIPHER_get_name(cipher));
   }
 
   // Add hardcoded cipher suites from the TLS 1.3 spec:

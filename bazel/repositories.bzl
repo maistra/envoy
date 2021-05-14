@@ -204,7 +204,7 @@ def _openssl():
 )
 
 def _openssl_includes():
-    _repository_impl(
+    external_http_archive(
         name = "com_github_openssl_openssl",
         build_file = "@envoy//bazel/external:openssl_includes.BUILD",
         patches = [
@@ -218,7 +218,9 @@ def _openssl_includes():
     )
 
 def _com_github_maistra_bssl_wrapper():
-    _repository_impl("com_github_maistra_bssl_wrapper")
+    external_http_archive(
+        name = "com_github_maistra_bssl_wrapper"
+    )
     native.bind(
         name = "bssl_wrapper_lib",
         actual = "@com_github_maistra_bssl_wrapper//:bssl_wrapper",
@@ -849,7 +851,6 @@ def _com_github_gperftools_gperftools():
     external_http_archive(
         name = "com_github_gperftools_gperftools",
         build_file_content = BUILD_ALL_CONTENT,
-        **location
     )
     native.bind(
         name = "gperftools",
