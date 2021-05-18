@@ -276,9 +276,10 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
       if (cert_context.cert_chain_ == nullptr ||
           !SSL_CTX_use_certificate(tls_context_.ssl_ctx_.get(), cert_context.cert_chain_.get())) {
         while (uint64_t err = ERR_get_error()) {
-          ENVOY_LOG_MISC(error, "SSL error: {}:{}:{}:{}", err, ERR_lib_error_string(err),
-                         ERR_func_error_string(err), ERR_GET_REASON(err),
-                         ERR_reason_error_string(err));
+          ENVOY_LOG_MISC(error, "SSL error: {}:{}:{}:{}", err,
+                         absl::NullSafeStringView(ERR_lib_error_string(err)),
+                         absl::NullSafeStringView(ERR_func_error_string(err)), ERR_GET_REASON(err),
+                         absl::NullSafeStringView(ERR_reason_error_string(err)));
         }
         throw EnvoyException(
             absl::StrCat("Failed to load certificate chain from ", cert_context.cert_chain_file_path_, ", please see log for details"));
@@ -426,13 +427,32 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
   // https://github.com/google/boringssl/blob/3743aafdacff2f7b083615a043a37101f740fa53/ssl/ssl_key_share.cc#L302-L309
   //
   // Note that if a negotiated curve is outside of this set, we'll issue an ENVOY_BUG.
-  stat_name_set_->rememberBuiltins(
-      {"P-224", "P-256", "P-384", "P-521", "X25519", "CECPQ2", "CECPQ2b"});
+  stat_name_set_->rememberBuiltins({"P-224", "P-256", "P-384", "P-521", "X25519", "CECPQ2"});
 
-  // Algorithms
-  stat_name_set_->rememberBuiltins({"ecdsa_secp256r1_sha256", "rsa_pss_rsae_sha256"});
+  // All supported signature algorithms. Source:
+  // https://github.com/google/boringssl/blob/3743aafdacff2f7b083615a043a37101f740fa53/ssl/ssl_privkey.cc#L436-L453
+  // and https://github.com/openssl/openssl/blob/OpenSSL_1_1_1-stable/ssl/t1_lib.c#L686
+  //
+  // Note that if a negotiated algorithm is outside of this set, we'll issue an ENVOY_BUG.
+  stat_name_set_->rememberBuiltins({
+      "rsa_pkcs1_md5_sha1",
+      "rsa_pkcs1_sha1",
+      "rsa_pkcs1_sha256",
+      "rsa_pkcs1_sha384",
+      "rsa_pkcs1_sha512",
+      "ecdsa_sha1",
+      "ecdsa_secp256r1_sha256",
+      "ecdsa_secp384r1_sha384",
+      "ecdsa_secp521r1_sha512",
+      "rsa_pss_rsae_sha256",
+      "rsa_pss_rsae_sha384",
+      "rsa_pss_rsae_sha512",
+      "ed25519",
+  });
 
-  // Versions
+  // All supported protocol versions.
+  //
+  // Note that if a negotiated version is outside of this set, we'll issue an ENVOY_BUG.
   stat_name_set_->rememberBuiltins({"TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"});
 }
 
