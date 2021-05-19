@@ -110,7 +110,8 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
                                      config.cipherSuites(), absl::StrJoin(bad_ciphers, ", ")));
   }
 
-  if (!SSL_CTX_set1_curves_list(tls_context_.ssl_ctx_.get(), config.ecdhCurves().c_str())) {
+  if (!capabilities_.provides_ciphers_and_curves &&
+      !SSL_CTX_set1_curves_list(tls_context_.ssl_ctx_.get(), config.ecdhCurves().c_str())) {
     throw EnvoyException(absl::StrCat("Failed to initialize ECDH curves ", config.ecdhCurves()));
   }
 
@@ -372,7 +373,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
 */
       } else {
         // Load private key.
-        bio.reset(BIO_new_mem_buf(const_cast<char *>(tls_certificate.privateKey().data()),
+        bio.reset(BIO_new_mem_buf(const_cast<char*>(tls_certificate.privateKey().data()),
                                   tls_certificate.privateKey().size()));
         RELEASE_ASSERT(bio != nullptr, "");
         bssl::UniquePtr<EVP_PKEY> pkey(
@@ -421,7 +422,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
   //
   // Note that if a negotiated cipher suite is outside of this set, we'll issue an ENVOY_BUG.
   stat_name_set_->rememberBuiltins(
-      {"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_AES_128_GCM_SHA256"});
+      {"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"});
   
   // All supported curves. Source:
   // https://github.com/google/boringssl/blob/3743aafdacff2f7b083615a043a37101f740fa53/ssl/ssl_key_share.cc#L302-L309
@@ -669,7 +670,6 @@ std::vector<Ssl::PrivateKeyMethodProviderSharedPtr> ContextImpl::getPrivateKeyMe
       providers.push_back(provider);
     }
   }
-
   return providers;
 }
 
@@ -1085,15 +1085,11 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
       if (!response->matchesCertificate(*tls_context_.cert_contexts_[i].cert_chain_)) {
         throw EnvoyException("OCSP response does not match its TLS certificate");
       }
-      if (response->isExpired()) {
-        ENVOY_LOG_MISC(warn, "Expired OCSP response has been loaded for the certificate chain {}", 
-          tls_context_.cert_contexts_[i].getCertChainFileName());
-      }
       tls_context_.cert_contexts_[i].ocsp_response_ = std::move(response);
     }
   }
 
-  // this and the next call always succeed
+  // this call always succeeds
   SSL_CTX_set_tlsext_status_cb(
     tls_context_.ssl_ctx_.get(),
     +[](SSL* ssl, void* arg) -> int {
