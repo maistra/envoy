@@ -798,12 +798,10 @@ def _proxy_wasm_cpp_host():
 def _emscripten_toolchain():
     external_http_archive(
         name = "emscripten_toolchain",
-        build_file_content = _build_all_content(exclude = [
-            "upstream/emscripten/cache/is_vanilla.txt",
-            ".emscripten_sanity",
-        ]),
+        build_file_content = BUILD_ALL_CONTENT, 
         patch_cmds = [
-            "[[ \"$(uname -m)\" == \"x86_64\" ]] && ./emsdk install 2.0.7 && ./emsdk activate --embedded 2.0.7 || true",
+	# we remove bazel dir, as it breaks bazel fetch
+            "[[ \"$(uname -m)\" == \"x86_64\" ]] && ./emsdk install 2.0.7 && ./emsdk activate --embedded 2.0.7 && rm -rf bazel || true",
         ],
     )
 
