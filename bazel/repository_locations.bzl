@@ -883,6 +883,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
             "rm -rf upstream/libexec",
             "rm -rf upstream/share",
             "rm -f upstream/emscripten_config_*",
+	    "rm -f upstream/emscripten/node_modules/google-closure-compiler-linux/compiler",
+	    "rm -f upstream/emscripten/node_modules/google-closure-compiler/node_modules/google-closure-compiler-linux/compiler",
             # Also use host's nodejs
             "rm -rf node/12.9.1_64bit/*",
             "mkdir node/12.9.1_64bit/bin",
