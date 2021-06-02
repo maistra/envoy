@@ -798,10 +798,36 @@ def _proxy_wasm_cpp_host():
 def _emscripten_toolchain():
     external_http_archive(
         name = "emscripten_toolchain",
-        build_file_content = BUILD_ALL_CONTENT, 
+        build_file_content = BUILD_ALL_CONTENT,
         patch_cmds = [
-	# we remove bazel dir, as it breaks bazel fetch
-            "[[ \"$(uname -m)\" == \"x86_64\" ]] && ./emsdk install 2.0.7 && ./emsdk activate --embedded 2.0.7 && rm -rf bazel || true",
+            "./emsdk install 2.0.7-upstream",
+            "touch oh-noes-testing-0",
+            "./emsdk activate --embedded 2.0.7-upstream",
+            "touch oh-noes-testing-1",
+            # Maistra change.
+            # Relies on the host tooling, instead of emsdk's. Requires clang with wasm32 target enabled and binaryen.
+            "rm -rf upstream/bin/*",
+            "ln -s /usr/bin/clang* upstream/bin/",
+            "ln -s /usr/bin/ll* upstream/bin/",
+            "ln -s /usr/bin/wasm* upstream/bin/",
+            # Remove unnecessary libs and files
+            "rm -rf upstream/fastcomp",
+            "rm -rf upstream/include",
+            "rm -rf upstream/lib",
+            "rm -rf upstream/libexec",
+            "rm -rf upstream/share",
+            "rm -f upstream/emscripten_config_*",
+            "touch oh-noes-testing",
+            "rm -f upstream/emscripten/node_modules/google-closure-compiler-linux/compiler",
+            "rm -f upstream/emscripten/node_modules/google-closure-compiler/node_modules/google-closure-compiler-linux/compiler",
+            # Also use host's nodejs
+            "rm -rf node/12.18.1_64bit/*",
+            "mkdir node/12.18.1_64bit/bin",
+            "ln -s /usr/bin/node node/12.18.1_64bit/bin/",
+            "ln -s /usr/bin/npm node/12.18.1_64bit/bin/",
+            "ln -s /usr/bin/npx node/12.18.1_64bit/bin/",
+            # bazel dir breaks fetch
+            "rm -rf bazel", 
         ],
     )
 
