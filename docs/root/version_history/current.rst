@@ -15,6 +15,8 @@ Bug Fixes
 
 * jwt_authn: reject requests with a proper error if JWT has the wrong issuer when allow_missing is used. Before this change, the requests are accepted.
 * overload: fix a bug that can cause use-after-free when one scaled timer disables another one with the same duration.
+* ext_authz: fix the ext_authz filter to correctly merge multiple same headers using the ',' as separator in the check request to the external authorization service.
+* jwt_authn: unauthorized responses now correctly include a `www-authenticate` header.
 
 Removed Config or Runtime
 -------------------------
