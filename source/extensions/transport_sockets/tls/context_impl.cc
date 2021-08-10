@@ -420,19 +420,37 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
   //
   // Note that if a negotiated cipher suite is outside of this set, we'll issue an ENVOY_BUG.
   stat_name_set_->rememberBuiltins(
-      {"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_AES_128_GCM_SHA256"});
+      {"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"});
   
   // All supported curves. Source:
   // https://github.com/google/boringssl/blob/3743aafdacff2f7b083615a043a37101f740fa53/ssl/ssl_key_share.cc#L302-L309
   //
   // Note that if a negotiated curve is outside of this set, we'll issue an ENVOY_BUG.
-  stat_name_set_->rememberBuiltins(
-      {"P-224", "P-256", "P-384", "P-521", "X25519", "CECPQ2", "CECPQ2b"});
+  stat_name_set_->rememberBuiltins({"P-224", "P-256", "P-384", "P-521", "X25519", "CECPQ2"});
 
-  // Algorithms
-  stat_name_set_->rememberBuiltins({"ecdsa_secp256r1_sha256", "rsa_pss_rsae_sha256"});
+  // All supported signature algorithms. Source:
+  // https://github.com/google/boringssl/blob/3743aafdacff2f7b083615a043a37101f740fa53/ssl/ssl_privkey.cc#L436-L453
+  //
+  // Note that if a negotiated algorithm is outside of this set, we'll issue an ENVOY_BUG.
+  stat_name_set_->rememberBuiltins({
+      "rsa_pkcs1_md5_sha1",
+      "rsa_pkcs1_sha1",
+      "rsa_pkcs1_sha256",
+      "rsa_pkcs1_sha384",
+      "rsa_pkcs1_sha512",
+      "ecdsa_sha1",
+      "ecdsa_secp256r1_sha256",
+      "ecdsa_secp384r1_sha384",
+      "ecdsa_secp521r1_sha512",
+      "rsa_pss_rsae_sha256",
+      "rsa_pss_rsae_sha384",
+      "rsa_pss_rsae_sha512",
+      "ed25519",
+  });
 
-  // Versions
+  // All supported protocol versions.
+  //
+  // Note that if a negotiated version is outside of this set, we'll issue an ENVOY_BUG.
   stat_name_set_->rememberBuiltins({"TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"});
 }
 
@@ -704,12 +722,8 @@ bool ContextImpl::dnsNameMatch(const absl::string_view dns_name, const absl::str
   if (pattern_len > 1 && pattern[0] == '*' && pattern[1] == '.') {
     if (dns_name.length() > pattern_len - 1) {
       const size_t off = dns_name.length() - pattern_len + 1;
-      if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.fix_wildcard_matching")) {
-        return dns_name.substr(0, off).find('.') == std::string::npos &&
-               dns_name.substr(off, pattern_len - 1) == pattern.substr(1, pattern_len - 1);
-      } else {
-        return dns_name.substr(off, pattern_len - 1) == pattern.substr(1, pattern_len - 1);
-      }
+      return dns_name.substr(0, off).find('.') == std::string::npos &&
+             dns_name.substr(off, pattern_len - 1) == pattern.substr(1, pattern_len - 1);
     }
   }
 

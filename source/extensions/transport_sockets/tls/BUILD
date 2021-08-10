@@ -182,6 +182,7 @@ envoy_cc_library(
     deps = [
         ":openssl_impl_lib",
         "//source/common/common:assert_lib",
+        "//source/common/common:empty_string",
         "//source/common/common:utility_lib",
         "//source/common/network:address_lib",
     ],
