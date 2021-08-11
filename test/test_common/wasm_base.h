@@ -58,26 +58,33 @@ public:
 
   void setupBase(const std::string& runtime, const std::string& code, CreateContextFn create_root,
                  std::string root_id = "", std::string vm_configuration = "",
-                 bool fail_open = false, std::string plugin_configuration = "") {
-    envoy::extensions::wasm::v3::VmConfig vm_config;
-    vm_config.set_vm_id("vm_id");
-    vm_config.set_runtime(absl::StrCat("envoy.wasm.runtime.", runtime));
-    ProtobufWkt::StringValue vm_configuration_string;
-    vm_configuration_string.set_value(vm_configuration);
-    vm_config.mutable_configuration()->PackFrom(vm_configuration_string);
-    vm_config.mutable_code()->mutable_local()->set_inline_bytes(code);
+                 bool fail_open = false, std::string plugin_configuration = "",
+                 proxy_wasm::AllowedCapabilitiesMap allowed_capabilities = {}) {
     Api::ApiPtr api = Api::createApiForTest(stats_store_);
     scope_ = Stats::ScopeSharedPtr(stats_store_.createScope("wasm."));
-    auto name = "plugin_name";
-    auto vm_id = "";
+
+    envoy::extensions::wasm::v3::PluginConfig plugin_config;
+    *plugin_config.mutable_root_id() = root_id;
+    *plugin_config.mutable_name() = "plugin_name";
+    plugin_config.set_fail_open(fail_open);
+    plugin_config.mutable_configuration()->set_value(plugin_configuration);
+
+    auto vm_config = plugin_config.mutable_vm_config();
+    vm_config->set_vm_id("vm_id");
+    vm_config->set_runtime(absl::StrCat("envoy.wasm.runtime.", runtime));
+    ProtobufWkt::StringValue vm_configuration_string;
+    vm_configuration_string.set_value(vm_configuration);
+    vm_config->mutable_configuration()->PackFrom(vm_configuration_string);
+    vm_config->mutable_code()->mutable_local()->set_inline_bytes(code);
+
     plugin_ = std::make_shared<Extensions::Common::Wasm::Plugin>(
-        name, root_id, vm_id, runtime, plugin_configuration, fail_open,
-        envoy::config::core::v3::TrafficDirection::INBOUND, local_info_, &listener_metadata_);
+        plugin_config, envoy::config::core::v3::TrafficDirection::INBOUND, local_info_,
+        &listener_metadata_);
     // Passes ownership of root_context_.
+    plugin_->wasmConfig().allowedCapabilities() = allowed_capabilities;
     Extensions::Common::Wasm::createWasm(
-        vm_config, plugin_, scope_, cluster_manager_, init_manager_, dispatcher_, *api,
-        lifecycle_notifier_, remote_data_provider_,
-        [this](WasmHandleSharedPtr wasm) { wasm_ = wasm; }, create_root);
+        plugin_, scope_, cluster_manager_, init_manager_, dispatcher_, *api, lifecycle_notifier_,
+        remote_data_provider_, [this](WasmHandleSharedPtr wasm) { wasm_ = wasm; }, create_root);
     if (wasm_) {
       plugin_handle_ = getOrCreateThreadLocalPlugin(
           wasm_, plugin_, dispatcher_,

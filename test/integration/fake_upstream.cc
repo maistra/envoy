@@ -398,6 +398,9 @@ AssertionResult FakeConnectionBase::waitForDisconnect(milliseconds timeout) {
   };
 
   if (!time_system_.waitFor(lock_, absl::Condition(&reached), timeout)) {
+    if (timeout == TestUtility::DefaultTimeout) {
+      ADD_FAILURE() << "Please don't waitForDisconnect with a 5s timeout if failure is expected\n";
+    }
     return AssertionFailure() << "Timed out waiting for disconnect.";
   }
   ENVOY_LOG(trace, "FakeConnectionBase done waiting for disconnect");
@@ -566,6 +569,10 @@ AssertionResult FakeUpstream::waitForHttpConnection(
             time_system_, lock_,
             [this]() ABSL_EXCLUSIVE_LOCKS_REQUIRED(lock_) { return !new_connections_.empty(); },
             client_dispatcher, timeout)) {
+      if (timeout == TestUtility::DefaultTimeout) {
+        ADD_FAILURE()
+            << "Please don't waitForHttpConnection with a 5s timeout if failure is expected\n";
+      }
       return AssertionFailure() << "Timed out waiting for new connection.";
     }
   }
@@ -633,7 +640,7 @@ AssertionResult FakeUpstream::waitForRawConnection(FakeRawConnectionPtr& connect
 
   return runOnDispatcherThreadAndWait([&]() {
     absl::MutexLock lock(&lock_);
-    connection = std::make_unique<FakeRawConnection>(consumeConnection(), timeSystem());
+    connection = makeRawConnection(consumeConnection(), timeSystem());
     connection->initialize();
     // Skip enableHalfClose if the connection is already disconnected.
     if (connection->connected()) {

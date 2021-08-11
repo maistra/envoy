@@ -103,7 +103,6 @@ protected:
 
   bool parseAndSetAlpn(const std::vector<std::string>& alpn, SSL& ssl);
   std::vector<uint8_t> parseAlpnProtocols(const std::string& alpn_protocols);
-  static SslStats generateStats(Stats::Scope& scope);
 
   void incCounter(const Stats::StatName name, absl::string_view value,
                   const Stats::StatName fallback) const;
@@ -171,6 +170,7 @@ private:
   const CertContext& certificateContext(X509* cert);
   OcspStapleAction ocspStapleAction(const CertContext& cert_context, bool client_ocsp_capable);
   int handleOcspStapling(SSL* ssl, void*);
+
   SessionContextID generateHashForSessionContextId(const std::vector<std::string>& server_names);
 
   const std::vector<Envoy::Ssl::ServerContextConfig::SessionTicketKey> session_ticket_keys_;

@@ -189,11 +189,11 @@ public:
         resource_monitors:
           - name: "envoy.resource_monitors.injected_resource_1"
             typed_config:
-              "@type": type.googleapis.com/envoy.config.resource_monitor.injected_resource.v2alpha.InjectedResourceConfig
+              "@type": type.googleapis.com/envoy.extensions.resource_monitors.injected_resource.v3.InjectedResourceConfig
               filename: "{}"
           - name: "envoy.resource_monitors.injected_resource_2"
             typed_config:
-              "@type": type.googleapis.com/envoy.config.resource_monitor.injected_resource.v2alpha.InjectedResourceConfig
+              "@type": type.googleapis.com/envoy.extensions.resource_monitors.injected_resource.v3.InjectedResourceConfig
               filename: "{}"
         actions:
           - name: "envoy.overload_actions.stop_accepting_requests"
@@ -310,9 +310,6 @@ TEST_P(QuicHttpIntegrationTest, GetRequestAndEmptyResponse) {
 }
 
 TEST_P(QuicHttpIntegrationTest, GetRequestAndResponseWithBody) {
-  // Use the old nodelay in a random test for coverage. nodelay is a no-op for QUIC.
-  config_helper_.addRuntimeOverride("envoy.reloadable_features.always_nodelay", "false");
-
   initialize();
   sendRequestAndVerifyResponse(default_request_headers_, /*request_size=*/0,
                                default_response_headers_, /*response_size=*/1024,
@@ -538,6 +535,73 @@ TEST_P(QuicHttpIntegrationTest, RequestResponseWithTrailers) {
   config_helper_.addConfigModifier(setEnableUpstreamTrailersHttp1());
   testTrailers(/*request_size=*/10, /*response_size=*/10, /*request_trailers_present=*/true,
                /*response_trailers_present=*/true);
+}
+
+// Multiple 1xx before the request completes.
+TEST_P(QuicHttpIntegrationTest, EnvoyProxyingEarlyMultiple1xx) {
+  testEnvoyProxying1xx(/*continue_before_upstream_complete=*/true, /*with_encoder_filter=*/false,
+                       /*with_multiple_1xx_headers=*/true);
+}
+
+// HTTP3 doesn't support 101 SwitchProtocol response code, the client should
+// reset the request.
+TEST_P(QuicHttpIntegrationTest, Reset101SwitchProtocolResponse) {
+  config_helper_.addConfigModifier(
+      [&](envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager&
+              hcm) -> void { hcm.set_proxy_100_continue(true); });
+  initialize();
+
+  codec_client_ = makeHttpConnection(lookupPort("http"));
+  auto encoder_decoder =
+      codec_client_->startRequest(Http::TestRequestHeaderMapImpl{{":method", "GET"},
+                                                                 {":path", "/dynamo/url"},
+                                                                 {":scheme", "http"},
+                                                                 {":authority", "host"},
+                                                                 {"expect", "100-continue"}});
+  request_encoder_ = &encoder_decoder.first;
+  auto response = std::move(encoder_decoder.second);
+
+  // Wait for the request headers to be received upstream.
+  ASSERT_TRUE(fake_upstreams_[0]->waitForHttpConnection(*dispatcher_, fake_upstream_connection_));
+  ASSERT_TRUE(fake_upstream_connection_->waitForNewStream(*dispatcher_, upstream_request_));
+
+  upstream_request_->encodeHeaders(Http::TestResponseHeaderMapImpl{{":status", "101"}}, false);
+  response->waitForReset();
+  codec_client_->close();
+  EXPECT_FALSE(response->complete());
+}
+
+TEST_P(QuicHttpIntegrationTest, MultipleSetCookieAndCookieHeaders) {
+  initialize();
+
+  codec_client_ = makeHttpConnection(lookupPort("http"));
+  auto encoder_decoder =
+      codec_client_->startRequest(Http::TestRequestHeaderMapImpl{{":method", "GET"},
+                                                                 {":path", "/dynamo/url"},
+                                                                 {":scheme", "http"},
+                                                                 {":authority", "host"},
+                                                                 {"cookie", "a=b"},
+                                                                 {"cookie", "c=d"}});
+  request_encoder_ = &encoder_decoder.first;
+  auto response = std::move(encoder_decoder.second);
+  codec_client_->sendData(*request_encoder_, 0, true);
+  waitForNextUpstreamRequest();
+  if (Runtime::runtimeFeatureEnabled(
+          "envoy.reloadable_features.header_map_correctly_coalesce_cookies")) {
+    EXPECT_EQ(upstream_request_->headers().get(Http::Headers::get().Cookie)[0]->value(),
+              "a=b; c=d");
+  }
+
+  upstream_request_->encodeHeaders(Http::TestResponseHeaderMapImpl{{":status", "200"},
+                                                                   {"set-cookie", "foo"},
+                                                                   {"set-cookie", "bar"}},
+                                   true);
+  response->waitForEndStream();
+  EXPECT_TRUE(response->complete());
+  const auto out = response->headers().get(Http::LowerCaseString("set-cookie"));
+  ASSERT_EQ(out.size(), 2);
+  ASSERT_EQ(out[0]->value().getStringView(), "foo");
+  ASSERT_EQ(out[1]->value().getStringView(), "bar");
 }
 
 } // namespace Quic

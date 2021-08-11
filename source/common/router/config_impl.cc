@@ -49,6 +49,8 @@ namespace {
 
 const std::string DEPRECATED_ROUTER_NAME = "envoy.router";
 
+constexpr uint32_t DEFAULT_MAX_DIRECT_RESPONSE_BODY_SIZE_BYTES = 4096;
+
 } // namespace
 
 std::string SslRedirector::newPath(const Http::RequestHeaderMap& headers) const {
@@ -356,7 +358,9 @@ RouteEntryImplBase::RouteEntryImplBase(const VirtualHostImpl& vhost,
       match_grpc_(route.match().has_grpc()), opaque_config_(parseOpaqueConfig(route)),
       decorator_(parseDecorator(route)), route_tracing_(parseRouteTracing(route)),
       direct_response_code_(ConfigUtility::parseDirectResponseCode(route)),
-      direct_response_body_(ConfigUtility::parseDirectResponseBody(route, factory_context.api())),
+      direct_response_body_(ConfigUtility::parseDirectResponseBody(
+          route, factory_context.api(),
+          vhost_.globalRouteConfig().maxDirectResponseBodySizeBytes())),
       per_filter_configs_(route.typed_per_filter_config(),
                           route.hidden_envoy_deprecated_per_filter_config(), factory_context,
                           validator),
@@ -1435,7 +1439,10 @@ ConfigImpl::ConfigImpl(const envoy::config::route::v3::RouteConfiguration& confi
                        bool validate_clusters_default)
     : name_(config.name()), symbol_table_(factory_context.scope().symbolTable()),
       uses_vhds_(config.has_vhds()),
-      most_specific_header_mutations_wins_(config.most_specific_header_mutations_wins()) {
+      most_specific_header_mutations_wins_(config.most_specific_header_mutations_wins()),
+      max_direct_response_body_size_bytes_(
+          PROTOBUF_GET_WRAPPED_OR_DEFAULT(config, max_direct_response_body_size_bytes,
+                                          DEFAULT_MAX_DIRECT_RESPONSE_BODY_SIZE_BYTES)) {
   route_matcher_ = std::make_unique<RouteMatcher>(
       config, *this, factory_context, validator,
       PROTOBUF_GET_WRAPPED_OR_DEFAULT(config, validate_clusters, validate_clusters_default));
@@ -1491,6 +1498,18 @@ PerFilterConfigs::PerFilterConfigs(
         name, it.second, ProtobufWkt::Struct::default_instance(), factory_context, validator);
     if (object != nullptr) {
       configs_[name] = std::move(object);
+    } else {
+      if (Runtime::runtimeFeatureEnabled(
+              "envoy.reloadable_features.check_unsupported_typed_per_filter_config")) {
+        throw EnvoyException(fmt::format(
+            "The filter {} doesn't support virtual host-specific configurations", name));
+      } else {
+        ENVOY_LOG(warn,
+                  "The filter {} doesn't support virtual host-specific configurations. Set runtime "
+                  "config `envoy.reloadable_features.check_unsupported_typed_per_filter_config` as "
+                  "true to reject any invalid virtual-host specific configuration.",
+                  name);
+      }
     }
   }
 
@@ -1503,6 +1522,18 @@ PerFilterConfigs::PerFilterConfigs(
                                                   it.second, factory_context, validator);
     if (object != nullptr) {
       configs_[name] = std::move(object);
+    } else {
+      if (Runtime::runtimeFeatureEnabled(
+              "envoy.reloadable_features.check_unsupported_typed_per_filter_config")) {
+        throw EnvoyException(fmt::format(
+            "The filter {} doesn't support virtual host-specific configurations", name));
+      } else {
+        ENVOY_LOG(warn,
+                  "The filter {} doesn't support virtual host-specific configurations. Set runtime "
+                  "config `envoy.reloadable_features.check_unsupported_typed_per_filter_config` as "
+                  "true to reject any invalid virtual-host specific configuration.",
+                  name);
+      }
     }
   }
 }

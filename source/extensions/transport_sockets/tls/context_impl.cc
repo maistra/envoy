@@ -447,14 +447,7 @@ std::vector<Ssl::PrivateKeyMethodProviderSharedPtr> ContextImpl::getPrivateKeyMe
       providers.push_back(provider);
     }
   }
-
   return providers;
-}
-
-SslStats ContextImpl::generateStats(Stats::Scope& store) {
-  std::string prefix("ssl.");
-  return {ALL_SSL_STATS(POOL_COUNTER_PREFIX(store, prefix), POOL_GAUGE_PREFIX(store, prefix),
-                        POOL_HISTOGRAM_PREFIX(store, prefix))};
 }
 
 size_t ContextImpl::daysUntilFirstCertExpires() const {
@@ -492,6 +485,7 @@ std::vector<Envoy::Ssl::CertificateDetailsPtr> ContextImpl::getCertChainInformat
     if (cert.cert_chain_ == nullptr) {
       continue;
     }
+
     auto detail = Utility::certificateDetails(cert.cert_chain_.get(), cert.getCertChainFileName(),
                                               time_source_);
     auto ocsp_resp = cert.ocsp_response_.get();
