@@ -1058,6 +1058,12 @@ void ConnectionManagerImpl::ActiveStream::decodeHeaders(ActiveStreamDecoderFilte
     (*entry)->end_stream_ = state_.decoding_headers_only_ ||
                             (end_stream && continue_data_entry == decoder_filters_.end());
     FilterHeadersStatus status = (*entry)->decodeHeaders(headers, (*entry)->end_stream_);
+    if (state_.decoder_filter_chain_aborted_) {
+      ENVOY_STREAM_LOG(trace,
+                       "decodeHeaders filter iteration aborted due to local reply: filter={}",
+                       *this, static_cast<const void*>((*entry).get()));
+      status = FilterHeadersStatus::StopIteration;
+    }
 
     ASSERT(!(status == FilterHeadersStatus::ContinueAndEndStream && (*entry)->end_stream_));
     state_.filter_call_state_ &= ~FilterCallState::DecodeHeaders;
@@ -1202,6 +1208,11 @@ void ConnectionManagerImpl::ActiveStream::decodeData(
     }
     ENVOY_STREAM_LOG(trace, "decode data called: filter={} status={}", *this,
                      static_cast<const void*>((*entry).get()), static_cast<uint64_t>(status));
+    if (state_.decoder_filter_chain_aborted_) {
+      ENVOY_STREAM_LOG(trace, "decodeData filter iteration aborted due to local reply: filter={}",
+                       *this, static_cast<const void*>((*entry).get()));
+      return;
+    }
 
     processNewlyAddedMetadata();
 
@@ -1301,6 +1312,13 @@ void ConnectionManagerImpl::ActiveStream::decodeTrailers(ActiveStreamDecoderFilt
     ASSERT(!(state_.filter_call_state_ & FilterCallState::DecodeTrailers));
     state_.filter_call_state_ |= FilterCallState::DecodeTrailers;
     FilterTrailersStatus status = (*entry)->handle_->decodeTrailers(trailers);
+    if (state_.decoder_filter_chain_aborted_) {
+      ENVOY_STREAM_LOG(trace,
+                       "decodeTrailers filter iteration aborted due to local reply: filter={}",
+                       *this, static_cast<const void*>((*entry).get()));
+      status = FilterTrailersStatus::StopIteration;
+    }
+
     (*entry)->handle_->decodeComplete();
     (*entry)->end_stream_ = true;
     state_.filter_call_state_ &= ~FilterCallState::DecodeTrailers;
@@ -1497,6 +1515,17 @@ void ConnectionManagerImpl::ActiveStream::sendLocalReply(
     const absl::optional<Grpc::Status::GrpcStatus> grpc_status, absl::string_view details) {
   ENVOY_STREAM_LOG(debug, "Sending local reply with details {}", *this, details);
   ASSERT(response_headers_ == nullptr);
+  // Stop filter chain iteration if local reply was sent while filter decoding or encoding callbacks
+  // are running.
+  if (state_.filter_call_state_ & (FilterCallState::DecodeHeaders | FilterCallState::DecodeData |
+                                   FilterCallState::DecodeTrailers)) {
+    state_.decoder_filter_chain_aborted_ = true;
+  } else if (state_.filter_call_state_ &
+             (FilterCallState::EncodeHeaders | FilterCallState::EncodeData |
+              FilterCallState::EncodeTrailers)) {
+    state_.encoder_filter_chain_aborted_ = true;
+  }
+
   // For early error handling, do a best-effort attempt to create a filter chain
   // to ensure access logging.
   if (!state_.created_filter_chain_) {
@@ -1839,6 +1868,12 @@ void ConnectionManagerImpl::ActiveStream::encodeData(
 
     (*entry)->end_stream_ = end_stream && !response_trailers_;
     FilterDataStatus status = (*entry)->handle_->encodeData(data, (*entry)->end_stream_);
+    if (state_.encoder_filter_chain_aborted_) {
+      ENVOY_STREAM_LOG(trace, "encodeData filter iteration aborted due to local reply: filter={}",
+                       *this, static_cast<const void*>((*entry).get()));
+      status = FilterDataStatus::StopIterationNoBuffer;
+    }
+
     if ((*entry)->end_stream_) {
       (*entry)->handle_->encodeComplete();
     }
