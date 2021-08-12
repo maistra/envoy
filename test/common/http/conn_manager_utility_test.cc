@@ -1713,5 +1713,96 @@ TEST_F(ConnectionManagerUtilityTest, NoPreserveExternalRequestIdNoEdgeRequest) {
     EXPECT_EQ("my-request-id", headers.get_(Headers::get().RequestId));
   }
 }
+
+TEST_F(ConnectionManagerUtilityTest, RejectPathWithFragmentByDefault) {
+  TestRequestHeaderMapImpl header_map{{":path", "/foo/bar#boom"}};
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Reject,
+            ConnectionManagerUtility::maybeNormalizePath(header_map, config_));
+
+  TestRequestHeaderMapImpl header_map_just_fragment{{":path", "#boom"}};
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Reject,
+            ConnectionManagerUtility::maybeNormalizePath(header_map_just_fragment, config_));
+
+  // Percent encoded # should not cause rejection
+  TestRequestHeaderMapImpl header_map_with_percent_23{{":path", "/foo/bar/../%23boom"}};
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Continue,
+            ConnectionManagerUtility::maybeNormalizePath(header_map_with_percent_23, config_));
+  EXPECT_EQ(header_map_with_percent_23.Path()->value().getStringView(), "/foo/bar/../%23boom");
+
+  // With normalization enabled the %23 should not be decoded
+  ON_CALL(config_, shouldNormalizePath()).WillByDefault(Return(true));
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Continue,
+            ConnectionManagerUtility::maybeNormalizePath(header_map_with_percent_23, config_));
+  // Path normalization should collapse /../
+  EXPECT_EQ(header_map_with_percent_23.Path()->value().getStringView(), "/foo/%23boom");
+}
+
+TEST_F(ConnectionManagerUtilityTest, DropFragmentFromPathWithOverride) {
+  TestScopedRuntime scoped_runtime;
+  Runtime::LoaderSingleton::getExisting()->mergeValues(
+      {{"envoy.reloadable_features.http_reject_path_with_fragment", "false"}});
+
+  TestRequestHeaderMapImpl header_map{{":path", "/foo/bar#boom"}};
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Continue,
+            ConnectionManagerUtility::maybeNormalizePath(header_map, config_));
+  EXPECT_EQ(header_map.Path()->value().getStringView(), "/foo/bar");
+
+  TestRequestHeaderMapImpl header_map_just_fragment{{":path", "#"}};
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Continue,
+            ConnectionManagerUtility::maybeNormalizePath(header_map_just_fragment, config_));
+  EXPECT_EQ(header_map_just_fragment.Path()->value().getStringView(), "");
+
+  TestRequestHeaderMapImpl header_map_just_fragment2{{":path", "/#"}};
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Continue,
+            ConnectionManagerUtility::maybeNormalizePath(header_map_just_fragment2, config_));
+  EXPECT_EQ(header_map_just_fragment2.Path()->value().getStringView(), "/");
+
+  TestRequestHeaderMapImpl header_map_with_empty_fragment{{":path", "/foo/baz/#"}};
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Continue,
+            ConnectionManagerUtility::maybeNormalizePath(header_map_with_empty_fragment, config_));
+  EXPECT_EQ(header_map_with_empty_fragment.Path()->value().getStringView(), "/foo/baz/");
+
+  // Check that normalization does not "see" stripped path
+  ON_CALL(config_, shouldNormalizePath()).WillByDefault(Return(true));
+  TestRequestHeaderMapImpl header_map_with_fragment2{{":path", "/foo/../baz/#fragment"}};
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Continue,
+            ConnectionManagerUtility::maybeNormalizePath(header_map_with_fragment2, config_));
+  EXPECT_EQ(header_map_with_fragment2.Path()->value().getStringView(), "/baz/");
+}
+
+TEST_F(ConnectionManagerUtilityTest, KeepFragmentFromPathWithBothOverrides) {
+  TestScopedRuntime scoped_runtime;
+  Runtime::LoaderSingleton::getExisting()->mergeValues(
+      {{"envoy.reloadable_features.http_reject_path_with_fragment", "false"}});
+  Runtime::LoaderSingleton::getExisting()->mergeValues(
+      {{"envoy.reloadable_features.http_strip_fragment_from_path_unsafe_if_disabled", "false"}});
+
+  TestRequestHeaderMapImpl header_map{{":path", "/foo/bar#boom"}};
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Continue,
+            ConnectionManagerUtility::maybeNormalizePath(header_map, config_));
+  EXPECT_EQ(header_map.Path()->value().getStringView(), "/foo/bar#boom");
+
+  TestRequestHeaderMapImpl header_map_just_fragment{{":path", "#"}};
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Continue,
+            ConnectionManagerUtility::maybeNormalizePath(header_map_just_fragment, config_));
+  EXPECT_EQ(header_map_just_fragment.Path()->value().getStringView(), "#");
+
+  TestRequestHeaderMapImpl header_map_just_fragment2{{":path", "/#"}};
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Continue,
+            ConnectionManagerUtility::maybeNormalizePath(header_map_just_fragment2, config_));
+  EXPECT_EQ(header_map_just_fragment2.Path()->value().getStringView(), "/#");
+
+  TestRequestHeaderMapImpl header_map_with_empty_fragment{{":path", "/foo/baz/#"}};
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Continue,
+            ConnectionManagerUtility::maybeNormalizePath(header_map_with_empty_fragment, config_));
+  EXPECT_EQ(header_map_with_empty_fragment.Path()->value().getStringView(), "/foo/baz/#");
+
+  ON_CALL(config_, shouldNormalizePath()).WillByDefault(Return(true));
+  TestRequestHeaderMapImpl header_map_with_fragment2{{":path", "/foo/../baz/#fragment"}};
+  EXPECT_EQ(ConnectionManagerUtility::NormalizePathAction::Continue,
+            ConnectionManagerUtility::maybeNormalizePath(header_map_with_fragment2, config_));
+  EXPECT_EQ(header_map_with_fragment2.Path()->value().getStringView(), "/baz/%23fragment");
+}
+
 } // namespace Http
 } // namespace Envoy
