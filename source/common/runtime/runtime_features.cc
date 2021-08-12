@@ -69,6 +69,8 @@ constexpr const char* runtime_features[] = {
     "envoy.reloadable_features.fix_wildcard_matching",
     "envoy.reloadable_features.http_match_on_all_headers",
     "envoy.reloadable_features.http_set_copy_replace_all_headers",
+    "envoy.reloadable_features.http_reject_path_with_fragment",
+    "envoy.reloadable_features.http_strip_fragment_from_path_unsafe_if_disabled",
 };
 
 // This is a section for officially sanctioned runtime features which are too

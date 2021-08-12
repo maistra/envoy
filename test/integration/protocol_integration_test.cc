@@ -1739,6 +1739,40 @@ INSTANTIATE_TEST_SUITE_P(Protocols, ProtocolIntegrationTest,
                          testing::ValuesIn(HttpProtocolIntegrationTest::getProtocolTestParams()),
                          HttpProtocolIntegrationTest::protocolTestParamsToString);
 
+TEST_P(DownstreamProtocolIntegrationTest, PathWithFragmentRejectedByDefault) {
+  initialize();
+
+  codec_client_ = makeHttpConnection(makeClientConnection((lookupPort("http"))));
+  Http::TestRequestHeaderMapImpl request_headers{{":method", "GET"},
+                                                 {":path", "/some/path#fragment"},
+                                                 {":scheme", "http"},
+                                                 {":authority", "foo.com"}};
+  IntegrationStreamDecoderPtr response = codec_client_->makeRequestWithBody(request_headers, 10);
+  response->waitForEndStream();
+  ASSERT_TRUE(response->complete());
+  EXPECT_EQ("400", response->headers().Status()->value().getStringView());
+}
+
+TEST_P(ProtocolIntegrationTest, FragmentStrippedFromPathWithOverride) {
+  config_helper_.addRuntimeOverride("envoy.reloadable_features.http_reject_path_with_fragment",
+                                    "false");
+  initialize();
+
+  codec_client_ = makeHttpConnection(makeClientConnection((lookupPort("http"))));
+  Http::TestRequestHeaderMapImpl request_headers{{":method", "GET"},
+                                                 {":path", "/some/path?p1=v1#fragment"},
+                                                 {":scheme", "http"},
+                                                 {":authority", "foo.com"}};
+  Http::TestRequestHeaderMapImpl expected_request_headers{request_headers};
+  expected_request_headers.setPath("/some/path?p1=v1");
+  Http::TestResponseHeaderMapImpl response_headers{{":status", "200"}};
+  auto response = sendRequestAndWaitForResponse(expected_request_headers, 0, response_headers, 0, 0,
+                                                TestUtility::DefaultTimeout);
+  EXPECT_TRUE(upstream_request_->complete());
+  ASSERT_TRUE(response->complete());
+  EXPECT_EQ("200", response->headers().Status()->value().getStringView());
+}
+
 // Test buffering and then continuing after too many response bytes to buffer.
 TEST_P(ProtocolIntegrationTest, BufferContinue) {
   // Bytes sent is configured for http/2 flow control windows.
