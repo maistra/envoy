@@ -627,12 +627,10 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         project_name = "Python rules for Bazel",
         project_desc = "Bazel rules for the Python language",
         project_url = "https://github.com/bazelbuild/rules_python",
-        # TODO(htuch): revert back to a point releases when pip3_import appears.
-        version = "a0fbf98d4e3a232144df4d0d80b577c7a693b570",
-        sha256 = "76a8fd4e7eca2a3590f816958faa0d83c9b2ce9c32634c5c375bcccf161d3bb5",
-        strip_prefix = "rules_python-{version}",
-        urls = ["https://github.com/bazelbuild/rules_python/archive/{version}.tar.gz"],
-        release_date = "2020-04-09",
+        version = "0.1.0",
+        sha256 = "b6d46438523a3ec0f3cead544190ee13223a52f6a6765a29eae7b7cc24cc83a0",
+        release_date = "2020-10-15",
+        urls = ["https://github.com/bazelbuild/rules_python/releases/download/{version}/rules_python-{version}.tar.gz"],
         use_category = ["build"],
     ),
     six = dict(
@@ -736,13 +734,13 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         project_name = "QUICHE",
         project_desc = "QUICHE (QUIC, HTTP/2, Etc) is Google‘s implementation of QUIC and related protocols",
         project_url = "https://quiche.googlesource.com/quiche",
-        # Static snapshot of https://quiche.googlesource.com/quiche/+archive/ecc28c0d7428f3323ea26eb1ddb98a5e06b23dea.tar.gz
-        version = "ecc28c0d7428f3323ea26eb1ddb98a5e06b23dea",
-        sha256 = "52680dea984dbe899c27176155578b97276e1f1516b7c3a63fb16ba593061859",
+        # Static snapshot of https://quiche.googlesource.com/quiche/+archive/2475cc8246d3e77e391347ae319f0ab9db132fb4.tar.gz
+        version = "6fec8e97a1ab1a945b86bd6b7252666294448ddb",
+        sha256 = "3045254cbf03c29ee7166fb01b1072a463c58df405669b8573677d4638869290",
         urls = ["https://storage.googleapis.com/quiche-envoy-integration/{version}.tar.gz"],
         use_category = ["dataplane_ext"],
         extensions = ["envoy.transport_sockets.quic", "envoy.listener.quic"],
-        release_date = "2020-11-10",
+        release_date = "2021-02-24",
         cpe = "N/A",
     ),
     com_googlesource_googleurl = dict(

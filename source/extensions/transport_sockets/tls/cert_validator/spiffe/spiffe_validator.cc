@@ -179,7 +179,6 @@ int SPIFFEValidator::doVerifyCertChain(X509_STORE_CTX* store_ctx,
   if (!ret) {
     stats_.fail_verify_error_.inc();
   }
-
   X509_STORE_CTX_cleanup(verify_ctx.get());
   return ret;
 }

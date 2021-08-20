@@ -290,6 +290,14 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
     const SSL_CIPHER *cipher = sk_SSL_CIPHER_value(ciphers, i);
     stat_name_set_->rememberBuiltin(SSL_CIPHER_get_name(cipher));
   }
+
+  // As late as possible, run the custom SSL_CTX configuration callback on each
+  // SSL_CTX, if set.
+  if (auto sslctx_cb = config.sslctxCb(); sslctx_cb) {
+      sslctx_cb(tls_context_.ssl_ctx_.get());
+    }
+  }
+
   // Add supported cipher suites from the TLS 1.3 spec:
   // https://tools.ietf.org/html/rfc8446#appendix-B.4
   // AES-CCM cipher suites are removed (no BoringSSL support).
