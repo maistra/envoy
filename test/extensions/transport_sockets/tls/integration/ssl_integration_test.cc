@@ -500,7 +500,7 @@ TEST_P(SslCertficateIntegrationTest, BothEcdsaAndRsaOnlyEcdsaOcspResponse) {
     auto client = makeSslClientConnection(ecdsaOnlyClientOptions());
     const auto* socket = dynamic_cast<const Extensions::TransportSockets::Tls::SslHandshakerImpl*>(
         client->ssl().get());
-    SSL_enable_ocsp_stapling(socket->ssl());
+    SSL_set_tlsext_status_type(socket->ssl(), TLSEXT_STATUSTYPE_ocsp);
     return client;
   };
   testRouterRequestAndResponseWithBody(1024, 512, false, false, &creator);
@@ -509,8 +509,7 @@ TEST_P(SslCertficateIntegrationTest, BothEcdsaAndRsaOnlyEcdsaOcspResponse) {
   const auto* socket = dynamic_cast<const Extensions::TransportSockets::Tls::SslHandshakerImpl*>(
       codec_client_->connection()->ssl().get());
   const uint8_t* resp;
-  size_t resp_len;
-  SSL_get0_ocsp_response(socket->ssl(), &resp, &resp_len);
+  long resp_len = SSL_get_tlsext_status_ocsp_resp(socket->ssl(), &resp);
   EXPECT_NE(0, resp_len);
 }
 
