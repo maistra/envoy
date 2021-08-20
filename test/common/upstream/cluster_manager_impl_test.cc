@@ -274,7 +274,8 @@ TEST_F(ClusterManagerImplTest, OutlierEventLog) {
   }
   )EOF";
 
-  EXPECT_CALL(log_manager_, createAccessLog("foo"));
+  EXPECT_CALL(log_manager_, createAccessLog(Filesystem::FilePathAndType{
+                                Filesystem::DestinationType::File, "foo"}));
   create(parseBootstrapFromV3Json(json));
 }
 
@@ -3316,6 +3317,13 @@ TEST_F(ClusterManagerInitHelperTest, UpdateAlreadyInitialized) {
 
   EXPECT_CALL(cm_initialized, ready());
   init_helper_.startInitializingSecondaryClusters();
+}
+
+TEST_F(ClusterManagerInitHelperTest, RemoveUnknown) {
+  InSequence s;
+
+  NiceMock<MockClusterManagerCluster> cluster;
+  init_helper_.removeCluster(cluster);
 }
 
 // If secondary clusters initialization triggered outside of CdsApiImpl::onConfigUpdate()'s
