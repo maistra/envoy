@@ -2,12 +2,10 @@
 #include "envoy/extensions/access_loggers/file/v3/file.pb.h"
 #include "envoy/registry/registry.h"
 
-#include "common/access_log/access_log_impl.h"
-#include "common/protobuf/protobuf.h"
-
-#include "extensions/access_loggers/common/file_access_log_impl.h"
-#include "extensions/access_loggers/file/config.h"
-#include "extensions/access_loggers/well_known_names.h"
+#include "source/common/access_log/access_log_impl.h"
+#include "source/common/protobuf/protobuf.h"
+#include "source/extensions/access_loggers/common/file_access_log_impl.h"
+#include "source/extensions/access_loggers/file/config.h"
 
 #include "test/mocks/server/factory_context.h"
 #include "test/test_common/utility.h"
@@ -24,7 +22,7 @@ namespace File {
 namespace {
 
 TEST(FileAccessLogNegativeTest, ValidateFail) {
-  NiceMock<Server::Configuration::MockFactoryContext> context;
+  NiceMock<Server::Configuration::MockServerFactoryContext> context;
 
   EXPECT_THROW(FileAccessLogFactory().createAccessLogInstance(
                    envoy::extensions::access_loggers::file::v3::FileAccessLog(), nullptr, context),
@@ -34,7 +32,7 @@ TEST(FileAccessLogNegativeTest, ValidateFail) {
 TEST(FileAccessLogNegativeTest, InvalidNameFail) {
   envoy::config::accesslog::v3::AccessLog config;
 
-  NiceMock<Server::Configuration::MockFactoryContext> context;
+  NiceMock<Server::Configuration::MockServerFactoryContext> context;
   EXPECT_THROW_WITH_MESSAGE(AccessLog::AccessLogFactory::fromProto(config, context), EnvoyException,
                             "Provided name for static registration lookup was empty.");
 
@@ -82,7 +80,7 @@ public:
   Http::TestResponseTrailerMapImpl response_trailers_;
   NiceMock<StreamInfo::MockStreamInfo> stream_info_;
 
-  NiceMock<Server::Configuration::MockFactoryContext> context_;
+  NiceMock<Server::Configuration::MockServerFactoryContext> context_;
 };
 
 TEST_F(FileAccessLogTest, DEPRECATED_FEATURE_TEST(LegacyFormatEmpty)) {

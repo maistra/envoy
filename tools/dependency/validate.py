@@ -22,12 +22,12 @@ def load_module(name, path):
     return module
 
 
-envoy_repository_locations = load_module('envoy_repository_locations',
-                                         'bazel/repository_locations.bzl')
-api_repository_locations = load_module('api_repository_locations',
-                                       'api/bazel/repository_locations.bzl')
-extensions_build_config = load_module('extensions_build_config',
-                                      'source/extensions/extensions_build_config.bzl')
+envoy_repository_locations = load_module(
+    'envoy_repository_locations', 'bazel/repository_locations.bzl')
+api_repository_locations = load_module(
+    'api_repository_locations', 'api/bazel/repository_locations.bzl')
+extensions_build_config = load_module(
+    'extensions_build_config', 'source/extensions/extensions_build_config.bzl')
 
 REPOSITORY_LOCATIONS_SPEC = dict(envoy_repository_locations.REPOSITORY_LOCATIONS_SPEC)
 REPOSITORY_LOCATIONS_SPEC.update(api_repository_locations.REPOSITORY_LOCATIONS_SPEC)
@@ -82,8 +82,9 @@ class DependencyInfo(object):
     Returns:
       Set of dependency identifiers that match use_category.
     """
-        return set(name for name, metadata in REPOSITORY_LOCATIONS_SPEC.items()
-                   if use_category in metadata['use_category'])
+        return set(
+            name for name, metadata in REPOSITORY_LOCATIONS_SPEC.items()
+            if use_category in metadata['use_category'])
 
     def get_metadata(self, dependency):
         """Obtain repository metadata for a dependency.
@@ -101,9 +102,8 @@ class DependencyInfo(object):
 class BuildGraph(object):
     """Models the Bazel build graph."""
 
-    def __init__(self,
-                 ignore_deps=IGNORE_DEPS,
-                 repository_locations_spec=REPOSITORY_LOCATIONS_SPEC):
+    def __init__(
+            self, ignore_deps=IGNORE_DEPS, repository_locations_spec=REPOSITORY_LOCATIONS_SPEC):
         self._ignore_deps = ignore_deps
         # Reverse map from untracked dependencies implied by other deps back to the dep.
         self._implied_untracked_deps_revmap = {}
@@ -122,7 +122,7 @@ class BuildGraph(object):
     Returns:
       A set of dependency identifiers that are reachable from targets.
     """
-        deps_query = ' union '.join(f'deps({l})' for l in targets)
+        deps_query = 'deps(set({}))'.format(' '.join(targets))
         try:
             deps = subprocess.check_output(['bazel', 'query', deps_query],
                                            stderr=subprocess.PIPE).decode().splitlines()
@@ -175,9 +175,10 @@ class Validator(object):
             '//source/exe:envoy_main_common_with_core_extensions_lib', '//source/extensions/...')
         queried_all_deps = self._build_graph.query_external_deps('//source/...')
         if queried_all_deps != queried_core_ext_deps:
-            raise DependencyError('Invalid build graph structure. deps(//source/...) != '
-                                  'deps(//source/exe:envoy_main_common_with_core_extensions_lib) '
-                                  'union deps(//source/extensions/...)')
+            raise DependencyError(
+                'Invalid build graph structure. deps(//source/...) != '
+                'deps(//source/exe:envoy_main_common_with_core_extensions_lib) '
+                'union deps(//source/extensions/...)')
 
     def validate_test_only_deps(self):
         """Validate that test-only dependencies aren't included in //source/...
@@ -258,8 +259,8 @@ class Validator(object):
         if len(bad_controlplane_core_deps) > 0:
             raise DependencyError(
                 f'Observed controlplane core deps {queried_controlplane_core_min_deps} is not covered '
-                'by "use_category" implied core deps {expected_controlplane_core_deps}: '
-                '{bad_controlplane_core_deps} are missing')
+                f'by "use_category" implied core deps {expected_controlplane_core_deps}: '
+                f'{bad_controlplane_core_deps} are missing')
 
     def validate_extension_deps(self, name, target):
         """Validate that extensions are correctly declared for dataplane_ext and observability_ext.

@@ -12,9 +12,9 @@ static_resources:
           codec_type: AUTO
           stat_prefix: ingress_http
           access_log:
-            - name: envoy.access_loggers.stdoutput
-              typed_config:
-                "@type": type.googleapis.com/envoy.extensions.access_loggers.stdoutput.v3.StdoutputAccessLog
+          - name: envoy.access_loggers.stdout
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
           route_config:
             name: local_route
             virtual_hosts:
@@ -91,7 +91,6 @@ static_resources:
                   cluster: generic_service
           http_filters:
           - name: envoy.filters.http.cors
-            typed_config: {}
           - name: envoy.filters.http.csrf
             typed_config:
               "@type": type.googleapis.com/envoy.extensions.filters.http.csrf.v3.CsrfPolicy
@@ -100,17 +99,10 @@ static_resources:
                   numerator: 0
                   denominator: HUNDRED
           - name: envoy.filters.http.router
-            typed_config: {}
   clusters:
   - name: generic_service
-    connect_timeout: 0.25s
     type: STRICT_DNS
     lb_policy: ROUND_ROBIN
-    typed_extension_protocol_options:
-      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
-        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
-        explicit_http_config:
-          http2_protocol_options: {}
     load_assignment:
       cluster_name: generic_service
       endpoints:
@@ -122,7 +114,6 @@ static_resources:
                 port_value: 8000
 
 admin:
-  access_log_path: "/dev/null"
   address:
     socket_address:
       address: 0.0.0.0

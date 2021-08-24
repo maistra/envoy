@@ -1,7 +1,5 @@
 """Envoy API annotations."""
 
-from collections import namedtuple
-
 import re
 
 # Key-value annotation regex.
@@ -17,6 +15,9 @@ EXTENSION_CATEGORY_ANNOTATION = 'extension-category'
 # name that the extension registers as in the static registry, e.g.
 # envoy.filters.network.http_connection_manager.
 EXTENSION_ANNOTATION = 'extension'
+
+# Used to mark something as alpha, excluding it from the threat model.
+ALPHA_ANNOTATION = 'alpha'
 
 # Not implemented yet annotation on leading comments, leading to hiding of
 # field.
@@ -35,6 +36,7 @@ COMMENT_ANNOTATION = 'comment'
 VALID_ANNOTATIONS = set([
     DOC_TITLE_ANNOTATION,
     EXTENSION_ANNOTATION,
+    ALPHA_ANNOTATION,
     EXTENSION_CATEGORY_ANNOTATION,
     NOT_IMPLEMENTED_HIDE_ANNOTATION,
     NEXT_FREE_FIELD_ANNOTATION,
@@ -65,7 +67,9 @@ def extract_annotations(s, inherited_annotations=None):
         Annotation map.
     """
     annotations = {
-        k: v for k, v in (inherited_annotations or {}).items() if k in INHERITED_ANNOTATIONS
+        k: v
+        for k, v in (inherited_annotations or {}).items()
+        if k in INHERITED_ANNOTATIONS
     }
     # Extract annotations.
     groups = re.findall(ANNOTATION_REGEX, s)

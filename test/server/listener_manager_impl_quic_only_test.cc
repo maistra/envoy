@@ -1,7 +1,9 @@
 #include "envoy/config/core/v3/base.pb.h"
 #include "envoy/config/listener/v3/listener.pb.h"
 
-#include "extensions/quic_listeners/quiche/quic_transport_socket_factory.h"
+#if defined(ENVOY_ENABLE_QUIC)
+#include "source/common/quic/quic_transport_socket_factory.h"
+#endif
 
 #include "test/server/listener_manager_impl_test.h"
 #include "test/server/utility.h"
@@ -23,6 +25,7 @@ public:
   Api::OsSysCallsImpl os_sys_calls_actual_;
 };
 
+#if defined(ENVOY_ENABLE_QUIC)
 TEST_F(ListenerManagerImplQuicOnlyTest, QuicListenerFactoryAndSslContext) {
   const std::string yaml = TestEnvironment::substitute(R"EOF(
 address:
@@ -33,7 +36,16 @@ address:
 filter_chains:
 - filter_chain_match:
     transport_protocol: "quic"
-  filters: []
+  filters:
+  - name: envoy.filters.network.http_connection_manager
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+      codec_type: HTTP3
+      stat_prefix: hcm
+      route_config:
+        name: local_route
+      http_filters:
+        - name: envoy.filters.http.router
   transport_socket:
     name: envoy.transport_sockets.quic
     typed_config:
@@ -51,16 +63,8 @@ filter_chains:
             match_subject_alt_names:
             - exact: localhost
             - exact: 127.0.0.1
-reuse_port: true
 udp_listener_config:
-  listener_config:
-    name: quic_listener
-    typed_config:
-      "@type": type.googleapis.com/envoy.config.listener.v3.QuicProtocolOptions
-  writer_config:
-    name: gso_writer
-    typed_config:
-      "@type": type.googleapis.com/envoy.config.listener.v3.UdpGsoBatchWriterOptions
+  quic_options: {}
   )EOF",
                                                        Network::Address::IpVersion::v4);
 
@@ -76,7 +80,7 @@ udp_listener_config:
                            /* expected_num_options */
                            Api::OsSysCallsSingleton::get().supportsUdpGro() ? 3 : 2,
 #endif
-                           /* expected_creation_params */ {true, false});
+                           ListenerComponentFactory::BindType::ReusePort);
 
   expectSetsockopt(/* expected_sockopt_level */ IPPROTO_IP,
                    /* expected_sockopt_name */ ENVOY_IP_PKTINFO,
@@ -109,7 +113,7 @@ udp_listener_config:
                    ->listenerFactory()
                    .isTransportConnectionless());
   Network::SocketSharedPtr listen_socket =
-      manager_->listeners().front().get().listenSocketFactory().getListenSocket();
+      manager_->listeners().front().get().listenSocketFactory().getListenSocket(0);
 
   Network::UdpPacketWriterPtr udp_packet_writer =
       manager_->listeners()
@@ -129,8 +133,9 @@ udp_listener_config:
   auto& quic_socket_factory = dynamic_cast<const Quic::QuicServerTransportSocketFactory&>(
       filter_chain->transportSocketFactory());
   EXPECT_TRUE(quic_socket_factory.implementsSecureTransport());
-  EXPECT_TRUE(quic_socket_factory.serverContextConfig().isReady());
+  EXPECT_FALSE(quic_socket_factory.getTlsCertificates().empty());
 }
+#endif
 
 TEST_F(ListenerManagerImplQuicOnlyTest, QuicListenerFactoryWithWrongTransportSocket) {
   const std::string yaml = TestEnvironment::substitute(R"EOF(
@@ -159,23 +164,65 @@ filter_chains:
           match_subject_alt_names:
           - exact: localhost
           - exact: 127.0.0.1
-reuse_port: true
 udp_listener_config:
-  listener_config:
-    name: quic_listener
-    typed_config:
-      "@type": type.googleapis.com/envoy.config.listener.v3.QuicProtocolOptions
-  writer_config:
-    name: gso_writer
-    typed_config:
-      "@type": type.googleapis.com/envoy.config.listener.v3.UdpGsoBatchWriterOptions
+  quic_options: {}
   )EOF",
                                                        Network::Address::IpVersion::v4);
 
   envoy::config::listener::v3::Listener listener_proto = parseListenerFromV3Yaml(yaml);
 
+#if defined(ENVOY_ENABLE_QUIC)
   EXPECT_THROW_WITH_REGEX(manager_->addOrUpdateListener(listener_proto, "", true), EnvoyException,
                           "wrong transport socket config specified for quic transport socket");
+#else
+  EXPECT_THROW_WITH_REGEX(manager_->addOrUpdateListener(listener_proto, "", true), EnvoyException,
+                          "QUIC is configured but not enabled in the build.");
+#endif
+}
+
+TEST_F(ListenerManagerImplQuicOnlyTest, QuicListenerFactoryWithWrongCodec) {
+  const std::string yaml = TestEnvironment::substitute(R"EOF(
+address:
+  socket_address:
+    address: 127.0.0.1
+    protocol: UDP
+    port_value: 1234
+filter_chains:
+- filter_chain_match:
+    transport_protocol: "quic"
+  filters: []
+  transport_socket:
+    name: envoy.transport_sockets.quic
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.transport_sockets.quic.v3.QuicDownstreamTransport
+      downstream_tls_context:
+        common_tls_context:
+          tls_certificates:
+          - certificate_chain:
+              filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_uri_cert.pem"
+            private_key:
+              filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_uri_key.pem"
+          validation_context:
+            trusted_ca:
+              filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/ca_cert.pem"
+            match_subject_alt_names:
+            - exact: localhost
+            - exact: 127.0.0.1
+udp_listener_config:
+  quic_options: {}
+  )EOF",
+                                                       Network::Address::IpVersion::v4);
+
+  envoy::config::listener::v3::Listener listener_proto = parseListenerFromV3Yaml(yaml);
+
+#if defined(ENVOY_ENABLE_QUIC)
+  EXPECT_THROW_WITH_REGEX(manager_->addOrUpdateListener(listener_proto, "", true), EnvoyException,
+                          "error building network filter chain for quic listener: requires exactly "
+                          "one http_connection_manager filter.");
+#else
+  EXPECT_THROW_WITH_REGEX(manager_->addOrUpdateListener(listener_proto, "", true), EnvoyException,
+                          "QUIC is configured but not enabled in the build.");
+#endif
 }
 
 } // namespace

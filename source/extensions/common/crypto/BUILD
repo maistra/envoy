@@ -18,7 +18,6 @@ envoy_cc_extension(
         "crypto_impl.h",
         "utility_impl.h",
     ],
-    category = "DELIBERATELY_OMITTED",
     external_deps = [
         "ssl",
 	"bssl_wrapper_lib",
@@ -28,10 +27,8 @@ envoy_cc_extension(
         "//test/common/config:__subpackages__",
         "//test/common/crypto:__subpackages__",
     ],
-    security_posture = "unknown",
-    undocumented = True,
     deps = [
-        "//include/envoy/buffer:buffer_interface",
+        "//envoy/buffer:buffer_interface",
         "//source/common/common:assert_lib",
         "//source/common/crypto:utility_lib",
     ],

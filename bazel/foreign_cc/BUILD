@@ -92,7 +92,7 @@ envoy_cmake_external(
         "//conditions:default": [],
     }),
     postfix_script = select({
-        "//bazel:windows_x86_64": "cp -L $EXT_BUILD_ROOT/external/com_github_c_ares_c_ares/src/lib/nameser.h $INSTALLDIR/include/nameser.h && cp -L $EXT_BUILD_ROOT/external/com_github_c_ares_c_ares/include/ares_dns.h $INSTALLDIR/include/ares_dns.h",
+        "//bazel:windows_x86_64": "cp -L $EXT_BUILD_ROOT/external/com_github_c_ares_c_ares/src/lib/ares_nameser.h $INSTALLDIR/include/ares_nameser.h && cp -L $EXT_BUILD_ROOT/external/com_github_c_ares_c_ares/include/ares_dns.h $INSTALLDIR/include/ares_dns.h",
         "//conditions:default": "cp -L $EXT_BUILD_ROOT/external/com_github_c_ares_c_ares/include/ares_dns.h $INSTALLDIR/include/ares_dns.h",
     }),
     static_libraries = select({
@@ -212,6 +212,24 @@ envoy_cmake_external(
 )
 
 envoy_cmake_external(
+    name = "wamr",
+    cache_entries = {
+        "LLVM_DIR": "$EXT_BUILD_DEPS/copy_llvm/llvm/lib/cmake/llvm",
+        "WAMR_BUILD_INTERP": "0",
+        "WAMR_BUILD_JIT": "1",
+        "WAMR_BUILD_AOT": "1",
+        "WAMR_BUILD_SIMD": "0",
+        "WAMR_BUILD_MULTI_MODULE": "1",
+        "WAMR_BUILD_LIBC_WASI": "0",
+        "WAMR_BUILD_TAIL_CALL": "1",
+    },
+    lib_source = "@com_github_wamr//:all",
+    static_libraries = ["libvmlib.a"],
+    tags = ["skip_on_windows"],
+    deps = [":llvm"],
+)
+
+envoy_cmake_external(
     name = "wavm",
     binaries = ["wavm"],
     cache_entries = {
@@ -223,7 +241,6 @@ envoy_cmake_external(
         # using -l:libstdc++.a.
         "CMAKE_CXX_FLAGS": "-lstdc++ -Wno-unused-command-line-argument",
     },
-    defines = ["ENVOY_WASM_WAVM"],
     env_vars = {
         # Workaround for the -DDEBUG flag added in fastbuild on macOS,
         # which conflicts with DEBUG macro used in LLVM.
@@ -238,6 +255,7 @@ envoy_cmake_external(
             "libWAVMUnwind.a",
         ],
     }),
+    tags = ["skip_on_windows"],
     deps = [":llvm"],
 )
 

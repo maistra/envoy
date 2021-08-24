@@ -19,7 +19,7 @@
 #include "envoy/network/transport_socket.h"
 #include "envoy/ssl/context.h"
 
-#include "common/common/scope_tracker.h"
+#include "source/common/common/scope_tracker.h"
 
 #include "test/mocks/buffer/mocks.h"
 #include "test/test_common/test_time.h"
@@ -67,9 +67,9 @@ public:
   }
 
   Network::ListenerPtr createListener(Network::SocketSharedPtr&& socket,
-                                      Network::TcpListenerCallbacks& cb, bool bind_to_port,
-                                      uint32_t backlog_size) override {
-    return Network::ListenerPtr{createListener_(std::move(socket), cb, bind_to_port, backlog_size)};
+                                      Network::TcpListenerCallbacks& cb,
+                                      bool bind_to_port) override {
+    return Network::ListenerPtr{createListener_(std::move(socket), cb, bind_to_port)};
   }
 
   Network::UdpListenerPtr
@@ -101,8 +101,10 @@ public:
 
   Event::SchedulableCallbackPtr createSchedulableCallback(std::function<void()> cb) override {
     auto schedulable_cb = Event::SchedulableCallbackPtr{createSchedulableCallback_(cb)};
-    // Assert that schedulable_cb is not null to avoid confusing test failures down the line.
-    ASSERT(schedulable_cb != nullptr);
+    if (!allow_null_callback_) {
+      // Assert that schedulable_cb is not null to avoid confusing test failures down the line.
+      ASSERT(schedulable_cb != nullptr);
+    }
     return schedulable_cb;
   }
 
@@ -130,13 +132,13 @@ public:
                const Network::ConnectionSocket::OptionsSharedPtr& options));
   MOCK_METHOD(Network::DnsResolverSharedPtr, createDnsResolver,
               (const std::vector<Network::Address::InstanceConstSharedPtr>& resolvers,
-               const bool use_tcp_for_dns_lookups));
+               const envoy::config::core::v3::DnsResolverOptions& dns_resolver_options));
   MOCK_METHOD(FileEvent*, createFileEvent_,
               (os_fd_t fd, FileReadyCb cb, FileTriggerType trigger, uint32_t events));
   MOCK_METHOD(Filesystem::Watcher*, createFilesystemWatcher_, ());
   MOCK_METHOD(Network::Listener*, createListener_,
               (Network::SocketSharedPtr && socket, Network::TcpListenerCallbacks& cb,
-               bool bind_to_port, uint32_t backlog_size));
+               bool bind_to_port));
   MOCK_METHOD(Network::UdpListener*, createUdpListener_,
               (Network::SocketSharedPtr socket, Network::UdpListenerCallbacks& cb,
                const envoy::config::core::v3::UdpSocketConfig& config));
@@ -152,6 +154,7 @@ public:
   MOCK_METHOD(void, run, (RunType type));
   MOCK_METHOD(void, pushTrackedObject, (const ScopeTrackedObject* object));
   MOCK_METHOD(void, popTrackedObject, (const ScopeTrackedObject* expected_object));
+  MOCK_METHOD(bool, trackedObjectStackIsEmpty, (), (const));
   MOCK_METHOD(bool, isThreadSafe, (), (const));
   Buffer::WatermarkFactory& getWatermarkFactory() override { return buffer_factory_; }
   MOCK_METHOD(Thread::ThreadId, getCurrentThreadId, ());
@@ -162,6 +165,7 @@ public:
   GlobalTimeSystem time_system_;
   std::list<DeferredDeletablePtr> to_delete_;
   testing::NiceMock<MockBufferFactory> buffer_factory_;
+  bool allow_null_callback_{};
 
 private:
   const std::string name_;
@@ -170,6 +174,10 @@ private:
 class MockTimer : public Timer {
 public:
   MockTimer();
+
+  // Ownership of each MockTimer instance is transferred to the (caller of) dispatcher's
+  // createTimer_(), so to avoid destructing it twice, the MockTimer must have been dynamically
+  // allocated and must not be deleted by it's creator.
   MockTimer(MockDispatcher* dispatcher);
   ~MockTimer() override;
 

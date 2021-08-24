@@ -2,7 +2,7 @@
 #include "envoy/config/trace/v3/dynamic_ot.pb.validate.h"
 #include "envoy/config/trace/v3/http_tracer.pb.h"
 
-#include "extensions/tracers/dynamic_ot/config.h"
+#include "source/extensions/tracers/dynamic_ot/config.h"
 
 #include "test/mocks/server/tracer_factory.h"
 #include "test/mocks/server/tracer_factory_context.h"
@@ -53,7 +53,7 @@ TEST(DynamicOtTracerConfigTest, DISABLED_DynamicOpentracingHttpTracer) {
   DynamicOpenTracingTracerFactory factory;
   auto message = Config::Utility::translateToFactoryConfig(
       configuration.http(), ProtobufMessage::getStrictValidationVisitor(), factory);
-  const Tracing::HttpTracerSharedPtr tracer = factory.createHttpTracer(*message, context);
+  auto tracer = factory.createTracerDriver(*message, context);
   EXPECT_NE(nullptr, tracer);
 }
 

@@ -1,4 +1,4 @@
-#include "extensions/transport_sockets/tls/context_impl.h"
+#include "source/extensions/transport_sockets/tls/context_impl.h"
 
 #include <algorithm>
 #include <memory>
@@ -12,20 +12,19 @@
 #include "envoy/stats/scope.h"
 #include "envoy/type/matcher/v3/string.pb.h"
 
-#include "common/common/assert.h"
-#include "common/common/base64.h"
-#include "common/common/fmt.h"
-#include "common/common/hex.h"
-#include "common/common/utility.h"
-#include "common/network/address_impl.h"
-#include "common/protobuf/utility.h"
-#include "common/runtime/runtime_features.h"
-#include "common/stats/utility.h"
-
-#include "extensions/transport_sockets/tls/cert_validator/factory.h"
-#include "extensions/transport_sockets/tls/stats.h"
-#include "extensions/transport_sockets/tls/openssl_impl.h"
-#include "extensions/transport_sockets/tls/utility.h"
+#include "source/common/common/assert.h"
+#include "source/common/common/base64.h"
+#include "source/common/common/fmt.h"
+#include "source/common/common/hex.h"
+#include "source/common/common/utility.h"
+#include "source/common/network/address_impl.h"
+#include "source/common/protobuf/utility.h"
+#include "source/common/runtime/runtime_features.h"
+#include "source/common/stats/utility.h"
+#include "source/extensions/transport_sockets/tls/cert_validator/factory.h"
+#include "source/extensions/transport_sockets/tls/stats.h"
+#include "source/extensions/transport_sockets/tls/openssl_impl.h"
+#include "source/extensions/transport_sockets/tls/utility.h"
 
 #include "absl/container/node_hash_set.h"
 #include "absl/strings/match.h"
@@ -158,9 +157,10 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
       if (cert_context.cert_chain_ == nullptr ||
           !SSL_CTX_use_certificate(tls_context_.ssl_ctx_.get(), cert_context.cert_chain_.get())) {
         while (uint64_t err = ERR_get_error()) {
-          ENVOY_LOG_MISC(error, "SSL error: {}:{}:{}:{}", err, ERR_lib_error_string(err),
-                         ERR_func_error_string(err), ERR_GET_REASON(err),
-                         ERR_reason_error_string(err));
+          ENVOY_LOG_MISC(debug, "SSL error: {}:{}:{}:{}", err,
+                         absl::NullSafeStringView(ERR_lib_error_string(err)),
+                         absl::NullSafeStringView(ERR_func_error_string(err)), ERR_GET_REASON(err),
+                         absl::NullSafeStringView(ERR_reason_error_string(err)));
         }
         throw EnvoyException(
             absl::StrCat("Failed to load certificate chain from ", cert_context.cert_chain_file_path_, ", please see log for details"));
@@ -724,9 +724,7 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
   for (uint32_t i = 0; i < tls_certificates.size(); ++i) {
     auto& ocsp_resp_bytes = tls_certificates[i].get().ocspStaple();
     if (ocsp_resp_bytes.empty()) {
-      if (Runtime::runtimeFeatureEnabled(
-              "envoy.reloadable_features.require_ocsp_response_for_must_staple_certs") &&
-          tls_context_.cert_contexts_[i].is_must_staple_) {
+      if (tls_context_.cert_contexts_[i].is_must_staple_) {
         throw EnvoyException("OCSP response is required for must-staple certificate");
       }
       if (ocsp_staple_policy_ == Ssl::ServerContextConfig::OcspStaplePolicy::MustStaple) {
@@ -937,11 +935,6 @@ OcspStapleAction ServerContextImpl::ocspStapleAction(const CertContext& cert_con
   }
 
   auto& response = cert_context.ocsp_response_;
-  if (!Runtime::runtimeFeatureEnabled("envoy.reloadable_features.check_ocsp_policy")) {
-    // Expiration check is disabled. Proceed as if the policy is LenientStapling and the response
-    // is not expired.
-    return response ? OcspStapleAction::Staple : OcspStapleAction::NoStaple;
-  }
 
   auto policy = ocsp_staple_policy_;
   if (cert_context.is_must_staple_) {
@@ -1014,6 +1007,8 @@ int ServerContextImpl::handleOcspStapling(SSL* ssl, void*) {
 bool ContextImpl::verifyCertChain(X509& leaf_cert, STACK_OF(X509) & intermediates,
                                   std::string& error_details) {
   bssl::UniquePtr<X509_STORE_CTX> ctx(X509_STORE_CTX_new());
+
+  ASSERT(!tls_contexts_.empty());
   // It doesn't matter which SSL context is used, because they share the same
   // cert validation config.
   X509_STORE* store = SSL_CTX_get_cert_store(tls_context_.ssl_ctx_.get());
@@ -1023,7 +1018,8 @@ bool ContextImpl::verifyCertChain(X509& leaf_cert, STACK_OF(X509) & intermediate
   }
 
   int res = cert_validator_->doVerifyCertChain(ctx.get(), nullptr, leaf_cert, nullptr);
-  if (res <= 0) {
+  // If |SSL_VERIFY_NONE|, the error is non-fatal, but we keep the error details.
+  if (res <= 0 && SSL_CTX_get_verify_mode(ssl_ctx) != SSL_VERIFY_NONE) {
     const int n = X509_STORE_CTX_get_error(ctx.get());
     const int depth = X509_STORE_CTX_get_error_depth(ctx.get());
     error_details = absl::StrCat("X509_verify_cert: certificate verification error at depth ",

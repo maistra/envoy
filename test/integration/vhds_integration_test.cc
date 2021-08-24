@@ -3,11 +3,12 @@
 #include "envoy/grpc/status.h"
 #include "envoy/stats/scope.h"
 
-#include "common/config/protobuf_link_hacks.h"
-#include "common/protobuf/protobuf.h"
-#include "common/protobuf/utility.h"
+#include "source/common/config/protobuf_link_hacks.h"
+#include "source/common/protobuf/protobuf.h"
+#include "source/common/protobuf/utility.h"
 
 #include "test/common/grpc/grpc_client_integration.h"
+#include "test/config/v2_link_hacks.h"
 #include "test/integration/http_integration.h"
 #include "test/integration/utility.h"
 #include "test/test_common/network_utility.h"
@@ -26,7 +27,11 @@ namespace {
 const std::string& config() {
   CONSTRUCT_ON_FIRST_USE(std::string, fmt::format(R"EOF(
 admin:
-  access_log_path: {}
+  access_log:
+  - name: envoy.access_loggers.file
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog
+      path: "{}"
   address:
     socket_address:
       address: 127.0.0.1
@@ -151,8 +156,7 @@ routes:
 class VhdsInitializationTest : public HttpIntegrationTest,
                                public Grpc::GrpcClientIntegrationParamTest {
 public:
-  VhdsInitializationTest()
-      : HttpIntegrationTest(Http::CodecClient::Type::HTTP2, ipVersion(), realTime(), config()) {
+  VhdsInitializationTest() : HttpIntegrationTest(Http::CodecType::HTTP2, ipVersion(), config()) {
     use_lds_ = false;
   }
 
@@ -165,8 +169,8 @@ public:
     // BaseIntegrationTest::createUpstreams() (which is part of initialize()).
     // Make sure this number matches the size of the 'clusters' repeated field in the bootstrap
     // config that you use!
-    setUpstreamCount(2);                                  // the CDS cluster
-    setUpstreamProtocol(FakeHttpConnection::Type::HTTP2); // CDS uses gRPC uses HTTP2.
+    setUpstreamCount(2);                         // the CDS cluster
+    setUpstreamProtocol(Http::CodecType::HTTP2); // CDS uses gRPC uses HTTP2.
 
     // BaseIntegrationTest::initialize() does many things:
     // 1) It appends to fake_upstreams_ as many as you asked for via setUpstreamCount().
@@ -248,8 +252,7 @@ TEST_P(VhdsInitializationTest, InitializeVhdsAfterRdsHasBeenInitialized) {
 class VhdsIntegrationTest : public HttpIntegrationTest,
                             public Grpc::GrpcClientIntegrationParamTest {
 public:
-  VhdsIntegrationTest()
-      : HttpIntegrationTest(Http::CodecClient::Type::HTTP2, ipVersion(), realTime(), config()) {
+  VhdsIntegrationTest() : HttpIntegrationTest(Http::CodecType::HTTP2, ipVersion(), config()) {
     use_lds_ = false;
   }
 
@@ -287,8 +290,8 @@ public:
     // BaseIntegrationTest::createUpstreams() (which is part of initialize()).
     // Make sure this number matches the size of the 'clusters' repeated field in the bootstrap
     // config that you use!
-    setUpstreamCount(2);                                  // the CDS cluster
-    setUpstreamProtocol(FakeHttpConnection::Type::HTTP2); // CDS uses gRPC uses HTTP2.
+    setUpstreamCount(2);                         // the CDS cluster
+    setUpstreamProtocol(Http::CodecType::HTTP2); // CDS uses gRPC uses HTTP2.
 
     // BaseIntegrationTest::initialize() does many things:
     // 1) It appends to fake_upstreams_ as many as you asked for via setUpstreamCount().
@@ -687,7 +690,7 @@ TEST_P(VhdsIntegrationTest, VhdsOnDemandUpdateHttpConnectionCloses) {
   vhds_stream_->sendGrpcMessage(vhds_update);
 
   codec_client_->sendReset(encoder);
-  response->waitForReset();
+  ASSERT_TRUE(response->waitForReset());
   EXPECT_TRUE(codec_client_->connected());
 
   cleanupUpstreamAndDownstream();

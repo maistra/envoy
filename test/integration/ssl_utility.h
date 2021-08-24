@@ -16,8 +16,8 @@ struct ClientSslTransportOptions {
     return *this;
   }
 
-  ClientSslTransportOptions& setSan(bool san) {
-    san_ = san;
+  ClientSslTransportOptions& setSan(absl::string_view san) {
+    san_ = std::string(san);
     return *this;
   }
 
@@ -55,7 +55,7 @@ struct ClientSslTransportOptions {
   bool alpn_{};
   bool client_ecdsa_cert_{false};
   std::vector<std::string> cipher_suites_{};
-  bool san_{};
+  std::string san_;
   std::string sigalgs_;
   std::string sni_;
   envoy::extensions::transport_sockets::tls::v3::TlsParameters::TlsProtocol tls_version_{
@@ -63,12 +63,16 @@ struct ClientSslTransportOptions {
   bool use_expired_spiffe_cert_{};
 };
 
+void initializeUpstreamTlsContextConfig(
+    const ClientSslTransportOptions& options,
+    envoy::extensions::transport_sockets::tls::v3::UpstreamTlsContext& tls_context);
+
 Network::TransportSocketFactoryPtr
 createClientSslTransportSocketFactory(const ClientSslTransportOptions& options,
                                       ContextManager& context_manager, Api::Api& api);
 
 Network::TransportSocketFactoryPtr createUpstreamSslContext(ContextManager& context_manager,
-                                                            Api::Api& api);
+                                                            Api::Api& api, bool use_http3 = false);
 
 Network::TransportSocketFactoryPtr
 createFakeUpstreamSslContext(const std::string& upstream_cert_name, ContextManager& context_manager,

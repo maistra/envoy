@@ -47,12 +47,25 @@ IGNORES_CVES = set([
     'CVE-2020-8169',
     'CVE-2020-8177',
     'CVE-2020-8284',
-    # Node.js issue unrelated to http-parse (Node TLS).
+    # Node.js issue unrelated to http-parser (Node TLS).
     'CVE-2020-8265',
     # Node.js request smuggling.
     # https://github.com/envoyproxy/envoy/pull/14686 validates that this does
     # not apply to Envoy.
     'CVE-2020-8287',
+    # Envoy is operating post Brotli 1.0.9 release, so not affected by this.
+    'CVE-2020-8927',
+    # Node.js issue unrelated to http-parser (*).
+    'CVE-2021-22883',
+    'CVE-2021-22884',
+    # False positive on the match heuristic, fixed in Curl 7.76.0.
+    'CVE-2021-22876',
+    'CVE-2021-22890',
+    # Node.js issues unrelated to http-parser.
+    # See https://nvd.nist.gov/vuln/detail/CVE-2021-22918
+    # See https://nvd.nist.gov/vuln/detail/CVE-2021-22921
+    'CVE-2021-22918',
+    'CVE-2021-22921',
 ])
 
 # Subset of CVE fields that are useful below.
@@ -115,8 +128,9 @@ def parse_cve_json(cve_json, cves, cpe_revmap):
 
         published_date = parse_cve_date(cve['publishedDate'])
         last_modified_date = parse_cve_date(cve['lastModifiedDate'])
-        cves[cve_id] = Cve(cve_id, description, cpe_set, cvss_v3_score, cvss_v3_severity,
-                           published_date, last_modified_date)
+        cves[cve_id] = Cve(
+            cve_id, description, cpe_set, cvss_v3_score, cvss_v3_severity, published_date,
+            last_modified_date)
         for cpe in cpe_set:
             cpe_revmap[str(cpe.vendor_normalized())].add(cve_id)
     return cves, cpe_revmap
@@ -299,8 +313,8 @@ if __name__ == '__main__':
             for year in scan_years
         ]
     cves, cpe_revmap = download_cve_data(urls)
-    possible_cves, cve_deps = cve_scan(cves, cpe_revmap, IGNORES_CVES,
-                                       dep_utils.repository_locations())
+    possible_cves, cve_deps = cve_scan(
+        cves, cpe_revmap, IGNORES_CVES, dep_utils.repository_locations())
     if possible_cves:
         print(
             '\nBased on heuristic matching with the NIST CVE database, Envoy may be vulnerable to:')

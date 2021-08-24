@@ -45,7 +45,6 @@ static_resources:
               start_child_span: true
   clusters:
   - name: service1
-    connect_timeout: 0.250s
     type: STRICT_DNS
     lb_policy: ROUND_ROBIN
     typed_extension_protocol_options:
@@ -63,7 +62,6 @@ static_resources:
                 address: service1
                 port_value: 8000
   - name: skywalking
-    connect_timeout: 1s
     type: STRICT_DNS
     lb_policy: ROUND_ROBIN
     typed_extension_protocol_options:
@@ -81,7 +79,6 @@ static_resources:
                 address: skywalking-oap
                 port_value: 11800
 admin:
-  access_log_path: "/dev/null"
   address:
     socket_address:
       address: 0.0.0.0
