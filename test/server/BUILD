@@ -322,6 +322,7 @@ envoy_cc_test(
     deps = [
         ":listener_manager_impl_test_lib",
         ":utility_lib",
+	"//source/common/quic:quic_transport_socket_factory_lib",
         "//source/extensions/filters/http/router:config",
         "//source/extensions/request_id/uuid:config",
         "//source/extensions/transport_sockets/raw_buffer:config",

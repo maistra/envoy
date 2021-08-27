@@ -2,6 +2,7 @@ load(
     "//bazel:envoy_build_system.bzl",
     "envoy_cc_library",
     "envoy_package",
+    "envoy_select_enable_http3",
 )
 
 licenses(["notice"])  # Apache 2
@@ -59,9 +60,10 @@ envoy_cc_library(
     deps = [
         "//envoy/stats:stats_interface",
         "//source/common/stats:symbol_table_lib",
+    ] + envoy_select_enable_http3([
         "@com_github_google_quiche//:quic_core_error_codes_lib",
         "@com_github_google_quiche//:quic_core_types_lib",
-    ],
+    ]),
 )
 
 envoy_cc_library(
