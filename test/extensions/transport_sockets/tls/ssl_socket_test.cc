@@ -4258,13 +4258,6 @@ TEST_P(SslSocketTest, EcdhCurves) {
   client_params->clear_ecdh_curves();
   server_params->clear_ecdh_curves();
   server_params->clear_cipher_suites();
-
-  // Verify that X25519 is not offered by default in FIPS builds.
-  client_params->add_ecdh_curves("X25519");
-  server_params->add_cipher_suites("ECDHE-RSA-AES128-GCM-SHA256");
-  testUtilV2(ecdh_curves_test_options);
-  client_params->clear_ecdh_curves();
-  server_params->clear_cipher_suites();
 }
 
 // TODO (dmitri-d) re-enable after sorting out signature algorithm reporting
@@ -5963,6 +5956,23 @@ TEST_P(SslSocketTest, CipherUsageGetsCounted) {
     TestUtilOptionsV2 cipher_test_options(listener, client, true, GetParam());
     cipher_test_options.setExpectedCiphersuite(cipher);
     cipher_test_options.setExpectedServerStats(stats).setExpectedClientStats(stats);
+
+    // to simplify maintenance:
+    // setup a dummy downstream tls context to pass testUtilV2
+    // assertion for presence of socket config 
+    envoy::extensions::transport_sockets::tls::v3::DownstreamTlsContext dummy;
+    envoy::extensions::transport_sockets::tls::v3::TlsCertificate* server_cert =
+      dummy.mutable_common_tls_context()->add_tls_certificates();
+    // From test/extensions/transport_sockets/tls/test_data/san_dns_cert.pem.
+    server_cert->mutable_certificate_chain()->set_inline_bytes(
+        TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(
+            "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_cert.pem")));
+    // From test/extensions/transport_sockets/tls/test_data/san_dns_key.pem.
+    server_cert->mutable_private_key()->set_inline_bytes(
+        TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(
+            "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_key.pem")));
+    updateFilterChain(dummy, *filter_chain);
+
     testUtilV2(cipher_test_options);
   }
 }

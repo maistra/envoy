@@ -154,7 +154,7 @@ TEST(UtilityTest, SslErrorDescriptionTest) {
       {SSL_ERROR_SSL, "SSL"},
       {SSL_ERROR_WANT_READ, "WANT_READ"},
       {SSL_ERROR_WANT_WRITE, "WANT_WRITE"},
-      {SSL_ERROR_WANT_PRIVATE_KEY_OPERATION, "WANT_PRIVATE_KEY_OPERATION"},
+      {13, "WANT_PRIVATE_KEY_OPERATION"}, // SSL_ERROR_WANT_PRIVATE_KEY_OPERATION
   };
 
   for (const auto& test_data : test_set) {

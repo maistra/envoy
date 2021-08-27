@@ -6,6 +6,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "openssl/ssl.h"
+#include "openssl/err.h"
 
 using testing::_;
 using testing::NiceMock;
@@ -34,7 +35,7 @@ TEST_F(IoHandleBioTest, WriteError) {
       .WillOnce(Return(testing::ByMove(
           Api::IoCallUint64Result(0, Api::IoErrorPtr(new Network::IoSocketError(100),
                                                      Network::IoSocketError::deleteIoError)))));
-  EXPECT_EQ(-1, bio_->method->bwrite(bio_, nullptr, 10));
+  EXPECT_EQ(-1, BIO_write(bio_, nullptr, 10));
   const int err = ERR_get_error();
   EXPECT_EQ(ERR_GET_LIB(err), ERR_LIB_SYS);
   EXPECT_EQ(ERR_GET_REASON(err), 100);

@@ -876,7 +876,11 @@ def _proxy_wasm_cpp_sdk():
     )
 
 def _proxy_wasm_cpp_host():
-    external_http_archive(name = "proxy_wasm_cpp_host")
+    external_http_archive(
+        name = "proxy_wasm_cpp_host",
+#        patches = ["@envoy//bazel/external:0001-proxy-wasm-cpp-host-with-openssl-support.patch"],
+#        patch_args = ["-p1"],
+    )
 
 def _emscripten_toolchain():
     external_http_archive(
