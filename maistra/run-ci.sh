@@ -22,7 +22,9 @@ time bazel build \
   --local_cpu_resources=4 \
   --jobs=4 \
   --disk_cache=/bazel-cache \
-  //source/exe:envoy-static
+  //source/exe:envoy-static \
+  --//bazel:http3=False \
+  --deleted_packages=test/common/quic,test/common/quic/platform
 
 echo "Build succeeded. Binary generated:"
 bazel-bin/source/exe/envoy-static --version
@@ -37,4 +39,6 @@ time bazel test \
   --test_env=ENVOY_IP_TEST_VERSIONS=v4only \
   --test_output=all \
   --disk_cache=/bazel-cache \
-  //test/...
+  //test/... \
+  --//bazel:http3=False \
+  --deleted_packages=test/common/quic,test/common/quic/platform
