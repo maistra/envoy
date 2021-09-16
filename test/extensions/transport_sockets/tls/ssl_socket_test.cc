@@ -5943,17 +5943,16 @@ TEST_P(SslSocketTest, TestConnectionFailsOnMultipleCertificatesNonePassOcspPolic
 TEST_P(SslSocketTest, CipherUsageGetsCounted) {
   envoy::config::listener::v3::Listener listener;
   envoy::config::listener::v3::FilterChain* filter_chain = listener.add_filter_chains();
+  envoy::extensions::transport_sockets::tls::v3::DownstreamTlsContext tls_context;
   envoy::extensions::transport_sockets::tls::v3::TlsCertificate* server_cert =
-      filter_chain->mutable_hidden_envoy_deprecated_tls_context()
-          ->mutable_common_tls_context()
-          ->add_tls_certificates();
+      tls_context.mutable_common_tls_context()->add_tls_certificates();
+
   server_cert->mutable_certificate_chain()->set_filename(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_cert.pem"));
   server_cert->mutable_private_key()->set_filename(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_key.pem"));
   envoy::extensions::transport_sockets::tls::v3::TlsParameters* server_params =
-      filter_chain->mutable_hidden_envoy_deprecated_tls_context()
-          ->mutable_common_tls_context()
+      tls_context.mutable_common_tls_context()
           ->mutable_tls_params();
 
   envoy::extensions::transport_sockets::tls::v3::UpstreamTlsContext client;
@@ -5973,23 +5972,7 @@ TEST_P(SslSocketTest, CipherUsageGetsCounted) {
     TestUtilOptionsV2 cipher_test_options(listener, client, true, GetParam());
     cipher_test_options.setExpectedCiphersuite(cipher);
     cipher_test_options.setExpectedServerStats(stats).setExpectedClientStats(stats);
-
-    // to simplify maintenance:
-    // setup a dummy downstream tls context to pass testUtilV2
-    // assertion for presence of socket config 
-    envoy::extensions::transport_sockets::tls::v3::DownstreamTlsContext dummy;
-    envoy::extensions::transport_sockets::tls::v3::TlsCertificate* server_cert =
-      dummy.mutable_common_tls_context()->add_tls_certificates();
-    // From test/extensions/transport_sockets/tls/test_data/san_dns_cert.pem.
-    server_cert->mutable_certificate_chain()->set_inline_bytes(
-        TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(
-            "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_cert.pem")));
-    // From test/extensions/transport_sockets/tls/test_data/san_dns_key.pem.
-    server_cert->mutable_private_key()->set_inline_bytes(
-        TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(
-            "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_key.pem")));
-    updateFilterChain(dummy, *filter_chain);
-
+    updateFilterChain(tls_context, *filter_chain);
     testUtilV2(cipher_test_options);
   }
 }
