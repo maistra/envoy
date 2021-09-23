@@ -221,8 +221,8 @@ void SslSocket::drainErrorQueue(const bool show_errno) {
   }
   if (!failure_reason_.empty()) {
     if (show_errno) {
-      ENVOY_CONN_LOG(debug, "errno:{}:{}:{}", callbacks_->connection(), errno, strerror(errno),
-                     failure_reason_);
+      ENVOY_CONN_LOG(debug, "errno:{}:{}:{}", callbacks_->connection(), errno,
+                     Envoy::errorDetails(errno), failure_reason_);
     } else {
       ENVOY_CONN_LOG(debug, "{}", callbacks_->connection(), failure_reason_);
     }
@@ -277,7 +277,8 @@ Network::IoResult SslSocket::doWrite(Buffer::Instance& write_buffer, bool end_st
       case SSL_ERROR_SSL:
         // If EAGAIN treat it as if it's SSL_ERROR_WANT_WRITE
         if (errno == EAGAIN) {
-          ENVOY_CONN_LOG(debug, "errno:{}:{}", callbacks_->connection(), errno, strerror(errno));
+          ENVOY_CONN_LOG(debug, "errno:{}:{}", callbacks_->connection(), errno,
+                         Envoy::errorDetails(errno));
           bytes_to_retry_ = bytes_to_write;
           break;
         }
