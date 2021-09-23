@@ -20,7 +20,7 @@ envoy_cc_extension(
     ],
     external_deps = [
         "ssl",
-	"bssl_wrapper_lib",
+        "bssl_wrapper_lib",
     ],
     # Legacy test use. TODO(#9953) clean up.
     extra_visibility = [

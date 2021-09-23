@@ -322,7 +322,7 @@ envoy_cc_test(
     deps = [
         ":listener_manager_impl_test_lib",
         ":utility_lib",
-	"//source/common/quic:quic_transport_socket_factory_lib",
+        "//source/common/quic:quic_transport_socket_factory_lib",
         "//source/extensions/filters/http/router:config",
         "//source/extensions/request_id/uuid:config",
         "//source/extensions/transport_sockets/raw_buffer:config",
@@ -375,7 +375,7 @@ envoy_cc_fuzz_test(
         "//test/integration:integration_lib",
         "//test/mocks/server:options_mocks",
         "//test/mocks/server:hot_restart_mocks",
-	"//test/mocks/stats:stats_mocks",
+        "//test/mocks/stats:stats_mocks",
         "//test/test_common:environment_lib",
         "//test/test_common:test_time_lib",
     ] + select({

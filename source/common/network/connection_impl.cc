@@ -704,7 +704,7 @@ void ConnectionImpl::onWriteReady() {
     if (delayed_close_state_ == DelayedCloseState::CloseAfterFlushAndWait) {
       ASSERT(delayed_close_timer_ != nullptr && delayed_close_timer_->enabled());
       if (result.bytes_processed_ > 0) {
-        enableDelayedCloseTimer(); 
+        enableDelayedCloseTimer();
       }
     } else {
       ASSERT(bothSidesHalfClosed() || delayed_close_state_ == DelayedCloseState::CloseAfterFlush);

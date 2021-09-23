@@ -5,8 +5,8 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "openssl/ssl.h"
 #include "openssl/err.h"
+#include "openssl/ssl.h"
 
 using testing::_;
 using testing::NiceMock;
@@ -19,7 +19,7 @@ namespace Tls {
 
 class IoHandleBioTest : public testing::Test {
 public:
-  IoHandleBioTest() { 
+  IoHandleBioTest() {
     bio_ = BIO_new_io_handle(&io_handle_);
     meth_ = static_cast<BIO_METHOD*>(BIO_get_app_data(bio_));
   }

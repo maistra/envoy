@@ -2,7 +2,6 @@
 #include <vector>
 
 #include "source/extensions/transport_sockets/tls/utility.h"
-#include "openssl/err.h"
 
 #include "test/extensions/transport_sockets/tls/ssl_test_utility.h"
 #include "test/extensions/transport_sockets/tls/test_data/long_validity_cert_info.h"
@@ -13,6 +12,7 @@
 
 #include "absl/time/time.h"
 #include "gtest/gtest.h"
+#include "openssl/err.h"
 #include "openssl/ssl.h"
 #include "openssl/x509v3.h"
 
@@ -150,10 +150,8 @@ TEST(UtilityTest, TestGetCertificationExtensionValue) {
 
 TEST(UtilityTest, SslErrorDescriptionTest) {
   const std::vector<std::pair<int, std::string>> test_set = {
-      {SSL_ERROR_NONE, "NONE"},
-      {SSL_ERROR_SSL, "SSL"},
-      {SSL_ERROR_WANT_READ, "WANT_READ"},
-      {SSL_ERROR_WANT_WRITE, "WANT_WRITE"},
+      {SSL_ERROR_NONE, "NONE"},           {SSL_ERROR_SSL, "SSL"},
+      {SSL_ERROR_WANT_READ, "WANT_READ"}, {SSL_ERROR_WANT_WRITE, "WANT_WRITE"},
       {13, "WANT_PRIVATE_KEY_OPERATION"}, // SSL_ERROR_WANT_PRIVATE_KEY_OPERATION
   };
 

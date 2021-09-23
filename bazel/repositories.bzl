@@ -260,7 +260,7 @@ def _openssl():
     native.bind(
         name = "ssl",
         actual = "@openssl//:openssl-lib",
-)
+    )
 
 def _openssl_includes():
     external_http_archive(
@@ -278,7 +278,7 @@ def _openssl_includes():
 
 def _com_github_maistra_bssl_wrapper():
     external_http_archive(
-        name = "com_github_maistra_bssl_wrapper"
+        name = "com_github_maistra_bssl_wrapper",
     )
     native.bind(
         name = "bssl_wrapper_lib",
@@ -936,8 +936,8 @@ def _proxy_wasm_cpp_sdk():
 def _proxy_wasm_cpp_host():
     external_http_archive(
         name = "proxy_wasm_cpp_host",
-#        patches = ["@envoy//bazel/external:0001-proxy-wasm-cpp-host-with-openssl-support.patch"],
-#        patch_args = ["-p1"],
+        #        patches = ["@envoy//bazel/external:0001-proxy-wasm-cpp-host-with-openssl-support.patch"],
+        #        patch_args = ["-p1"],
     )
 
 def _emscripten_toolchain():

@@ -12,9 +12,9 @@ namespace Crypto {
 
 class UtilityImpl : public Envoy::Common::Crypto::Utility {
 public:
-// a typedef used by BoringSSL
+  // a typedef used by BoringSSL
   typedef struct cbs_st {
-    const uint8_t *data;
+    const uint8_t* data;
     size_t len;
   } CBS;
 

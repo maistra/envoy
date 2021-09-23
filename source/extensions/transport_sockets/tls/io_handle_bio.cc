@@ -1,11 +1,12 @@
 #include "source/extensions/transport_sockets/tls/io_handle_bio.h"
 
+#include <iostream>
+
 #include "envoy/buffer/buffer.h"
 #include "envoy/network/io_handle.h"
 
 #include "openssl/bio.h"
 #include "openssl/err.h"
-#include <iostream>
 
 namespace Envoy {
 namespace Extensions {
@@ -130,7 +131,7 @@ BIO* BIO_new_io_handle(Envoy::Network::IoHandle* io_handle) {
   BIO_meth_set_create(meth, io_handle_new);
   BIO_meth_set_destroy(meth, io_handle_free);
 
-  b = BIO_new(meth);  
+  b = BIO_new(meth);
   RELEASE_ASSERT(b != nullptr, "");
 
   // Initialize the BIO

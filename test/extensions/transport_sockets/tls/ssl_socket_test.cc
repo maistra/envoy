@@ -307,21 +307,21 @@ void testUtil(const TestUtilOptions& options) {
 
   // For private key method testing.
   // TODO (dmitri-d) This is currently not supported under openssl
-/*
-  NiceMock<Ssl::MockContextManager> context_manager;
-  Extensions::PrivateKeyMethodProvider::TestPrivateKeyMethodFactory test_factory;
-  Registry::InjectFactory<Ssl::PrivateKeyMethodProviderInstanceFactory>
-      test_private_key_method_factory(test_factory);
-  PrivateKeyMethodManagerImpl private_key_method_manager;
-  if (options.expectedPrivateKeyMethod()) {
-    EXPECT_CALL(server_factory_context, sslContextManager())
-        .WillOnce(ReturnRef(context_manager))
-        .WillRepeatedly(ReturnRef(context_manager));
-    EXPECT_CALL(context_manager, privateKeyMethodManager())
-        .WillOnce(ReturnRef(private_key_method_manager))
-        .WillRepeatedly(ReturnRef(private_key_method_manager));
-  }
-*/
+  /*
+    NiceMock<Ssl::MockContextManager> context_manager;
+    Extensions::PrivateKeyMethodProvider::TestPrivateKeyMethodFactory test_factory;
+    Registry::InjectFactory<Ssl::PrivateKeyMethodProviderInstanceFactory>
+        test_private_key_method_factory(test_factory);
+    PrivateKeyMethodManagerImpl private_key_method_manager;
+    if (options.expectedPrivateKeyMethod()) {
+      EXPECT_CALL(server_factory_context, sslContextManager())
+          .WillOnce(ReturnRef(context_manager))
+          .WillRepeatedly(ReturnRef(context_manager));
+      EXPECT_CALL(context_manager, privateKeyMethodManager())
+          .WillOnce(ReturnRef(private_key_method_manager))
+          .WillRepeatedly(ReturnRef(private_key_method_manager));
+    }
+  */
 
   envoy::extensions::transport_sockets::tls::v3::DownstreamTlsContext server_tls_context;
   TestUtility::loadFromYaml(TestEnvironment::substitute(options.serverCtxYaml()),
@@ -458,7 +458,7 @@ void testUtil(const TestUtilOptions& options) {
 
       if (options.expectedOcspResponse().size() > 0) {
         const SslHandshakerImpl* ssl_socket =
-          dynamic_cast<const SslHandshakerImpl*>(client_connection->ssl().get());
+            dynamic_cast<const SslHandshakerImpl*>(client_connection->ssl().get());
         SSL* client_ssl_socket = ssl_socket->ssl();
         const uint8_t* response_head;
         long response_len = SSL_get_tlsext_status_ocsp_resp(client_ssl_socket, &response_head);
@@ -736,10 +736,10 @@ void testUtilV2(const TestUtilOptionsV2& options) {
       }
       if (!options.expectedCiphersuite().empty()) {
         EXPECT_EQ(options.expectedCiphersuite(), client_connection->ssl()->ciphersuiteString());
-//        const SSL_CIPHER* cipher =
-//            SSL_get_cipher_by_value(client_connection->ssl()->ciphersuiteId());
-//        EXPECT_NE(nullptr, cipher);
-//        EXPECT_EQ(options.expectedCiphersuite(), SSL_CIPHER_get_name(cipher));
+        //        const SSL_CIPHER* cipher =
+        //            SSL_get_cipher_by_value(client_connection->ssl()->ciphersuiteId());
+        //        EXPECT_NE(nullptr, cipher);
+        //        EXPECT_EQ(options.expectedCiphersuite(), SSL_CIPHER_get_name(cipher));
       }
 
       absl::optional<std::string> server_ssl_requested_server_name;
@@ -764,8 +764,9 @@ void testUtilV2(const TestUtilOptionsV2& options) {
         // 1.3, tickets come after the handshake and the SSL_SESSION on the
         // client is a dummy object.
         SSL_SESSION* client_ssl_session = SSL_get_session(client_ssl_socket);
-        // TODO (dmitri-d): this currently fails, possibly due to how ssl_session_to_bytes/ssl_session_from_bytes is implemented
-        // (they are meant to replicate BoringSSL's SSL_SESSION_to_bytes/SSL_SESSION_from_bytes)
+        // TODO (dmitri-d): this currently fails, possibly due to how
+        // ssl_session_to_bytes/ssl_session_from_bytes is implemented (they are meant to replicate
+        // BoringSSL's SSL_SESSION_to_bytes/SSL_SESSION_from_bytes)
         // EXPECT_TRUE(SSL_SESSION_is_resumable(client_ssl_session));
       }
       server_connection->close(Network::ConnectionCloseType::NoFlush);
@@ -4206,14 +4207,14 @@ TEST_P(SslSocketTest, CipherSuites) {
 
   // No cipher suites have been deprecated on the server-side in maistra-envoy.
   // A very similar test for an unsupported cipher suite is immediately above.
-  // TODO (dmitri-d) Enable this check if we start deprecating cipher-suites. 
+  // TODO (dmitri-d) Enable this check if we start deprecating cipher-suites.
   // Client connects to a server offering only deprecated cipher suites, connection fails.
   // server_params->add_cipher_suites("ECDHE-RSA-AES128-SHA");
   // updateFilterChain(tls_context, *filter_chain);
   // error_test_options.setExpectedServerStats("ssl.connection_error");
   // testUtilV2(error_test_options);
   server_params->clear_cipher_suites();
-  
+
   // Verify that ECDHE-RSA-CHACHA20-POLY1305 is not offered by default in FIPS builds.
   client_params->add_cipher_suites(common_cipher_suite);
   testUtilV2(cipher_test_options);
@@ -5126,14 +5127,14 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderAsyncSignSuccess) {
   common_tls_context:
     tls_certificates:
       certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: sign
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: sign
             sync_mode: false
             mode: rsa
     validation_context:
@@ -5162,14 +5163,14 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderAsyncDecryptSuccess) {
   common_tls_context:
     tls_certificates:
       certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: decrypt
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: decrypt
             sync_mode: false
             mode: rsa
     validation_context:
@@ -5198,14 +5199,14 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderSyncSignSuccess) {
   common_tls_context:
     tls_certificates:
       certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: sign
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: sign
             sync_mode: true
             mode: rsa
     validation_context:
@@ -5234,14 +5235,14 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderSyncDecryptSuccess) {
   common_tls_context:
     tls_certificates:
       certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: decrypt
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: decrypt
             sync_mode: true
             mode: rsa
     validation_context:
@@ -5270,14 +5271,14 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderAsyncSignFailure) {
   common_tls_context:
     tls_certificates:
       certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: sign
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: sign
             sync_mode: false
             crypto_error: true
             mode: rsa
@@ -5307,14 +5308,14 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderSyncSignFailure) {
   common_tls_context:
     tls_certificates:
       certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: sign
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: sign
             sync_mode: true
             crypto_error: true
             mode: rsa
@@ -5344,14 +5345,14 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderSignFailure) {
   common_tls_context:
     tls_certificates:
       certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: sign
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: sign
             method_error: true
             mode: rsa
     validation_context:
@@ -5380,14 +5381,14 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderDecryptFailure) {
   common_tls_context:
     tls_certificates:
       certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: decrypt
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: decrypt
             method_error: true
             mode: rsa
     validation_context:
@@ -5416,14 +5417,14 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderAsyncSignCompleteFailure) {
   common_tls_context:
     tls_certificates:
       certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: sign
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: sign
             async_method_error: true
             mode: rsa
     validation_context:
@@ -5452,14 +5453,14 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderAsyncSignCompleteFailure) {
   common_tls_context:
     tls_certificates:
       certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: decrypt
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: decrypt
             async_method_error: true
             mode: rsa
     validation_context:
@@ -5502,21 +5503,21 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderMultiCertSuccess) {
   common_tls_context:
     tls_certificates:
     - certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: sign
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: sign
             sync_mode: false
             mode: rsa
     - certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_cert.pem"
-      private_key:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_key.pem"
-)EOF";
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_cert.pem" private_key:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_key.pem" )EOF";
 
   TestUtilOptions test_options(client_ctx_yaml, server_ctx_yaml, true, GetParam());
   testUtil(test_options.setPrivateKeyMethodExpected(true));
@@ -5542,24 +5543,26 @@ TEST_P(SslSocketTest, RsaPrivateKeyProviderMultiCertFail) {
   common_tls_context:
     tls_certificates:
     - certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: sign
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: sign
             sync_mode: false
             mode: rsa
     - certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_cert.pem"
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_cert.pem"
       private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_key.pem"
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_key.pem"
             expected_operation: sign
             sync_mode: false
             mode: rsa
@@ -5587,13 +5590,15 @@ TEST_P(SslSocketTest, EcdsaPrivateKeyProviderSuccess) {
   common_tls_context:
     tls_certificates:
     - certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_cert.pem"
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_cert.pem"
       private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_key.pem"
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_key.pem"
             expected_operation: sign
             mode: ecdsa
 )EOF";
@@ -5622,25 +5627,27 @@ TEST_P(SslSocketTest, RsaAndEcdsaPrivateKeyProviderMultiCertSuccess) {
   common_tls_context:
     tls_certificates:
     - certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: sign
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: sign
             sync_mode: false
             async_method_error: true
             mode: rsa
     - certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_cert.pem"
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_cert.pem"
       private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_key.pem"
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_key.pem"
             expected_operation: sign
             mode: ecdsa
 )EOF";
@@ -5666,24 +5673,26 @@ TEST_P(SslSocketTest, RsaAndEcdsaPrivateKeyProviderMultiCertFail) {
   common_tls_context:
     tls_certificates:
     - certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_cert.pem" private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem"
-            expected_operation: sign
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/unittest_key.pem" expected_operation: sign
             sync_mode: false
             mode: rsa
     - certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_cert.pem"
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_cert.pem"
       private_key_provider:
         provider_name: test
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct
           value:
-            private_key_file: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_key.pem"
+            private_key_file: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_ecdsa_p256_key.pem"
             expected_operation: sign
             async_method_error: true
             mode: ecdsa
@@ -5868,9 +5877,10 @@ TEST_P(SslSocketTest, TestConnectionFailsWhenCertIsMustStapleAndResponseExpired)
 // OpenSSL selection process doesn't take into account presence and status of an OCSP response.
 // This test failure under OpenSSL as only one of the configured certificate chains has a valid
 // OSCP response, which is expected to be used.
-// A possible approach is to use a cert_cb (see https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_cert_cb.html)
-// and check OCSP response validity then. 
-// Using this callback raises a question of cert chain compatibility with the client side and how to handle it. 
+// A possible approach is to use a cert_cb (see
+// https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_cert_cb.html) and check OCSP response
+// validity then. Using this callback raises a question of cert chain compatibility with the client
+// side and how to handle it.
 TEST_P(SslSocketTest, DISABLED_TestFilterMultipleCertsFilterByOcspPolicyFallbackOnFirst) {
   const std::string server_ctx_yaml = R"EOF(
   common_tls_context:
@@ -5952,17 +5962,15 @@ TEST_P(SslSocketTest, CipherUsageGetsCounted) {
   server_cert->mutable_private_key()->set_filename(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_key.pem"));
   envoy::extensions::transport_sockets::tls::v3::TlsParameters* server_params =
-      tls_context.mutable_common_tls_context()
-          ->mutable_tls_params();
+      tls_context.mutable_common_tls_context()->mutable_tls_params();
 
   envoy::extensions::transport_sockets::tls::v3::UpstreamTlsContext client;
   envoy::extensions::transport_sockets::tls::v3::TlsParameters* client_params =
       client.mutable_common_tls_context()->mutable_tls_params();
 
   const std::vector<std::string> ciphers = {
-      "ECDHE-RSA-CHACHA20-POLY1305", "ECDHE-RSA-AES128-GCM-SHA256",
-      "ECDHE-RSA-AES256-GCM-SHA384", "AES256-SHA256",
-      "ECDHE-RSA-AES128-SHA"};
+      "ECDHE-RSA-CHACHA20-POLY1305", "ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-RSA-AES256-GCM-SHA384",
+      "AES256-SHA256", "ECDHE-RSA-AES128-SHA"};
   for (const auto& cipher : ciphers) {
     const std::string stats = "ssl.ciphers." + cipher;
     client_params->clear_cipher_suites();

@@ -73,7 +73,7 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["build"],
     ),
     com_github_openssl_openssl = dict(
-    	project_name = "openssl",
+        project_name = "openssl",
         project_desc = "Cryptography and TLS/SSL Toolkit",
         project_url = "https://github.com/openssl/openssl",
         version = "1.1.1",
@@ -81,9 +81,9 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         strip_prefix = "openssl-894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596",
         urls = ["https://github.com/openssl/openssl/archive/894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596.tar.gz"],
         use_category = ["controlplane", "dataplane_core"],
-	release_date = "2019-09-10",
+        release_date = "2019-09-10",
         cpe = "N/A",
-     ),
+    ),
     com_github_maistra_bssl_wrapper = dict(
         project_name = "BoringSSL compatibility layer",
         project_desc = "Library providing compatibility with BoringSSL for OpenSSL-based applications",

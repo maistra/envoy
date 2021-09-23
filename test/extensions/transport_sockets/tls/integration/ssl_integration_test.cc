@@ -97,7 +97,7 @@ INSTANTIATE_TEST_SUITE_P(IpVersions, SslIntegrationTest,
 //
 // TODO (dmitri-d) OpenSSL has public interface for ssl3_send_alert()
 //
-//TEST_P(SslIntegrationTest, UnknownSslAlert) {
+// TEST_P(SslIntegrationTest, UnknownSslAlert) {
 //  initialize();
 //  Network::ClientConnectionPtr connection = makeSslClientConnection({});
 //  ConnectionStatusCallbacks callbacks;

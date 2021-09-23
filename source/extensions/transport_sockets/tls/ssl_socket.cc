@@ -127,7 +127,7 @@ Network::IoResult SslSocket::doRead(Buffer::Instance& read_buffer) {
         case SSL_ERROR_WANT_READ:
           break;
         case SSL_ERROR_ZERO_RETURN:
-	  // Graceful shutdown using close_notify TLS alert.
+          // Graceful shutdown using close_notify TLS alert.
           end_stream = true;
           break;
         case SSL_ERROR_SYSCALL:
@@ -221,7 +221,8 @@ void SslSocket::drainErrorQueue(const bool show_errno) {
   }
   if (!failure_reason_.empty()) {
     if (show_errno) {
-      ENVOY_CONN_LOG(debug, "errno:{}:{}:{}", callbacks_->connection(), errno, strerror(errno), failure_reason_);
+      ENVOY_CONN_LOG(debug, "errno:{}:{}:{}", callbacks_->connection(), errno, strerror(errno),
+                     failure_reason_);
     } else {
       ENVOY_CONN_LOG(debug, "{}", callbacks_->connection(), failure_reason_);
     }
@@ -276,15 +277,15 @@ Network::IoResult SslSocket::doWrite(Buffer::Instance& write_buffer, bool end_st
       case SSL_ERROR_SSL:
         // If EAGAIN treat it as if it's SSL_ERROR_WANT_WRITE
         if (errno == EAGAIN) {
-            ENVOY_CONN_LOG(debug, "errno:{}:{}", callbacks_->connection(), errno, strerror(errno));
-            bytes_to_retry_ = bytes_to_write;
-            break;
+          ENVOY_CONN_LOG(debug, "errno:{}:{}", callbacks_->connection(), errno, strerror(errno));
+          bytes_to_retry_ = bytes_to_write;
+          break;
         }
       // fall through for other errors
       case SSL_ERROR_WANT_READ:
       // Renegotiation has started. We don't handle renegotiation so just fall through.
       default:
-        drainErrorQueue(err == SSL_ERROR_SYSCALL||err == SSL_ERROR_SSL);
+        drainErrorQueue(err == SSL_ERROR_SYSCALL || err == SSL_ERROR_SSL);
         return {PostIoAction::Close, total_bytes_written, false};
       }
 

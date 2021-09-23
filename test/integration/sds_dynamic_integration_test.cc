@@ -983,7 +983,7 @@ TEST_P(SdsCdsIntegrationTest, BasicSuccess) {
 
 //
 // TODO (dmitri-d) private key providers aren't available under OpenSSL
-// 
+//
 /*class SdsDynamicDownstreamPrivateKeyIntegrationTest : public SdsDynamicDownstreamIntegrationTest {
 public:
   envoy::extensions::transport_sockets::tls::v3::Secret getCurrentServerPrivateKeyProviderSecret() {

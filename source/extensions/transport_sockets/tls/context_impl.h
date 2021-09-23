@@ -19,12 +19,12 @@
 #include "source/extensions/transport_sockets/tls/cert_validator/cert_validator.h"
 #include "source/extensions/transport_sockets/tls/context_manager_impl.h"
 #include "source/extensions/transport_sockets/tls/ocsp/ocsp.h"
-#include "source/extensions/transport_sockets/tls/stats.h"
 #include "source/extensions/transport_sockets/tls/openssl_impl.h"
+#include "source/extensions/transport_sockets/tls/stats.h"
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/optional.h"
-#include "absl/container/flat_hash_map.h"
 #include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/ssl.h"
 #include "openssl/x509v3.h"
@@ -47,8 +47,9 @@ struct CertContext {
   }
 };
 
-// Use a single context for certificates instead of one context per certificate as in the BoringSSL case.
-// A single context is required to hold all certificates for OpenSSL, certificate selection is handled by OpenSSL.
+// Use a single context for certificates instead of one context per certificate as in the BoringSSL
+// case. A single context is required to hold all certificates for OpenSSL, certificate selection is
+// handled by OpenSSL.
 struct TlsContext {
   bssl::UniquePtr<SSL_CTX> ssl_ctx_;
   std::vector<CertContext> cert_contexts_;

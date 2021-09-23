@@ -27,9 +27,7 @@ const unsigned Config::TLS_MAX_SUPPORTED_VERSION = TLS1_3_VERSION;
 
 Config::Config(Stats::Scope& scope, uint32_t max_client_hello_size)
     : stats_{ALL_TLS_INSPECTOR_STATS(POOL_COUNTER_PREFIX(scope, "tls_inspector."))},
-      ssl_ctx_(
-          SSL_CTX_new(TLS_method())),
-      max_client_hello_size_(max_client_hello_size) {
+      ssl_ctx_(SSL_CTX_new(TLS_method())), max_client_hello_size_(max_client_hello_size) {
 
   if (max_client_hello_size_ > TLS_MAX_CLIENT_HELLO) {
     throw EnvoyException(fmt::format("max_client_hello_size of {} is greater than maximum of {}.",
@@ -223,7 +221,8 @@ ParseState Filter::parseClientHello(const void* data, size_t len) {
   }
 }
 
-std::vector<absl::string_view> Filter::getAlpnProtocols(const unsigned char* data, unsigned int len) {
+std::vector<absl::string_view> Filter::getAlpnProtocols(const unsigned char* data,
+                                                        unsigned int len) {
   std::vector<absl::string_view> protocols;
   if (len == 0) {
     return protocols;

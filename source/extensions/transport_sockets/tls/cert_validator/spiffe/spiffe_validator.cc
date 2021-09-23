@@ -92,15 +92,17 @@ SPIFFEValidator::SPIFFEValidator(const Envoy::Ssl::CertificateValidationContextC
 }
 
 void SPIFFEValidator::addClientValidationContext(SSL_CTX* ctx, bool) {
-  bssl::UniquePtr<STACK_OF(X509_NAME)> list(sk_X509_NAME_new(
-      [](const X509_NAME* const* a, const X509_NAME* const* b) -> int { return X509_NAME_cmp(*a, *b); }));
+  bssl::UniquePtr<STACK_OF(X509_NAME)> list(
+      sk_X509_NAME_new([](const X509_NAME* const* a, const X509_NAME* const* b) -> int {
+        return X509_NAME_cmp(*a, *b);
+      }));
 
   for (auto& ca : ca_certs_) {
     X509_NAME* name = X509_get_subject_name(ca.get());
 
     // Check for duplicates.
     // Note that BoringSSL call only returns 0 or 1.
-    // OpenSSL can also return -1, for example on sk_find calls in an empty list 
+    // OpenSSL can also return -1, for example on sk_find calls in an empty list
     if (sk_X509_NAME_find(list.get(), nullptr, name) >= 0) {
       continue;
     }
@@ -155,15 +157,17 @@ int SPIFFEValidator::doVerifyCertChain(X509_STORE_CTX* store_ctx,
   bssl::UniquePtr<X509_STORE_CTX> verify_ctx(X509_STORE_CTX_new());
   // We make a copy of X509_VERIFY_PARAMs in the store_ctx that we received as a parameter.
   // This is a precaution mostly, as Envoy doesn't configure any X509_VERIFY_PARAMs.
-  // Note that there's no api to copy crls from one store_ctx to another; the assumption is that 
+  // Note that there's no api to copy crls from one store_ctx to another; the assumption is that
   // neither X509_V_FLAG_CRL_CHECK nor X509_V_FLAG_CRL_CHECK_ALL verify_params are not used.
-  // Should this change, consider opening up X509_STORE_CTX struct, which is internal atm. 
-  X509_STORE_CTX_init(verify_ctx.get(), trust_bundle, &leaf_cert, X509_STORE_CTX_get0_chain(store_ctx));
+  // Should this change, consider opening up X509_STORE_CTX struct, which is internal atm.
+  X509_STORE_CTX_init(verify_ctx.get(), trust_bundle, &leaf_cert,
+                      X509_STORE_CTX_get0_chain(store_ctx));
   X509_VERIFY_PARAM* verify_params = X509_VERIFY_PARAM_new();
   X509_VERIFY_PARAM_inherit(verify_params, X509_STORE_CTX_get0_param(store_ctx));
   X509_STORE_CTX_set0_param(verify_ctx.get(), verify_params);
   if (allow_expired_certificate_) {
-    X509_STORE_CTX_set_verify_cb(verify_ctx.get(), CertValidatorUtil::ignoreCertificateExpirationCallback);
+    X509_STORE_CTX_set_verify_cb(verify_ctx.get(),
+                                 CertValidatorUtil::ignoreCertificateExpirationCallback);
   }
   auto ret = X509_verify_cert(verify_ctx.get());
   if (!ret) {

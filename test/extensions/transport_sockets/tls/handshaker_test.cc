@@ -65,7 +65,7 @@ protected:
     ASSERT_NE(key, nullptr);
     // In TLS1.3 OpenSSL server will send session ticket after an ssl handshake.
     // While technically not part of the handshake, it's part of the server state-machine,
-    // and SSL_do_handshake will return errors (SSL_ERROR_WANT_WRITE) on the server-side if 
+    // and SSL_do_handshake will return errors (SSL_ERROR_WANT_WRITE) on the server-side if
     // the session tickets (2 by default) have not been read by the client.
     // To avoid this altogether, we disable session tickets by setting the number of tickets
     // to generate for a new session to zero.

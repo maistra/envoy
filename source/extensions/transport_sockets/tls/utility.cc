@@ -1,5 +1,7 @@
 #include "source/extensions/transport_sockets/tls/utility.h"
 
+#include <openssl/err.h>
+
 #include "source/common/common/assert.h"
 #include "source/common/common/empty_string.h"
 #include "source/common/common/safe_memcpy.h"
@@ -7,9 +9,8 @@
 #include "source/common/protobuf/utility.h"
 
 #include "absl/strings/str_join.h"
-#include "openssl/x509v3.h"
 #include "openssl/ssl.h"
-#include <openssl/err.h>
+#include "openssl/x509v3.h"
 
 namespace Envoy {
 namespace Extensions {
@@ -84,7 +85,7 @@ enum class CertName { Issuer, Subject };
  * @return std::string returns the desired name formatted as an RFC 2253 name.
  */
 std::string getRFC2253NameFromCertificate(X509& cert, CertName desired_name) {
- bssl::UniquePtr<BIO> buf(BIO_new(BIO_s_mem()));
+  bssl::UniquePtr<BIO> buf(BIO_new(BIO_s_mem()));
   RELEASE_ASSERT(buf != nullptr, "");
 
   X509_NAME* name = nullptr;

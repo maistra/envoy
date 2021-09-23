@@ -49,7 +49,7 @@ int set_strict_cipher_list(SSL_CTX* ctx, const char* str) {
   return 1;
 }
 
-STACK_OF(X509)* SSL_get_peer_full_cert_chain(const SSL *ssl) {
+STACK_OF(X509) * SSL_get_peer_full_cert_chain(const SSL* ssl) {
   STACK_OF(X509)* to_copy = SSL_get_peer_cert_chain(ssl);
   if (!to_copy) {
     return nullptr;
