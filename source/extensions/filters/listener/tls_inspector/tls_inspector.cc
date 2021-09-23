@@ -40,7 +40,7 @@ Config::Config(Stats::Scope& scope, uint32_t max_client_hello_size)
   SSL_CTX_set_session_cache_mode(ssl_ctx_.get(), SSL_SESS_CACHE_OFF);
 
   SSL_CTX_set_tlsext_servername_callback(
-      ssl_ctx_.get(), +[](SSL* ssl, int* out_alert, void* arg) -> int {
+      ssl_ctx_.get(), +[](SSL* ssl, int* out_alert, void*) -> int {
         Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
         filter->onServername(
             absl::NullSafeStringView(SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)));
@@ -49,7 +49,7 @@ Config::Config(Stats::Scope& scope, uint32_t max_client_hello_size)
         return SSL_TLSEXT_ERR_OK;
       });
 
-  auto cert_cb = [](SSL* ssl, void* arg) -> int {
+  auto cert_cb = [](SSL* ssl, void*) -> int {
     Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
     // TODO (dmitri-d) move access to SSL internals into bssl_wrapper
     filter->onALPN(ssl->s3->alpn_proposed, ssl->s3->alpn_proposed_len);
@@ -229,7 +229,7 @@ std::vector<absl::string_view> Filter::getAlpnProtocols(const unsigned char* dat
   }
 
   absl::string_view str(reinterpret_cast<const char*>(data));
-  for (int i = 0; i < len;) {
+  for (unsigned int i = 0; i < len;) {
     uint32_t protocol_length = 0;
     protocol_length <<= 8;
     protocol_length |= data[i];

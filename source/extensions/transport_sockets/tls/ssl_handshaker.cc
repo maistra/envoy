@@ -143,7 +143,7 @@ const std::string& SslHandshakerImpl::urlEncodedPemEncodedPeerCertificateChain()
     return cached_url_encoded_pem_encoded_peer_cert_chain_;
   }
 
-  for (uint64_t i = 0; i < sk_X509_num(cert_chain); i++) {
+  for (int i = 0; i < sk_X509_num(cert_chain); i++) {
     X509* cert = sk_X509_value(cert_chain, i);
 
     bssl::UniquePtr<BIO> buf(BIO_new(BIO_s_mem()));
