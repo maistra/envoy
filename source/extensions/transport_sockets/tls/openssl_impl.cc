@@ -70,18 +70,18 @@ STACK_OF(X509) * SSL_get_peer_full_cert_chain(const SSL* ssl) {
   return ret;
 }
 
-void allowRenegotiation(SSL* ssl) {
+void allowRenegotiation(SSL*) {
   // SSL_set_renegotiate_mode(ssl, mode);
 }
 
-SSL_SESSION* ssl_session_from_bytes(SSL* client_ssl_socket, const SSL_CTX* client_ssl_context,
+SSL_SESSION* ssl_session_from_bytes(SSL* client_ssl_socket, const SSL_CTX*,
                                     const std::string& client_session) {
   SSL_SESSION* client_ssl_session = SSL_get_session(client_ssl_socket);
   SSL_SESSION_set_app_data(client_ssl_session, client_session.data());
   return client_ssl_session;
 }
 
-int ssl_session_to_bytes(const SSL_SESSION* in, uint8_t** out_data, size_t* out_len) {
+int ssl_session_to_bytes(const SSL_SESSION*, uint8_t** out_data, size_t* out_len) {
   //   void *data = SSL_SESSION_get_app_data(in);
   //   *out_data = data;
   *out_data = static_cast<uint8_t*>(OPENSSL_malloc(1));
@@ -90,7 +90,7 @@ int ssl_session_to_bytes(const SSL_SESSION* in, uint8_t** out_data, size_t* out_
   return 1;
 }
 
-int should_be_single_use(const SSL_SESSION* session) { return 1; }
+int should_be_single_use(const SSL_SESSION*) { return 1; }
 
 } // namespace Tls
 } // namespace TransportSockets
