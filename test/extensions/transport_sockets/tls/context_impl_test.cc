@@ -818,7 +818,7 @@ TEST_F(SslServerContextImplTicketTest, TicketKeySdsNotReady) {
   NiceMock<Upstream::MockClusterManager> cluster_manager;
   NiceMock<Init::MockManager> init_manager;
   EXPECT_CALL(factory_context_, localInfo()).WillOnce(ReturnRef(local_info));
-  EXPECT_CALL(factory_context_, dispatcher()).WillRepeatedly(ReturnRef(dispatcher));
+  EXPECT_CALL(factory_context_, mainThreadDispatcher()).WillRepeatedly(ReturnRef(dispatcher));
   // EXPECT_CALL(factory_context_, random()).WillOnce(ReturnRef(random));
   EXPECT_CALL(factory_context_, stats()).WillOnce(ReturnRef(stats));
   EXPECT_CALL(factory_context_, clusterManager()).WillOnce(ReturnRef(cluster_manager));
@@ -1222,7 +1222,7 @@ TEST_F(ClientContextConfigImplTest, SecretNotReady) {
   EXPECT_CALL(factory_context_, localInfo()).WillOnce(ReturnRef(local_info));
   EXPECT_CALL(factory_context_, stats()).WillOnce(ReturnRef(stats));
   EXPECT_CALL(factory_context_, initManager()).WillRepeatedly(ReturnRef(init_manager));
-  EXPECT_CALL(factory_context_, dispatcher()).WillRepeatedly(ReturnRef(dispatcher));
+  EXPECT_CALL(factory_context_, mainThreadDispatcher()).WillRepeatedly(ReturnRef(dispatcher));
   auto sds_secret_configs =
       tls_context.mutable_common_tls_context()->mutable_tls_certificate_sds_secret_configs()->Add();
   sds_secret_configs->set_name("abc.com");
@@ -1254,7 +1254,7 @@ TEST_F(ClientContextConfigImplTest, ValidationContextNotReady) {
   EXPECT_CALL(factory_context_, localInfo()).WillOnce(ReturnRef(local_info));
   EXPECT_CALL(factory_context_, stats()).WillOnce(ReturnRef(stats));
   EXPECT_CALL(factory_context_, initManager()).WillRepeatedly(ReturnRef(init_manager));
-  EXPECT_CALL(factory_context_, dispatcher()).WillRepeatedly(ReturnRef(dispatcher));
+  EXPECT_CALL(factory_context_, mainThreadDispatcher()).WillRepeatedly(ReturnRef(dispatcher));
   auto sds_secret_configs =
       tls_context.mutable_common_tls_context()->mutable_validation_context_sds_secret_config();
   sds_secret_configs->set_name("abc.com");
@@ -1560,7 +1560,7 @@ TEST_F(ServerContextConfigImplTest, SecretNotReady) {
   EXPECT_CALL(factory_context_, localInfo()).WillOnce(ReturnRef(local_info));
   EXPECT_CALL(factory_context_, stats()).WillOnce(ReturnRef(stats));
   EXPECT_CALL(factory_context_, initManager()).WillRepeatedly(ReturnRef(init_manager));
-  EXPECT_CALL(factory_context_, dispatcher()).WillRepeatedly(ReturnRef(dispatcher));
+  EXPECT_CALL(factory_context_, mainThreadDispatcher()).WillRepeatedly(ReturnRef(dispatcher));
   auto sds_secret_configs =
       tls_context.mutable_common_tls_context()->mutable_tls_certificate_sds_secret_configs()->Add();
   sds_secret_configs->set_name("abc.com");
@@ -1592,7 +1592,7 @@ TEST_F(ServerContextConfigImplTest, ValidationContextNotReady) {
   EXPECT_CALL(factory_context_, localInfo()).WillOnce(ReturnRef(local_info));
   EXPECT_CALL(factory_context_, stats()).WillOnce(ReturnRef(stats));
   EXPECT_CALL(factory_context_, initManager()).WillRepeatedly(ReturnRef(init_manager));
-  EXPECT_CALL(factory_context_, dispatcher()).WillRepeatedly(ReturnRef(dispatcher));
+  EXPECT_CALL(factory_context_, mainThreadDispatcher()).WillRepeatedly(ReturnRef(dispatcher));
   auto sds_secret_configs =
       tls_context.mutable_common_tls_context()->mutable_validation_context_sds_secret_config();
   sds_secret_configs->set_name("abc.com");
