@@ -59,7 +59,8 @@ void ConnectionImplBase::raiseConnectionEvent(ConnectionEvent event) {
 
 void ConnectionImplBase::onDelayedCloseTimeout() {
   const auto now = dispatcher().timeSource().monotonicTime();
-  std::chrono::milliseconds delta = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_timer_enable_);
+  std::chrono::milliseconds delta =
+      std::chrono::duration_cast<std::chrono::milliseconds>(now - last_timer_enable_);
   if (delta < delayed_close_timeout_) {
     ENVOY_CONN_LOG(debug, "early triggered delayed close", *this);
     enableDelayedCloseTimer();
@@ -74,9 +75,10 @@ void ConnectionImplBase::onDelayedCloseTimeout() {
 }
 
 void ConnectionImplBase::enableDelayedCloseTimer() {
-    ENVOY_CONN_LOG(debug, "enabling delayed close timer with timeout {} ms", *this, delayed_close_timeout_.count());
-    last_timer_enable_ = dispatcher().timeSource().monotonicTime();
-    delayed_close_timer_->enableTimer(delayed_close_timeout_);
+  ENVOY_CONN_LOG(debug, "enabling delayed close timer with timeout {} ms", *this,
+                 delayed_close_timeout_.count());
+  last_timer_enable_ = dispatcher().timeSource().monotonicTime();
+  delayed_close_timer_->enableTimer(delayed_close_timeout_);
 }
 
 } // namespace Network

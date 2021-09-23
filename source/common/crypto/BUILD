@@ -9,13 +9,13 @@ licenses(["notice"])  # Apache 2
 envoy_package()
 
 envoy_cc_library(
-   name = "utility_lib",
-   external_deps = [
-     "ssl",
-     "bssl_wrapper_lib"
-    ],
+    name = "utility_lib",
     hdrs = [
         "utility.h",
+    ],
+    external_deps = [
+        "ssl",
+        "bssl_wrapper_lib",
     ],
     deps = [
         "//envoy/buffer:buffer_interface",

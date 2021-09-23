@@ -76,7 +76,7 @@ INSTANTIATE_TEST_SUITE_P(CipherSuites, SslLibraryCipherSuiteSupport,
 // Tests for whether new cipher suites are added. When they are, they must be added to
 // knownCipherSuites() so that this test can detect if they are removed in the future.
 // (dmitri-d) Not sure how useful this test under OpenSSL is: cipher suites
-// change from version to vertsion, and also depend on the system-wide config. 
+// change from version to vertsion, and also depend on the system-wide config.
 // This is going to be a test-fail-fest. Disabling for now.
 TEST_F(SslLibraryCipherSuiteSupport, DISABLED_CipherSuitesNotAdded) {
   bssl::UniquePtr<SSL_CTX> ctx(SSL_CTX_new(TLS_method()));
@@ -1089,12 +1089,13 @@ TEST_F(ClientContextConfigImplTest, RSA1024Cert) {
   ContextManagerImpl manager(time_system);
   Stats::IsolatedStoreImpl store;
 
-  // Depending on the environment, openssl may refuse to load certificates with short keys on its own.
-  // In which case Envoy's own check won't be reached and a different error message will be produced.
+  // Depending on the environment, openssl may refuse to load certificates with short keys on its
+  // own. In which case Envoy's own check won't be reached and a different error message will be
+  // produced.
   std::string error_msg(
       "Failed to load certificate chain from .*selfsigned_rsa_1024_cert.pem, only RSA certificates "
-      "with 2048-bit or larger keys are supported|Failed to load certificate chain from .*selfsigned_rsa_1024_cert.pem, please see log for details"
-  );
+      "with 2048-bit or larger keys are supported|Failed to load certificate chain from "
+      ".*selfsigned_rsa_1024_cert.pem, please see log for details");
   EXPECT_THROW_WITH_REGEX(manager.createSslClientContext(store, client_context_config, nullptr),
                           EnvoyException, error_msg);
 }
@@ -1705,8 +1706,8 @@ TEST_F(ServerContextConfigImplTest, PrivateKeyMethodLoadFailureNoMethod) {
   common_tls_context:
     tls_certificates:
     - certificate_chain:
-        filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/selfsigned_cert.pem"
-      private_key_provider:
+        filename: "{{ test_rundir
+}}/test/extensions/transport_sockets/tls/test_data/selfsigned_cert.pem" private_key_provider:
         provider_name: mock_provider
         typed_config:
           "@type": type.googleapis.com/google.protobuf.Struct

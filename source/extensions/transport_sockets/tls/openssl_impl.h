@@ -9,8 +9,8 @@
 
 /*
  * MAISTRA
- * Contains the functions where BoringSSL and OpenSSL diverge. In most cases this means that there are functions in BoringSSL that do not exist
- * in OpenSSL
+ * Contains the functions where BoringSSL and OpenSSL diverge. In most cases this means that there
+ * are functions in BoringSSL that do not exist in OpenSSL
  */
 namespace Envoy {
 namespace Extensions {
@@ -19,7 +19,7 @@ namespace Tls {
 
 int set_strict_cipher_list(SSL_CTX* ctx, const char* str);
 
-STACK_OF(X509)* SSL_get_peer_full_cert_chain(const SSL *ssl);
+STACK_OF(X509) * SSL_get_peer_full_cert_chain(const SSL* ssl);
 
 void allowRenegotiation(SSL* ssl);
 

@@ -33,7 +33,7 @@ bool getFipsEnabled() {
   file_string << file.rdbuf();
 
   std::string fipsEnabledText = file_string.str();
-  fipsEnabledText.erase(fipsEnabledText.find_last_not_of("\n")+1);
+  fipsEnabledText.erase(fipsEnabledText.find_last_not_of("\n") + 1);
   return fipsEnabledText.compare("1") == 0;
 }
 
@@ -347,8 +347,7 @@ const std::string ClientContextConfigImpl::DEFAULT_FIPS_CIPHER_SUITES =
     "ECDHE-RSA-AES256-SHA:"
     "AES256-GCM-SHA384:"
     "AES256-SHA";
-const std::string ClientContextConfigImpl::DEFAULT_FIPS_CURVES =
-    "P-256";
+const std::string ClientContextConfigImpl::DEFAULT_FIPS_CURVES = "P-256";
 // Non FIPS configuration
 const std::string ClientContextConfigImpl::DEFAULT_NON_FIPS_CIPHER_SUITES =
     "[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]:"
@@ -363,9 +362,8 @@ const std::string ClientContextConfigImpl::DEFAULT_NON_FIPS_CIPHER_SUITES =
     "ECDHE-RSA-AES256-SHA:"
     "AES256-GCM-SHA384:"
     "AES256-SHA";
-const std::string ClientContextConfigImpl::DEFAULT_NON_FIPS_CURVES =
-    "X25519:"
-    "P-256";
+const std::string ClientContextConfigImpl::DEFAULT_NON_FIPS_CURVES = "X25519:"
+                                                                     "P-256";
 
 ClientContextConfigImpl::ClientContextConfigImpl(
     const envoy::extensions::transport_sockets::tls::v3::UpstreamTlsContext& config,
@@ -411,8 +409,7 @@ const std::string ServerContextConfigImpl::DEFAULT_FIPS_CIPHER_SUITES =
     "ECDHE-RSA-AES256-SHA:"
     "AES256-GCM-SHA384:"
     "AES256-SHA";
-const std::string ServerContextConfigImpl::DEFAULT_FIPS_CURVES =
-    "P-256";
+const std::string ServerContextConfigImpl::DEFAULT_FIPS_CURVES = "P-256";
 // Non FIPS configuration
 const unsigned ServerContextConfigImpl::DEFAULT_NON_FIPS_MAX_VERSION = TLS1_3_VERSION;
 const std::string ServerContextConfigImpl::DEFAULT_NON_FIPS_CIPHER_SUITES =
@@ -428,9 +425,8 @@ const std::string ServerContextConfigImpl::DEFAULT_NON_FIPS_CIPHER_SUITES =
     "ECDHE-RSA-AES256-SHA:"
     "AES256-GCM-SHA384:"
     "AES256-SHA";
-const std::string ServerContextConfigImpl::DEFAULT_NON_FIPS_CURVES =
-    "X25519:"
-    "P-256";
+const std::string ServerContextConfigImpl::DEFAULT_NON_FIPS_CURVES = "X25519:"
+                                                                     "P-256";
 
 ServerContextConfigImpl::ServerContextConfigImpl(
     const envoy::extensions::transport_sockets::tls::v3::DownstreamTlsContext& config,

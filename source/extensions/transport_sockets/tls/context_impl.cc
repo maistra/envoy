@@ -22,8 +22,8 @@
 #include "source/common/runtime/runtime_features.h"
 #include "source/common/stats/utility.h"
 #include "source/extensions/transport_sockets/tls/cert_validator/factory.h"
-#include "source/extensions/transport_sockets/tls/stats.h"
 #include "source/extensions/transport_sockets/tls/openssl_impl.h"
+#include "source/extensions/transport_sockets/tls/stats.h"
 #include "source/extensions/transport_sockets/tls/utility.h"
 
 #include "absl/container/node_hash_set.h"
@@ -40,13 +40,13 @@ namespace TransportSockets {
 namespace Tls {
 
 namespace {
-  std::string certificateDigest(X509* cert) {
-    std::vector<unsigned char> digest(EVP_MAX_MD_SIZE);
-    unsigned int n;
-    X509_digest(cert, EVP_sha1(), digest.data(), &n);
-    return Hex::encode(digest);
-  }
+std::string certificateDigest(X509* cert) {
+  std::vector<unsigned char> digest(EVP_MAX_MD_SIZE);
+  unsigned int n;
+  X509_digest(cert, EVP_sha1(), digest.data(), &n);
+  return Hex::encode(digest);
 }
+} // namespace
 
 int ContextImpl::sslExtendedSocketInfoIndex() {
   CONSTRUCT_ON_FIRST_USE(int, []() -> int {
@@ -97,7 +97,8 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
   RELEASE_ASSERT(rc == 1, Utility::getLastCryptoError().value_or(""));
 
   if (!capabilities_.provides_ciphers_and_curves &&
-      !Envoy::Extensions::TransportSockets::Tls::set_strict_cipher_list(tls_context_.ssl_ctx_.get(), config.cipherSuites().c_str())) {
+      !Envoy::Extensions::TransportSockets::Tls::set_strict_cipher_list(
+          tls_context_.ssl_ctx_.get(), config.cipherSuites().c_str())) {
     // Break up a set of ciphers into each individual cipher and try them each individually in
     // order to attempt to log which specific one failed. Example of config.cipherSuites():
     // "-ALL:[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]:ECDHE-ECDSA-AES128-SHA".
@@ -116,7 +117,8 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
         cipher_str.erase(cipher_str.begin());
       }
 
-      if (!Envoy::Extensions::TransportSockets::Tls::set_strict_cipher_list(tls_context_.ssl_ctx_.get(), cipher_str.c_str())) {
+      if (!Envoy::Extensions::TransportSockets::Tls::set_strict_cipher_list(
+              tls_context_.ssl_ctx_.get(), cipher_str.c_str())) {
         bad_ciphers.push_back(cipher_str);
       }
     }
@@ -134,7 +136,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
   // initializeSslContexts() parameter list was kept unchanged from upstream,
   // hence construction of a vector of ssl contexts...
   auto verify_mode = cert_validator_->initializeSslContexts(
-      { tls_context_.ssl_ctx_.get() }, config.capabilities().provides_certificates);
+      {tls_context_.ssl_ctx_.get()}, config.capabilities().provides_certificates);
   if (!capabilities_.verifies_peer_certificates) {
     if (verify_mode != SSL_VERIFY_NONE) {
       SSL_CTX_set_verify(tls_context_.ssl_ctx_.get(), verify_mode, nullptr);
@@ -162,8 +164,9 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
                          absl::NullSafeStringView(ERR_func_error_string(err)), ERR_GET_REASON(err),
                          absl::NullSafeStringView(ERR_reason_error_string(err)));
         }
-        throw EnvoyException(
-            absl::StrCat("Failed to load certificate chain from ", cert_context.cert_chain_file_path_, ", please see log for details"));
+        throw EnvoyException(absl::StrCat("Failed to load certificate chain from ",
+                                          cert_context.cert_chain_file_path_,
+                                          ", please see log for details"));
       }
       // Read rest of the certificate chain.
       while (true) {
@@ -172,8 +175,8 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
           break;
         }
         if (!SSL_CTX_add_extra_chain_cert(tls_context_.ssl_ctx_.get(), cert.get())) {
-          throw EnvoyException(
-              absl::StrCat("Failed to load certificate chain from ", cert_context.cert_chain_file_path_));
+          throw EnvoyException(absl::StrCat("Failed to load certificate chain from ",
+                                            cert_context.cert_chain_file_path_));
         }
         // SSL_CTX_add_extra_chain_cert() takes ownership.
         cert.release();
@@ -183,17 +186,18 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
       if (ERR_GET_LIB(err) == ERR_LIB_PEM && ERR_GET_REASON(err) == PEM_R_NO_START_LINE) {
         ERR_clear_error();
       } else {
-        throw EnvoyException(
-            absl::StrCat("Failed to load certificate chain from ", cert_context.cert_chain_file_path_));
+        throw EnvoyException(absl::StrCat("Failed to load certificate chain from ",
+                                          cert_context.cert_chain_file_path_));
       }
 
       // The must staple extension means the certificate promises to carry
       // with it an OCSP staple. https://tools.ietf.org/html/rfc7633#section-6
       constexpr absl::string_view tls_feature_ext = "1.3.6.1.5.5.7.1.24";
       constexpr absl::string_view must_staple_ext_value = "\x30\x3\x02\x01\x05";
-      auto must_staple = Utility::getCertificateExtensionValue(*cert_context.cert_chain_, tls_feature_ext);      
-      tls_context_.cert_context_lookup_.emplace(certificateDigest(cert_context.cert_chain_.get()), 
-                                        std::reference_wrapper<CertContext>(cert_context));
+      auto must_staple =
+          Utility::getCertificateExtensionValue(*cert_context.cert_chain_, tls_feature_ext);
+      tls_context_.cert_context_lookup_.emplace(certificateDigest(cert_context.cert_chain_.get()),
+                                                std::reference_wrapper<CertContext>(cert_context));
       if (must_staple == must_staple_ext_value) {
         cert_context.is_must_staple_ = true;
       }
@@ -241,17 +245,16 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
           tls_certificate.privateKeyMethod();
       // We either have a private key or a BoringSSL private key method provider.
       if (private_key_method_provider) {
-        throw EnvoyException(
-            fmt::format("Private key provider configured, but not supported"));
-/*
-      ctx.private_key_method_provider_ = private_key_method_provider;
-      // The provider has a reference to the private key method for the context lifetime.
-      Ssl::BoringSslPrivateKeyMethodSharedPtr private_key_method =
-          private_key_method_provider->getBoringSslPrivateKeyMethod();
-      if (private_key_method == nullptr) {
-      }
-      SSL_CTX_set_private_key_method(ctx.ssl_ctx_.get(), private_key_method.get());
-*/
+        throw EnvoyException(fmt::format("Private key provider configured, but not supported"));
+        /*
+              ctx.private_key_method_provider_ = private_key_method_provider;
+              // The provider has a reference to the private key method for the context lifetime.
+              Ssl::BoringSslPrivateKeyMethodSharedPtr private_key_method =
+                  private_key_method_provider->getBoringSslPrivateKeyMethod();
+              if (private_key_method == nullptr) {
+              }
+              SSL_CTX_set_private_key_method(ctx.ssl_ctx_.get(), private_key_method.get());
+        */
       } else {
         // Load private key.
         bio.reset(BIO_new_mem_buf(const_cast<char*>(tls_certificate.privateKey().data()),
@@ -285,9 +288,9 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
   }
 
   // Ciphers
-  const STACK_OF(SSL_CIPHER) *ciphers = SSL_CTX_get_ciphers(tls_context_.ssl_ctx_.get());
+  const STACK_OF(SSL_CIPHER)* ciphers = SSL_CTX_get_ciphers(tls_context_.ssl_ctx_.get());
   for (size_t i = 0; i < sk_SSL_CIPHER_num(ciphers); i++) {
-    const SSL_CIPHER *cipher = sk_SSL_CIPHER_value(ciphers, i);
+    const SSL_CIPHER* cipher = sk_SSL_CIPHER_value(ciphers, i);
     stat_name_set_->rememberBuiltin(SSL_CIPHER_get_name(cipher));
   }
 
@@ -304,7 +307,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
   // Note that if a negotiated cipher suite is outside of this set, we'll issue an ENVOY_BUG.
   stat_name_set_->rememberBuiltins(
       {"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"});
-  
+
   // All supported curves. Source:
   // https://github.com/google/boringssl/blob/3743aafdacff2f7b083615a043a37101f740fa53/ssl/ssl_key_share.cc#L302-L309
   //
@@ -420,30 +423,30 @@ void ContextImpl::logHandshake(SSL* ssl) const {
   incCounter(ssl_ciphers_, SSL_get_cipher_name(ssl), unknown_ssl_cipher_);
   incCounter(ssl_versions_, SSL_get_version(ssl), unknown_ssl_version_);
 
-  //uint16_t curve_id = SSL_get_curve_id(ssl);
-  //if (curve_id) {
+  // uint16_t curve_id = SSL_get_curve_id(ssl);
+  // if (curve_id) {
   //  incCounter(ssl_curves_, SSL_get_curve_name(curve_id), unknown_ssl_curve_);
   //}
   int group = SSL_get_shared_group(ssl, NULL);
   if (group > 0) {
     switch (group) {
-      case NID_X25519:
-        incCounter(ssl_curves_, "X25519", unknown_ssl_curve_);
-        break;
-      case NID_X9_62_prime256v1:
-        incCounter(ssl_curves_, "P-256", unknown_ssl_curve_);
-        break;
-      default:
-        incCounter(ssl_curves_, "", unknown_ssl_curve_);
-        // case NID_secp384r1: {
-        //	scope_.counter(fmt::format("ssl.curves.{}", "P-384")).inc();
-        //} break;
+    case NID_X25519:
+      incCounter(ssl_curves_, "X25519", unknown_ssl_curve_);
+      break;
+    case NID_X9_62_prime256v1:
+      incCounter(ssl_curves_, "P-256", unknown_ssl_curve_);
+      break;
+    default:
+      incCounter(ssl_curves_, "", unknown_ssl_curve_);
+      // case NID_secp384r1: {
+      //	scope_.counter(fmt::format("ssl.curves.{}", "P-384")).inc();
+      //} break;
     }
   }
 
   // TODO (dmitri-d) sort out ssl_sigalgs_ stats
-  //uint16_t sigalg_id = SSL_get_peer_signature_algorithm(ssl);
-  //if (sigalg_id) {
+  // uint16_t sigalg_id = SSL_get_peer_signature_algorithm(ssl);
+  // if (sigalg_id) {
   //  const char *sigalg = SSL_get_signature_algorithm_name(sigalg_id, 1 /* include curve */);
   //  incCounter(ssl_sigalgs_, sigalg, unknown_ssl_algorithm_);
   //}
@@ -458,8 +461,7 @@ std::vector<Ssl::PrivateKeyMethodProviderSharedPtr> ContextImpl::getPrivateKeyMe
   std::vector<Envoy::Ssl::PrivateKeyMethodProviderSharedPtr> providers;
 
   for (auto& cert : tls_context_.cert_contexts_) {
-    Envoy::Ssl::PrivateKeyMethodProviderSharedPtr provider =
-        cert.getPrivateKeyMethodProvider();
+    Envoy::Ssl::PrivateKeyMethodProviderSharedPtr provider = cert.getPrivateKeyMethodProvider();
     if (provider) {
       providers.push_back(provider);
     }
@@ -514,7 +516,7 @@ std::vector<Envoy::Ssl::CertificateDetailsPtr> ContextImpl::getCertChainInformat
       TimestampUtil::systemClockToTimestamp(ocsp_resp->getNextUpdate(), *expiration);
     }
     cert_details.push_back(std::move(detail));
-   }
+  }
   return cert_details;
 }
 
@@ -526,8 +528,8 @@ ClientContextImpl::ClientContextImpl(Stats::Scope& scope,
       allow_renegotiation_(config.allowRenegotiation()),
       max_session_keys_(config.maxSessionKeys()) {
   if (!parsed_alpn_protocols_.empty()) {
-    const int rc = SSL_CTX_set_alpn_protos(tls_context_.ssl_ctx_.get(), parsed_alpn_protocols_.data(),
-                                           parsed_alpn_protocols_.size());
+    const int rc = SSL_CTX_set_alpn_protos(
+        tls_context_.ssl_ctx_.get(), parsed_alpn_protocols_.data(), parsed_alpn_protocols_.size());
     RELEASE_ASSERT(rc == 0, Utility::getLastCryptoError().value_or(""));
   }
 
@@ -536,22 +538,22 @@ ClientContextImpl::ClientContextImpl(Stats::Scope& scope,
     RELEASE_ASSERT(sigalgs != 0, fmt::format("unsupported signing algorithm {}",
                                              config.signingAlgorithmsForTest()));
 
-    //TODO (dmitri-d) verify this
-    //const int rc = SSL_CTX_set_verify_algorithm_prefs(tls_context_.ssl_ctx_.get(), &sigalgs, 1);
-    const int rc = SSL_CTX_set1_sigalgs_list(tls_context_.ssl_ctx_.get(), config.signingAlgorithmsForTest().c_str());
+    // TODO (dmitri-d) verify this
+    // const int rc = SSL_CTX_set_verify_algorithm_prefs(tls_context_.ssl_ctx_.get(), &sigalgs, 1);
+    const int rc = SSL_CTX_set1_sigalgs_list(tls_context_.ssl_ctx_.get(),
+                                             config.signingAlgorithmsForTest().c_str());
     RELEASE_ASSERT(rc == 1, Utility::getLastCryptoError().value_or(""));
   }
 
   if (max_session_keys_ > 0) {
     SSL_CTX_set_session_cache_mode(tls_context_.ssl_ctx_.get(), SSL_SESS_CACHE_CLIENT);
-    SSL_CTX_sess_set_new_cb(
-        tls_context_.ssl_ctx_.get(), [](SSL* ssl, SSL_SESSION* session) -> int {
-          ContextImpl* context_impl =
-              static_cast<ContextImpl*>(SSL_CTX_get_app_data(SSL_get_SSL_CTX(ssl)));
-          ClientContextImpl* client_context_impl = dynamic_cast<ClientContextImpl*>(context_impl);
-          RELEASE_ASSERT(client_context_impl != nullptr, ""); // for Coverity
-          return client_context_impl->newSessionKey(session);
-        });
+    SSL_CTX_sess_set_new_cb(tls_context_.ssl_ctx_.get(), [](SSL* ssl, SSL_SESSION* session) -> int {
+      ContextImpl* context_impl =
+          static_cast<ContextImpl*>(SSL_CTX_get_app_data(SSL_get_SSL_CTX(ssl)));
+      ClientContextImpl* client_context_impl = dynamic_cast<ClientContextImpl*>(context_impl);
+      RELEASE_ASSERT(client_context_impl != nullptr, ""); // for Coverity
+      return client_context_impl->newSessionKey(session);
+    });
   }
 }
 
@@ -656,9 +658,9 @@ uint16_t ClientContextImpl::parseSigningAlgorithmsForTest(const std::string& sig
   // This is used only when testing RSA/ECDSA certificate selection, so only the signing algorithms
   // used in tests are supported here.
   if (sigalgs == "rsa_pss_rsae_sha256") {
-    return 0x0804; //SSL_SIGN_RSA_PSS_RSAE_SHA256
+    return 0x0804; // SSL_SIGN_RSA_PSS_RSAE_SHA256
   } else if (sigalgs == "ecdsa_secp256r1_sha256") {
-    return 0x0403; //SSL_SIGN_ECDSA_SECP256R1_SHA256
+    return 0x0403; // SSL_SIGN_ECDSA_SECP256R1_SHA256
   }
   return 0;
 }
@@ -702,7 +704,7 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
     SSL_CTX_set_tlsext_ticket_key_cb(
         tls_context_.ssl_ctx_.get(),
         +[](SSL* ssl, uint8_t* key_name, uint8_t* iv, EVP_CIPHER_CTX* ctx, HMAC_CTX* hmac_ctx,
-           int encrypt) -> int {
+            int encrypt) -> int {
           ContextImpl* context_impl =
               static_cast<ContextImpl*>(SSL_CTX_get_app_data(SSL_get_SSL_CTX(ssl)));
           ServerContextImpl* server_context_impl = dynamic_cast<ServerContextImpl*>(context_impl);
@@ -717,8 +719,8 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
     SSL_CTX_set_timeout(tls_context_.ssl_ctx_.get(), uint32_t(timeout));
   }
 
-  int rc = SSL_CTX_set_session_id_context(
-               tls_context_.ssl_ctx_.get(), session_id.data(), session_id.size());
+  int rc = SSL_CTX_set_session_id_context(tls_context_.ssl_ctx_.get(), session_id.data(),
+                                          session_id.size());
   RELEASE_ASSERT(rc == 1, Utility::getLastCryptoError().value_or(""));
 
   for (uint32_t i = 0; i < tls_certificates.size(); ++i) {
@@ -736,8 +738,8 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
         throw EnvoyException("OCSP response does not match its TLS certificate");
       }
       if (response->isExpired()) {
-        ENVOY_LOG_MISC(warn, "Expired OCSP response has been loaded for the certificate chain {}", 
-          tls_context_.cert_contexts_[i].getCertChainFileName());
+        ENVOY_LOG_MISC(warn, "Expired OCSP response has been loaded for the certificate chain {}",
+                       tls_context_.cert_contexts_[i].getCertChainFileName());
       }
       tls_context_.cert_contexts_[i].ocsp_response_ = std::move(response);
     }
@@ -745,10 +747,9 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
 
   // this and the next call always succeed
   SSL_CTX_set_tlsext_status_cb(
-    tls_context_.ssl_ctx_.get(),
-    +[](SSL* ssl, void* arg) -> int {
-      return static_cast<ServerContextImpl*>(arg)->handleOcspStapling(ssl, arg);
-    });
+      tls_context_.ssl_ctx_.get(), +[](SSL* ssl, void* arg) -> int {
+        return static_cast<ServerContextImpl*>(arg)->handleOcspStapling(ssl, arg);
+      });
   SSL_CTX_set_tlsext_status_arg(tls_context_.ssl_ctx_.get(), this);
 }
 
@@ -785,7 +786,7 @@ ServerContextImpl::generateHashForSessionContextId(const std::vector<std::string
 
       rc = EVP_DigestUpdate(md.get(), ASN1_STRING_data(cn_asn1), ASN1_STRING_length(cn_asn1));
       RELEASE_ASSERT(rc == 1, Utility::getLastCryptoError().value_or(""));
-      }
+    }
 
     unsigned san_count = 0;
     bssl::UniquePtr<GENERAL_NAMES> san_names(static_cast<GENERAL_NAMES*>(
@@ -973,35 +974,37 @@ OcspStapleAction ServerContextImpl::ocspStapleAction(const CertContext& cert_con
 }
 
 int ServerContextImpl::handleOcspStapling(SSL* ssl, void*) {
-    const bool client_ocsp_capable = isClientOcspCapable(ssl);
-     // returns server cert selected for this connection
-     // see https://www.openssl.org/docs/man1.1.1/man3/SSL_set_tlsext_status_ocsp_resp.html
-     // for details
-    auto* selected_cert = SSL_get_certificate(ssl);
-    const auto& cert_context = certificateContext(selected_cert);
-    auto ocsp_staple_action = ocspStapleAction(cert_context, client_ocsp_capable);
+  const bool client_ocsp_capable = isClientOcspCapable(ssl);
+  // returns server cert selected for this connection
+  // see https://www.openssl.org/docs/man1.1.1/man3/SSL_set_tlsext_status_ocsp_resp.html
+  // for details
+  auto* selected_cert = SSL_get_certificate(ssl);
+  const auto& cert_context = certificateContext(selected_cert);
+  auto ocsp_staple_action = ocspStapleAction(cert_context, client_ocsp_capable);
 
-    switch (ocsp_staple_action) {
-    case OcspStapleAction::Staple: {
-      // We avoid setting the OCSP response if the client didn't request it, but doing so is safe.
-      RELEASE_ASSERT(cert_context.ocsp_response_,
-                    "OCSP response must be present under OcspStapleAction::Staple");
-      auto& resp_bytes = cert_context.ocsp_response_->rawBytes();
-      int rc = SSL_set_tlsext_status_ocsp_resp(ssl, const_cast<unsigned char *>(resp_bytes.data()), resp_bytes.size());
-      RELEASE_ASSERT(rc != 0, "Error setting ocsp response");
-      stats_.ocsp_staple_responses_.inc();
-    } return SSL_TLSEXT_ERR_OK;
-    case OcspStapleAction::NoStaple:
-      stats_.ocsp_staple_omitted_.inc();
-      return SSL_TLSEXT_ERR_NOACK;
-    case OcspStapleAction::Fail:
-      stats_.ocsp_staple_failed_.inc();
-      return SSL_TLSEXT_ERR_ALERT_FATAL;
-    case OcspStapleAction::ClientNotCapable:
-      return SSL_TLSEXT_ERR_NOACK;
-    }
-
+  switch (ocsp_staple_action) {
+  case OcspStapleAction::Staple: {
+    // We avoid setting the OCSP response if the client didn't request it, but doing so is safe.
+    RELEASE_ASSERT(cert_context.ocsp_response_,
+                   "OCSP response must be present under OcspStapleAction::Staple");
+    auto& resp_bytes = cert_context.ocsp_response_->rawBytes();
+    int rc = SSL_set_tlsext_status_ocsp_resp(ssl, const_cast<unsigned char*>(resp_bytes.data()),
+                                             resp_bytes.size());
+    RELEASE_ASSERT(rc != 0, "Error setting ocsp response");
+    stats_.ocsp_staple_responses_.inc();
+  }
     return SSL_TLSEXT_ERR_OK;
+  case OcspStapleAction::NoStaple:
+    stats_.ocsp_staple_omitted_.inc();
+    return SSL_TLSEXT_ERR_NOACK;
+  case OcspStapleAction::Fail:
+    stats_.ocsp_staple_failed_.inc();
+    return SSL_TLSEXT_ERR_ALERT_FATAL;
+  case OcspStapleAction::ClientNotCapable:
+    return SSL_TLSEXT_ERR_NOACK;
+  }
+
+  return SSL_TLSEXT_ERR_OK;
 }
 
 bool ContextImpl::verifyCertChain(X509& leaf_cert, STACK_OF(X509) & intermediates,
