@@ -857,18 +857,18 @@ def _com_github_luajit_luajit():
         actual = "@envoy//bazel/foreign_cc:luajit",
     )
 
-def _com_github_moonjit_moonjit():
+def _com_github_luajit2_luajit2():
     external_http_archive(
-        name = "com_github_moonjit_moonjit",
+        name = "com_github_luajit2_luajit2",
         build_file_content = BUILD_ALL_CONTENT,
-        patches = ["@envoy//bazel/foreign_cc:moonjit.patch"],
+        patches = ["@envoy//bazel/foreign_cc:luajit2.patch"],
         patch_args = ["-p1"],
         patch_cmds = ["chmod u+x build.py"],
     )
 
     native.bind(
-        name = "moonjit",
-        actual = "@envoy//bazel/foreign_cc:moonjit",
+        name = "luajit2",
+        actual = "@envoy//bazel/foreign_cc:luajit2",
     )
 
 def _com_github_luajit2_luajit2():

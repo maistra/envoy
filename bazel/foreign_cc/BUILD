@@ -59,7 +59,7 @@ configure_make(
 )
 
 configure_make(
-    name = "moonjit",
+    name = "luajit2",
     configure_command = "build.py",
     configure_env_vars = select({
         # This shouldn't be needed! See
@@ -69,9 +69,9 @@ configure_make(
         "//bazel:msan_build": {"ENVOY_CONFIG_MSAN": "1"},
         "//conditions:default": {},
     }),
-    lib_source = "@com_github_moonjit_moonjit//:all",
+    lib_source = "@com_github_luajit2_luajit2//:all",
     make_commands = [],
-    out_include_dir = "include/moonjit-2.2",
+    out_include_dir = "include/luajit-2.1",
     static_libraries = ["libluajit-5.1.a"],
     tags = ["skip_on_windows"],
 )

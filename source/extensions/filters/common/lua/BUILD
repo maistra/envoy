@@ -11,14 +11,14 @@ licenses(["notice"])  # Apache 2
 envoy_extension_package()
 
 bool_flag(
-    name = "moonjit",
+    name = "luajit2",
     build_setting_default = False,
 )
 
 config_setting(
-    name = "with_moonjit",
+    name = "with_luajit2",
     flag_values = {
-        ":moonjit": "True",
+        ":luajit2": "True",
     },
 )
 

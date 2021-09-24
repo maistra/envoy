@@ -19,9 +19,9 @@ supported Lua version is mostly 5.1 with some 5.2 features. See the `LuaJIT docu
 
 .. note::
 
-  `moonjit <https://github.com/moonjit/moonjit/>`_ is a continuation of LuaJIT development, which
-  supports more 5.2 features and additional architectures. Envoy can be built with moonjit support
-  by using the following bazel option: ``--//source/extensions/filters/common/lua:moonjit=1``.
+  `luajit2 <https://github.com/openresty/luajit2>`_ is a continuation of LuaJIT development, which
+  supports 5.1 with some 5.2 features and additional architectures. Envoy can be built with luajit2 support
+  by using the following bazel option: ``--//source/extensions/filters/common/lua:luajit2=1``.
 
   `luajit2 <https://github.com/openresty/luajit2>`_ is a continuation of LuaJIT development, which
   supports 5.1 with some 5.2 features and additional architectures. Envoy can be built with luajit2 support
