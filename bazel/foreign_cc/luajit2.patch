@@ -35,7 +35,7 @@ index 00000000..dab3606c
 +    # Remove LuaJIT from ASAN for now.
 +    # TODO(htuch): Remove this when https://github.com/envoyproxy/envoy/issues/6084 is resolved.
 +    if "ENVOY_CONFIG_ASAN" in os.environ or "ENVOY_CONFIG_MSAN" in os.environ:
-+      os.environ["TARGET_CFLAGS"] += " -fsanitize-blacklist=%s/com_github_moonjit_moonjit/clang-asan-blocklist.txt" % os.environ["PWD"]
++      os.environ["TARGET_CFLAGS"] += " -fsanitize-blacklist=%s/com_github_luajit_luajit/clang-asan-blocklist.txt" % os.environ["PWD"]
 +      with open("clang-asan-blocklist.txt", "w") as f:
 +        f.write("fun:*\n")
 +
@@ -44,7 +44,7 @@ index 00000000..dab3606c
 +main()
 +
 diff --git a/src/Makefile b/src/Makefile
-index dad9aeec..e10b3118 100644
+index acbe0ca7..313a7e44 100644
 --- a/src/Makefile
 +++ b/src/Makefile
 @@ -27,7 +27,7 @@ NODOTABIVER= 51
@@ -56,6 +56,15 @@ index dad9aeec..e10b3118 100644
  #
  # Use this if you want to force a 32 bit build on a 64 bit multilib OS.
  #CC= $(DEFAULT_CC) -m32
+@@ -36,7 +36,7 @@ CC= $(DEFAULT_CC)
+ # to slow down the C part by not omitting it. Debugging, tracebacks and
+ # unwinding are not affected -- the assembler part has frame unwind
+ # information and GCC emits it where needed (x64) or with -g (see CCDEBUG).
+-CCOPT= -O2 -fomit-frame-pointer
++CCOPT= -O2 -fomit-frame-pointer -fPIC -fPIE -fplugin=annobin -fstack-protector-strong -fstack-protector-all
+ # Use this if you want to generate a smaller binary (but it's slower):
+ #CCOPT= -Os -fomit-frame-pointer
+ # Note: it's no longer recommended to use -O3 with GCC 4.x.
 @@ -71,10 +71,10 @@ CCWARN= -Wall
  # as dynamic mode.
  #
@@ -78,12 +87,12 @@ index dad9aeec..e10b3118 100644
  #
  # Disable the JIT compiler, i.e. turn LuaJIT into a pure interpreter.
  #XCFLAGS+= -DLUAJIT_DISABLE_JIT
-@@ -612,7 +612,7 @@ endif
- 
+@@ -617,7 +617,7 @@ endif
+
  Q= @
  E= @echo
 -#Q=
 +Q=
  #E= @:
- 
+
  ##############################################################################

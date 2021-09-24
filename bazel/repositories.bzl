@@ -139,7 +139,7 @@ def envoy_dependencies(skip_targets = []):
     _com_github_jbeder_yaml_cpp()
     _com_github_libevent_libevent()
     _com_github_luajit_luajit()
-    _com_github_moonjit_moonjit()
+    _com_github_luajit2_luajit2()
     _com_github_nghttp2_nghttp2()
     _com_github_nodejs_http_parser()
     _com_github_tencent_rapidjson()
@@ -856,18 +856,18 @@ def _com_github_luajit_luajit():
         actual = "@envoy//bazel/foreign_cc:luajit",
     )
 
-def _com_github_moonjit_moonjit():
+def _com_github_luajit2_luajit2():
     external_http_archive(
-        name = "com_github_moonjit_moonjit",
+        name = "com_github_luajit2_luajit2",
         build_file_content = BUILD_ALL_CONTENT,
-        patches = ["@envoy//bazel/foreign_cc:moonjit.patch"],
+        patches = ["@envoy//bazel/foreign_cc:luajit2.patch"],
         patch_args = ["-p1"],
         patch_cmds = ["chmod u+x build.py"],
     )
 
     native.bind(
-        name = "moonjit",
-        actual = "@envoy//bazel/foreign_cc:moonjit",
+        name = "luajit2",
+        actual = "@envoy//bazel/foreign_cc:luajit2",
     )
 
 def _com_github_google_tcmalloc():
