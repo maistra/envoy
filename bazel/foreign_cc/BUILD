@@ -1,6 +1,6 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load("//bazel:envoy_build_system.bzl", "envoy_cmake", "envoy_package")
-load("@rules_foreign_cc//foreign_cc:configure.bzl", "configure_make")
+load("//bazel:envoy_build_system.bzl", "envoy_cmake_external", "envoy_package")
+load("@rules_foreign_cc//tools/build_defs:configure.bzl", "configure_make")
 
 licenses(["notice"])  # Apache 2
 
@@ -20,14 +20,12 @@ configure_make(
     }),
     lib_source = "@com_github_gperftools_gperftools//:all",
     linkopts = ["-lpthread"],
-    out_static_libs = select({
+    make_commands = ["make install-libLTLIBRARIES install-perftoolsincludeHEADERS"],
+    static_libraries = select({
         "//bazel:debug_tcmalloc": ["libtcmalloc_debug.a"],
         "//conditions:default": ["libtcmalloc_and_profiler.a"],
     }),
     tags = ["skip_on_windows"],
-    targets = [
-        "install-libLTLIBRARIES install-perftoolsincludeHEADERS",
-    ],
 )
 
 # Workaround for https://github.com/bazelbuild/rules_foreign_cc/issues/227
@@ -39,36 +37,10 @@ cc_library(
     ],
 )
 
-# Kafka client dependency used by Kafka-mesh filter.
-# librdkafka build generates extra headers that need to be copied into source to get it to compile.
-configure_make(
-    name = "librdkafka_build",
-    configure_in_place = True,
-    configure_options = ["--disable-ssl --disable-gssapi --disable-lz4-ext --disable-zstd && cp Makefile.config src/.. && cp config.h src/.."],
-    lib_source = "@edenhill_librdkafka//:all",
-    out_static_libs = [
-        "librdkafka.a",
-        "librdkafka++.a",
-    ],
-    tags = ["skip_on_windows"],
-    targets = [
-        "ARFLAGS='' libs install-subdirs",
-    ],
-    alwayslink = True,
-)
-
-cc_library(
-    name = "librdkafka",
-    tags = ["skip_on_windows"],
-    deps = [
-        "librdkafka_build",
-    ],
-)
-
 configure_make(
     name = "luajit",
     configure_command = "build.py",
-    env = select({
+    configure_env_vars = select({
         # This shouldn't be needed! See
         # https://github.com/envoyproxy/envoy/issues/6084
         # TODO(htuch): Remove when #6084 is fixed
@@ -78,6 +50,7 @@ configure_make(
         "//conditions:default": {},
     }),
     lib_source = "@com_github_luajit_luajit//:all",
+    make_commands = [],
     out_include_dir = "include/luajit-2.1",
     out_static_libs = select({
         "//bazel:windows_x86_64": ["lua51.lib"],
@@ -121,9 +94,27 @@ envoy_cmake(
 )
 
 envoy_cmake(
+configure_make(
+    name = "luajit2",
+    configure_command = "build.py",
+    configure_env_vars = select({
+        # This shouldn't be needed! See
+        # https://github.com/envoyproxy/envoy/issues/6084
+        # TODO(htuch): Remove when #6084 is fixed
+        "//bazel:asan_build": {"ENVOY_CONFIG_ASAN": "1"},
+        "//bazel:msan_build": {"ENVOY_CONFIG_MSAN": "1"},
+        "//conditions:default": {},
+    }),
+    lib_source = "@com_github_luajit2_luajit2//:all",
+    make_commands = [],
+    out_include_dir = "include/luajit-2.1",
+    static_libraries = ["libluajit-5.1.a"],
+    tags = ["skip_on_windows"],
+)
+
+envoy_cmake_external(
     name = "ares",
     cache_entries = {
-        "CARES_BUILD_TOOLS": "no",
         "CARES_SHARED": "no",
         "CARES_STATIC": "on",
         "CMAKE_CXX_COMPILER_FORCED": "on",
@@ -375,6 +366,7 @@ envoy_cmake(
 
 envoy_cmake(
     name = "wavm",
+    binaries = ["wavm"],
     cache_entries = {
         "LLVM_DIR": "$EXT_BUILD_DEPS/copy_llvm/llvm/lib/cmake/llvm",
         "WAVM_ENABLE_STATIC_LINKING": "on",
