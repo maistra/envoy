@@ -463,7 +463,8 @@ void testUtil(const TestUtilOptions& options) {
         const uint8_t* response_head;
         long response_len = SSL_get_tlsext_status_ocsp_resp(client_ssl_socket, &response_head);
         EXPECT_TRUE(response_len > 0);
-        std::string ocsp_response{reinterpret_cast<const char*>(response_head), response_len};
+        std::string ocsp_response{reinterpret_cast<const char*>(response_head),
+                                  static_cast<unsigned long>(response_len)};
         EXPECT_EQ(options.expectedOcspResponse(), ocsp_response);
       }
 
