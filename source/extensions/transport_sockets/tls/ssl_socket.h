@@ -74,7 +74,7 @@ public:
   SSL* rawSslForTest() const { return rawSsl(); }
 
 protected:
-  SSL* rawSsl() const { return info_->ssl_.get(); }
+  SSL* rawSsl() const { return info_->ssl(); }
 
 private:
   struct ReadResult {
@@ -87,9 +87,6 @@ private:
   void drainErrorQueue(const bool show_errno = false);
   void shutdownSsl();
   void shutdownBasic();
-  bool isThreadSafe() const {
-    return callbacks_ != nullptr && callbacks_->connection().dispatcher().isThreadSafe();
-  }
 
   const Network::TransportSocketOptionsConstSharedPtr transport_socket_options_;
   Network::TransportSocketCallbacks* callbacks_{};

@@ -5,6 +5,7 @@
 #include "envoy/network/connection.h"
 #include "envoy/network/post_io_action.h"
 #include "envoy/protobuf/message_validator.h"
+#include "envoy/server/options.h"
 
 #include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/ssl.h"
@@ -63,6 +64,11 @@ using SslCtxCb = std::function<void(SSL_CTX*)>;
 class HandshakerFactoryContext {
 public:
   virtual ~HandshakerFactoryContext() = default;
+
+  /**
+   * @return reference to the server options
+   */
+  virtual const Server::Options& options() const PURE;
 
   /**
    * @return reference to the Api object
