@@ -17,7 +17,7 @@ export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
 
 # Build
 time bazel build \
-  --incompatible_linkopts_to_linklibs \
+  --incompatible_linkopts_to_linklibs --color=no \
   --local_ram_resources=12288 \
   --local_cpu_resources=4 \
   --jobs=4 \
@@ -31,7 +31,7 @@ bazel-bin/source/exe/envoy-static --version
 
 # Run tests
 time bazel test \
-  --incompatible_linkopts_to_linklibs \
+  --incompatible_linkopts_to_linklibs --color=no \
   --local_ram_resources=12288 \
   --local_cpu_resources=4 \
   --jobs=4 \
