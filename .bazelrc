@@ -398,7 +398,6 @@ build --cxxopt -Wformat
 build --cxxopt -Wformat-security
 build --cxxopt -Wno-error=deprecated-declarations
 build --cxxopt -Wno-error=unused-variable
-build --copt -Wno-error=vla-parameter
 build --cxxopt -w
 build --cxxopt -ldl
 build --copt -DOPENSSL_IS_BORINGSSL=0
