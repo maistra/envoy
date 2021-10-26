@@ -15,30 +15,33 @@ export ARCH
 export BUILD_SCM_REVISION="Maistra PR #${PULL_NUMBER:-undefined}"
 export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
 
-# Build
-time bazel build \
-  --incompatible_linkopts_to_linklibs \
+COMMON_FLAGS="\
+  --incompatible_linkopts_to_linklibs --color=no \
   --local_ram_resources=12288 \
-  --local_cpu_resources=4 \
-  --jobs=4 \
+  --local_cpu_resources=3 \
+  --jobs=3 \
   --disk_cache=/bazel-cache \
-  //source/exe:envoy-static \
   --//bazel:http3=False \
-  --deleted_packages=test/common/quic,test/common/quic/platform
+  --deleted_packages=test/common/quic,test/common/quic/platform \
+"
+
+echo "Building envoy binary..."
+time bazel --output_base=/bazel-cache/BASE build \
+  ${COMMON_FLAGS} \
+  //source/exe:envoy-static
 
 echo "Build succeeded. Binary generated:"
 bazel-bin/source/exe/envoy-static --version
 
-# Run tests
-time bazel test \
-  --incompatible_linkopts_to_linklibs \
-  --local_ram_resources=12288 \
-  --local_cpu_resources=4 \
-  --jobs=4 \
+echo "Building tests..."
+time bazel --output_base=/bazel-cache/BASE build \
+  ${COMMON_FLAGS} \
+  //test/...
+
+echo "Running tests..."
+time bazel --output_base=/bazel-cache/BASE test \
+  ${COMMON_FLAGS} \
   --build_tests_only \
   --test_env=ENVOY_IP_TEST_VERSIONS=v4only \
   --test_output=all \
-  --disk_cache=/bazel-cache \
-  //test/... \
-  --//bazel:http3=False \
-  --deleted_packages=test/common/quic,test/common/quic/platform
+  //test/...
