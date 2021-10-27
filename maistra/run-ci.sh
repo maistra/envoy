@@ -26,7 +26,7 @@ COMMON_FLAGS="\
 "
 
 echo "Building envoy binary..."
-time bazel build \
+time bazel --output_base=/bazel-cache/BASE build \
   ${COMMON_FLAGS} \
   //source/exe:envoy-static
 
@@ -34,12 +34,12 @@ echo "Build succeeded. Binary generated:"
 bazel-bin/source/exe/envoy-static --version
 
 echo "Building tests..."
-time bazel build \
+time bazel --output_base=/bazel-cache/BASE build \
   ${COMMON_FLAGS} \
   //test/...
 
 echo "Running tests..."
-time bazel test \
+time bazel --output_base=/bazel-cache/BASE test \
   ${COMMON_FLAGS} \
   --build_tests_only \
   --test_env=ENVOY_IP_TEST_VERSIONS=v4only \
