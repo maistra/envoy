@@ -4,7 +4,7 @@ set -e
 set -o pipefail
 set -x
 
-source /opt/rh/gcc-toolset-9/enable
+source /opt/rh/gcc-toolset-11/enable
 
 ARCH=$(uname -p)
 if [ "${ARCH}" = "ppc64le" ]; then
