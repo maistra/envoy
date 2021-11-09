@@ -283,8 +283,8 @@ typed_config:
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/ca_cert.pem"));
 
   STACK_OF(X509) *intermediates = sk_X509_new_null();
-  sk_X509_push(intermediates, ca_cert.get());
-  sk_X509_push(intermediates, intermediate_ca_cert.get());
+  sk_X509_push(intermediates, ca_cert.release());
+  sk_X509_push(intermediates, intermediate_ca_cert.release());
   sk_X509_push(intermediates, cert.get()); // not necessary, but reflects real-world use-case
 
   X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
