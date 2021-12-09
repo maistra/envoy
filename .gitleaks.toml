@@ -1,5 +1,9 @@
 title = "Maistra Envoy gitleaks configuration"
 
+# The following rule lists all affected files and folders
+# to account for all known files so any additions can be flagged.
+# To be complete each file should have a regexp to identify
+# the specific key in question (todo). 
 [[rules]]
    description = "PRIVATE KEY CHECK PATHS"
    regex = '''-----BEGIN ((EC|PGP|DSA|RSA|OPENSSH) )?PRIVATE KEY( BLOCK)?-----'''
@@ -11,9 +15,6 @@ title = "Maistra Envoy gitleaks configuration"
          '''^test/common/quic/envoy_quic_proof_source_test.cc$''',
          '''^test/extensions/filters/http/jwt_authn/test_common.h$''',
          '''^contrib/cryptomb/private_key_providers/test/config_test.cc$''',
-         '''^contrib/sxg/filters/http/test/filter_test.cc$''',
-         '''^contrib/sxg/filters/http/test/filter_test.cc$''',
-         '''^contrib/sxg/filters/http/test/filter_test.cc$''',
          '''^contrib/sxg/filters/http/test/filter_test.cc$''',
          '''^test/extensions/transport_sockets/tls/test_data/(.*?).(pem|key)$''',
          '''^test/extensions/transport_sockets/tls/ocsp/test_data/(.*?).(pem|key)$''',
