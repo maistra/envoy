@@ -375,7 +375,6 @@ envoy_cmake(
 
 envoy_cmake(
     name = "wavm",
-    binaries = ["wavm"],
     cache_entries = {
         "LLVM_DIR": "$EXT_BUILD_DEPS/copy_llvm/llvm/lib/cmake/llvm",
         "WAVM_ENABLE_STATIC_LINKING": "on",
