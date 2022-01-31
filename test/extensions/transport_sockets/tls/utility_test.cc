@@ -172,11 +172,11 @@ TEST(UtilityTest, TestGetX509ErrorInfo) {
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_cert.pem"));
   X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
   X509StorePtr ssl_ctx = X509_STORE_new();
-  EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), nullptr));
-  X509_STORE_CTX_set_error(store_ctx.get(), X509_V_ERR_UNSPECIFIED);
+  X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), nullptr);
+  // expecting verify to fail with an error code of 20
+  EXPECT_FALSE(X509_verify_cert(store_ctx.get()));
   EXPECT_EQ(Utility::getX509VerificationErrorInfo(store_ctx.get()),
-            "X509_verify_cert: certificate verification error at depth 0: unknown certificate "
-            "verification error");
+            "X509_verify_cert: certificate verification error at depth 0: unable to get local issuer certificate");
 }
 
 } // namespace
