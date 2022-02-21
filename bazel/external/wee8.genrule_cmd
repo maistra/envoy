@@ -111,9 +111,40 @@ elif [[ $${ARCH} == "s390x" ]]; then
   WEE8_BUILD_ARGS+=" target_cpu=\"s390x\""
 fi
 
+# Select gn tool for the current platform.
+if [[ -f /etc/centos-release ]] && [[ $$(cat /etc/centos-release) =~ "CentOS Linux release 7" ]] && [[ -x "$$(command -v gn)" ]]; then
+  # Use system default on CentOS 7, as it has an old version of GLIBC which is otherwise incompatible with the prebuilt binary.
+  gn=$$(command -v gn)
+elif [[ $${PLATFORM} == "Darwin-x86_64" ]]; then
+  gn=buildtools/mac/gn
+elif [[ $${PLATFORM} == "Darwin-arm64" ]]; then
+  gn=buildtools/mac-arm64/gn
+elif [[ $${PLATFORM} == "Linux-x86_64" ]]; then
+  gn=buildtools/linux64/gn
+elif [[ $${PLATFORM} == "Linux-aarch64" ]]; then
+  gn=buildtools/linux-arm64/gn
+elif [[ $${PLATFORM} == MSYS_NT-*-x86_64 ]]; then
+  gn=buildtools/win/gn.exe
+else
+  # Fallback to system default.
+  gn=$$(command -v gn)
+fi
+
+# Select ninja tool for the current platform.
+if [[ $${PLATFORM} == "Darwin-x86_64" ]]; then
+  ninja=third_party/depot_tools/ninja-mac
+elif [[ $${PLATFORM} == "Linux-x86_64" ]]; then
+  ninja=third_party/depot_tools/ninja-linux64
+elif [[ $${PLATFORM} == MSYS_NT-*-x86_64 ]]; then
+  ninja=third_party/depot_tools/ninja.exe
+else
+  # Fallback to system default.
+  ninja=$$(command -v ninja)
+fi
+
 # Build wee8.
-third_party/depot_tools/gn gen out/wee8 --args="$$WEE8_BUILD_ARGS"
-ninja -C out/wee8 wee8
+"$$gn" gen out/wee8 --args="$$WEE8_BUILD_ARGS"
+"$$ninja" -C out/wee8 wee8
 
 # Move compiled library to the expected destinations.
 popd

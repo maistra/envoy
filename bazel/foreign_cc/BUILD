@@ -1,6 +1,6 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load("//bazel:envoy_build_system.bzl", "envoy_cmake_external", "envoy_package")
-load("@rules_foreign_cc//tools/build_defs:configure.bzl", "configure_make")
+load("//bazel:envoy_build_system.bzl", "envoy_cmake", "envoy_package")
+load("@rules_foreign_cc//foreign_cc:configure.bzl", "configure_make")
 
 licenses(["notice"])  # Apache 2
 
@@ -20,12 +20,14 @@ configure_make(
     }),
     lib_source = "@com_github_gperftools_gperftools//:all",
     linkopts = ["-lpthread"],
-    make_commands = ["make install-libLTLIBRARIES install-perftoolsincludeHEADERS"],
-    static_libraries = select({
+    out_static_libs = select({
         "//bazel:debug_tcmalloc": ["libtcmalloc_debug.a"],
         "//conditions:default": ["libtcmalloc_and_profiler.a"],
     }),
     tags = ["skip_on_windows"],
+    targets = [
+        "install-libLTLIBRARIES install-perftoolsincludeHEADERS",
+    ],
 )
 
 # Workaround for https://github.com/bazelbuild/rules_foreign_cc/issues/227
@@ -40,7 +42,7 @@ cc_library(
 configure_make(
     name = "luajit",
     configure_command = "build.py",
-    configure_env_vars = select({
+    env = select({
         # This shouldn't be needed! See
         # https://github.com/envoyproxy/envoy/issues/6084
         # TODO(htuch): Remove when #6084 is fixed
@@ -50,7 +52,6 @@ configure_make(
         "//conditions:default": {},
     }),
     lib_source = "@com_github_luajit_luajit//:all",
-    make_commands = [],
     out_include_dir = "include/luajit-2.1",
     out_static_libs = select({
         "//bazel:windows_x86_64": ["lua51.lib"],
@@ -94,27 +95,9 @@ envoy_cmake(
 )
 
 envoy_cmake(
-configure_make(
-    name = "luajit2",
-    configure_command = "build.py",
-    configure_env_vars = select({
-        # This shouldn't be needed! See
-        # https://github.com/envoyproxy/envoy/issues/6084
-        # TODO(htuch): Remove when #6084 is fixed
-        "//bazel:asan_build": {"ENVOY_CONFIG_ASAN": "1"},
-        "//bazel:msan_build": {"ENVOY_CONFIG_MSAN": "1"},
-        "//conditions:default": {},
-    }),
-    lib_source = "@com_github_luajit2_luajit2//:all",
-    make_commands = [],
-    out_include_dir = "include/luajit-2.1",
-    static_libraries = ["libluajit-5.1.a"],
-    tags = ["skip_on_windows"],
-)
-
-envoy_cmake_external(
     name = "ares",
     cache_entries = {
+        "CARES_BUILD_TOOLS": "no",
         "CARES_SHARED": "no",
         "CARES_STATIC": "on",
         "CMAKE_CXX_COMPILER_FORCED": "on",
@@ -366,7 +349,6 @@ envoy_cmake(
 
 envoy_cmake(
     name = "wavm",
-    binaries = ["wavm"],
     cache_entries = {
         "LLVM_DIR": "$EXT_BUILD_DEPS/copy_llvm/llvm/lib/cmake/llvm",
         "WAVM_ENABLE_STATIC_LINKING": "on",
