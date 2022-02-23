@@ -16,7 +16,9 @@ export BUILD_SCM_REVISION="Maistra PR #${PULL_NUMBER:-undefined}"
 export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
 
 # Build
-time bazel build \
+time bazel --output_base=/bazel-cache/BASE build -c dbg \
+  --deleted_packages=test/common/quic,test/common/quic/platform \
+  --//bazel:http3=false \
   --incompatible_linkopts_to_linklibs \
   --local_ram_resources=12288 \
   --local_cpu_resources=8 \
@@ -29,6 +31,8 @@ bazel-bin/source/exe/envoy-static --version
 
 # Run tests
 time bazel test \
+  --deleted_packages=test/common/quic,test/common/quic/platform \
+  --//bazel:http3=false \
   --incompatible_linkopts_to_linklibs \
   --local_ram_resources=12288 \
   --local_cpu_resources=8 \
