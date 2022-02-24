@@ -306,7 +306,7 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/openresty/luajit2/archive/{version}.tar.gz"],
         use_category = ["dataplane_ext"],
         extensions = ["envoy.filters.http.lua"],
-        release_date = "2021-07-07",
+        release_date = "2021-11-17",
         cpe = "cpe:2.3:a:luajit2:luajit2:*",
     ),
     com_github_nghttp2_nghttp2 = dict(
