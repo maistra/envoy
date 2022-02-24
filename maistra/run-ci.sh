@@ -24,6 +24,7 @@ time bazel build \
   --disk_cache=/bazel-cache \
   --deleted_packages=test/common/quic,test/common/quic/platform \
   --//bazel:http3=false \
+  --//source/extensions/wasm_runtime/v8:enabled=false \
   //source/exe:envoy-static
 
 echo "Build succeeded. Binary generated:"
