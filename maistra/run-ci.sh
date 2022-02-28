@@ -19,12 +19,11 @@ export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
 time bazel build \
   --incompatible_linkopts_to_linklibs \
   --local_ram_resources=12288 \
-  --local_cpu_resources=8 \
-  --jobs=4 \
+  --local_cpu_resources=6 \
+  --jobs=3 \
   --disk_cache=/bazel-cache \
   --deleted_packages=test/common/quic,test/common/quic/platform \
   --//bazel:http3=false \
-  --//source/extensions/wasm_runtime/v8:enabled=false \
   //source/exe:envoy-static
 
 echo "Build succeeded. Binary generated:"
@@ -34,8 +33,8 @@ bazel-bin/source/exe/envoy-static --version
 time bazel test \
   --incompatible_linkopts_to_linklibs \
   --local_ram_resources=12288 \
-  --local_cpu_resources=8 \
-  --jobs=4 \
+  --local_cpu_resources=6 \
+  --jobs=3 \
   --build_tests_only \
   --test_env=ENVOY_IP_TEST_VERSIONS=v4only \
   --test_output=all \
