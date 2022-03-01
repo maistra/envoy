@@ -1035,6 +1035,7 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         sha256 = "ce7a5c76e8b425aca874cea329fd9ac44b203b777053453b6a37b4496c5ce34f",
         strip_prefix = "emsdk-{version}",
         urls = ["https://github.com/emscripten-core/emsdk/archive/{version}.tar.gz"],
+        # FIXME: https://issues.redhat.com/browse/OSSM-781
         patch_cmds = [
             "./emsdk install 2.0.7-upstream",
             "./emsdk activate --embedded 2.0.7-upstream",
