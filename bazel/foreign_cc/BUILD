@@ -117,7 +117,7 @@ envoy_cmake(
     lib_source = "@com_github_google_libsxg//:all",
     out_static_libs = ["libsxg.a"],
     tags = ["skip_on_windows"],
-    deps = ["@boringssl//:ssl"],
+    deps = ["@openssl//:openssl-lib"],
 )
 
 configure_make(
