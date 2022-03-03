@@ -5,7 +5,8 @@ load("@envoy_api//bazel:external_deps.bzl", "load_repository_locations")
 load(":repository_locations.bzl", "REPOSITORY_LOCATIONS_SPEC")
 load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
 
-PPC_SKIP_TARGETS = ["envoy.filters.http.lua"]
+# maistra/envoy uses luajit2 on ppc64le so http.lua can be built
+PPC_SKIP_TARGETS = []
 
 WINDOWS_SKIP_TARGETS = [
     "envoy.filters.http.sxg",
@@ -165,12 +166,11 @@ def envoy_dependencies(skip_targets = []):
     # Binding to an alias pointing to the selected version of BoringSSL:
     # - BoringSSL FIPS from @boringssl_fips//:ssl,
     # - non-FIPS BoringSSL from @boringssl//:ssl.
-    _boringssl()
-    _boringssl_fips()
-    native.bind(
-        name = "ssl",
-        actual = "@envoy//bazel:boringssl",
-    )
+
+    # EXTERNAL OPENSSL
+    _openssl()
+    _openssl_includes()
+    _com_github_maistra_bssl_wrapper()
 
     # The long repo names (`com_github_fmtlib_fmt` instead of `fmtlib`) are
     # semi-standard in the Bazel community, intended to avoid both duplicate
@@ -195,6 +195,7 @@ def envoy_dependencies(skip_targets = []):
     _com_github_libevent_libevent()
     _com_github_luajit_luajit()
     _com_github_moonjit_moonjit()
+    _com_github_luajit2_luajit2()
     _com_github_nghttp2_nghttp2()
     _com_github_skyapm_cpp2sky()
     _com_github_nodejs_http_parser()
@@ -248,8 +249,6 @@ def envoy_dependencies(skip_targets = []):
     _rust_deps()
     _kafka_deps()
 
-    _org_llvm_llvm()
-    _com_github_wamr()
     _com_github_wavm_wavm()
     _com_github_wasmtime()
     _com_github_wasm_c_api()
@@ -268,19 +267,33 @@ def envoy_dependencies(skip_targets = []):
         actual = "@bazel_tools//tools/cpp/runfiles",
     )
 
-def _boringssl():
-    external_http_archive(
-        name = "boringssl",
-        patch_args = ["-p1"],
-        patches = ["@envoy//bazel:boringssl_static.patch"],
+def _openssl():
+    native.bind(
+        name = "ssl",
+        actual = "@openssl//:openssl-lib",
     )
 
-def _boringssl_fips():
-    external_genrule_repository(
-        name = "boringssl_fips",
-        genrule_cmd_file = "@envoy//bazel/external:boringssl_fips.genrule_cmd",
-        build_file = "@envoy//bazel/external:boringssl_fips.BUILD",
-        patches = ["@envoy//bazel/external:boringssl_fips.patch"],
+def _openssl_includes():
+    external_http_archive(
+        name = "com_github_openssl_openssl",
+        build_file = "@envoy//bazel/external:openssl_includes.BUILD",
+        patches = [
+            "@envoy//bazel/external:openssl_includes-1.patch",
+        ],
+        patch_args = ["-p1"],
+    )
+    native.bind(
+        name = "openssl_includes_lib",
+        actual = "@com_github_openssl_openssl//:openssl_includes_lib",
+    )
+
+def _com_github_maistra_bssl_wrapper():
+    external_http_archive(
+        name = "com_github_maistra_bssl_wrapper",
+    )
+    native.bind(
+        name = "bssl_wrapper_lib",
+        actual = "@com_github_maistra_bssl_wrapper//:bssl_wrapper",
     )
 
 def _com_github_circonus_labs_libcircllhist():
@@ -804,7 +817,10 @@ def _com_googlesource_chromium_v8():
         name = "com_googlesource_chromium_v8",
         genrule_cmd_file = "@envoy//bazel/external:wee8.genrule_cmd",
         build_file = "@envoy//bazel/external:wee8.BUILD",
-        patches = ["@envoy//bazel/external:wee8.patch"],
+        patches = [
+            "@envoy//bazel/external:wee8.patch",
+            "@envoy//bazel/external:wee8-annobin.patch",
+        ],
     )
     native.bind(
         name = "wee8",
@@ -928,10 +944,18 @@ def _upb():
     )
 
 def _proxy_wasm_cpp_sdk():
-    external_http_archive(name = "proxy_wasm_cpp_sdk")
+    external_http_archive(
+        name = "proxy_wasm_cpp_sdk",
+        patches = ["@envoy//bazel/external:0001-Fix-the-cxx-builtin-directories-for-maistra-proxy.patch"],
+        patch_args = ["-p1"],
+    )
 
 def _proxy_wasm_cpp_host():
-    external_http_archive(name = "proxy_wasm_cpp_host")
+    external_http_archive(
+        name = "proxy_wasm_cpp_host",
+        #        patches = ["@envoy//bazel/external:0001-proxy-wasm-cpp-host-with-openssl-support.patch"],
+        #        patch_args = ["-p1"],
+    )
 
 def _emscripten_toolchain():
     external_http_archive(
@@ -962,7 +986,10 @@ def _com_github_luajit_luajit():
     external_http_archive(
         name = "com_github_luajit_luajit",
         build_file_content = BUILD_ALL_CONTENT,
-        patches = ["@envoy//bazel/foreign_cc:luajit.patch"],
+        patches = [
+            "@envoy//bazel/foreign_cc:luajit.patch",
+            "@envoy//bazel/foreign_cc:luajit-s390x.patch",
+        ],
         patch_args = ["-p1"],
         patch_cmds = ["chmod u+x build.py"],
     )
@@ -986,6 +1013,17 @@ def _com_github_moonjit_moonjit():
         actual = "@envoy//bazel/foreign_cc:moonjit",
     )
 
+def _com_github_luajit2_luajit2():
+    external_http_archive(
+        name = "com_github_luajit2_luajit2",
+        build_file_content = BUILD_ALL_CONTENT,
+    )
+
+    native.bind(
+        name = "luajit2",
+        actual = "@envoy//bazel/foreign_cc:luajit2",
+    )
+
 def _com_github_google_tcmalloc():
     external_http_archive(
         name = "com_github_google_tcmalloc",
@@ -1004,28 +1042,6 @@ def _com_github_gperftools_gperftools():
     native.bind(
         name = "gperftools",
         actual = "@envoy//bazel/foreign_cc:gperftools",
-    )
-
-def _org_llvm_llvm():
-    external_http_archive(
-        name = "org_llvm_llvm",
-        build_file_content = BUILD_ALL_CONTENT,
-        patch_args = ["-p1"],
-        patches = ["@envoy//bazel/foreign_cc:llvm.patch"],
-    )
-    native.bind(
-        name = "llvm",
-        actual = "@envoy//bazel/foreign_cc:llvm",
-    )
-
-def _com_github_wamr():
-    external_http_archive(
-        name = "com_github_wamr",
-        build_file_content = BUILD_ALL_CONTENT,
-    )
-    native.bind(
-        name = "wamr",
-        actual = "@envoy//bazel/foreign_cc:wamr",
     )
 
 def _com_github_wavm_wavm():

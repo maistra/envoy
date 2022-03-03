@@ -143,7 +143,7 @@ const std::string& SslHandshakerImpl::urlEncodedPemEncodedPeerCertificateChain()
     return cached_url_encoded_pem_encoded_peer_cert_chain_;
   }
 
-  for (uint64_t i = 0; i < sk_X509_num(cert_chain); i++) {
+  for (int i = 0; i < sk_X509_num(cert_chain); i++) {
     X509* cert = sk_X509_value(cert_chain, i);
 
     bssl::UniquePtr<BIO> buf(BIO_new(BIO_s_mem()));
@@ -238,9 +238,10 @@ Network::PostIoAction SslHandshakerImpl::doHandshake() {
     case SSL_ERROR_WANT_READ:
     case SSL_ERROR_WANT_WRITE:
       return PostIoAction::KeepOpen;
-    case SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
-      state_ = Ssl::SocketState::HandshakeInProgress;
-      return PostIoAction::KeepOpen;
+    // SSL_ERROR_WANT_PRIVATE_KEY_OPERATION is undefined in OpenSSL
+    // case SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
+    //  state_ = Ssl::SocketState::HandshakeInProgress;
+    //  return PostIoAction::KeepOpen;
     default:
       handshake_callbacks_->onFailure();
       return PostIoAction::Close;

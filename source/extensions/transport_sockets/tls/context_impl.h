@@ -19,39 +19,46 @@
 #include "source/extensions/transport_sockets/tls/cert_validator/cert_validator.h"
 #include "source/extensions/transport_sockets/tls/context_manager_impl.h"
 #include "source/extensions/transport_sockets/tls/ocsp/ocsp.h"
+#include "source/extensions/transport_sockets/tls/openssl_impl.h"
 #include "source/extensions/transport_sockets/tls/stats.h"
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/types/optional.h"
+#include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/ssl.h"
 #include "openssl/x509v3.h"
 
 namespace Envoy {
-#ifndef OPENSSL_IS_BORINGSSL
-#error Envoy requires BoringSSL
-#endif
-
 namespace Extensions {
 namespace TransportSockets {
 namespace Tls {
 
-struct TlsContext {
-  // Each certificate specified for the context has its own SSL_CTX. `SSL_CTXs`
-  // are identical with the exception of certificate material, and can be
-  // safely substituted via SSL_set_SSL_CTX() during the
-  // SSL_CTX_set_select_certificate_cb() callback following ClientHello.
-  bssl::UniquePtr<SSL_CTX> ssl_ctx_;
+struct CertContext {
   bssl::UniquePtr<X509> cert_chain_;
   std::string cert_chain_file_path_;
   Ocsp::OcspResponseWrapperPtr ocsp_response_;
   bool is_ecdsa_{};
   bool is_must_staple_{};
-  Ssl::PrivateKeyMethodProviderSharedPtr private_key_method_provider_{};
-
   std::string getCertChainFileName() const { return cert_chain_file_path_; };
-  bool isCipherEnabled(uint16_t cipher_id, uint16_t client_version);
+  Ssl::PrivateKeyMethodProviderSharedPtr private_key_method_provider_{};
   Envoy::Ssl::PrivateKeyMethodProviderSharedPtr getPrivateKeyMethodProvider() {
     return private_key_method_provider_;
   }
+};
+
+// Use a single context for certificates instead of one context per certificate as in the BoringSSL
+// case. A single context is required to hold all certificates for OpenSSL, certificate selection is
+// handled by OpenSSL.
+struct TlsContext {
+  bssl::UniquePtr<SSL_CTX> ssl_ctx_;
+  std::vector<CertContext> cert_contexts_;
+  // a map of cert hashes as calculated by X509_digest with EVP_sha1 to cert contexts
+  absl::flat_hash_map<std::string, std::reference_wrapper<CertContext>> cert_context_lookup_;
+
+  void addClientValidationContext(const Envoy::Ssl::CertificateValidationContextConfig& config,
+                                  bool require_client_cert);
+  bool isCipherEnabled(uint16_t cipher_id, uint16_t client_version);
 };
 
 class ContextImpl : public virtual Envoy::Ssl::Context {
@@ -77,7 +84,6 @@ public:
   Envoy::Ssl::CertificateDetailsPtr getCaCertInformation() const override;
   std::vector<Envoy::Ssl::CertificateDetailsPtr> getCertChainInformation() const override;
   absl::optional<uint64_t> secondsUntilFirstOcspResponseExpires() const override;
-
   std::vector<Ssl::PrivateKeyMethodProviderSharedPtr> getPrivateKeyMethodProviders();
 
   bool verifyCertChain(X509& leaf_cert, STACK_OF(X509) & intermediates, std::string& error_details);
@@ -101,11 +107,7 @@ protected:
   void incCounter(const Stats::StatName name, absl::string_view value,
                   const Stats::StatName fallback) const;
 
-  // This is always non-empty, with the first context used for all new SSL
-  // objects. For server contexts, once we have ClientHello, we
-  // potentially switch to a different CertificateContext based on certificate
-  // selection.
-  std::vector<TlsContext> tls_contexts_;
+  TlsContext tls_context_;
   CertValidatorPtr cert_validator_;
   Stats::Scope& scope_;
   SslStats stats_;
@@ -154,11 +156,6 @@ public:
   ServerContextImpl(Stats::Scope& scope, const Envoy::Ssl::ServerContextConfig& config,
                     const std::vector<std::string>& server_names, TimeSource& time_source);
 
-  // Select the TLS certificate context in SSL_CTX_set_select_certificate_cb() callback with
-  // ClientHello details. This is made public for use by custom TLS extensions who want to
-  // manually create and use this as a client hello callback.
-  enum ssl_select_cert_result_t selectTlsContext(const SSL_CLIENT_HELLO* ssl_client_hello);
-
 private:
   using SessionContextID = std::array<uint8_t, SSL_MAX_SSL_SESSION_ID_LENGTH>;
 
@@ -166,9 +163,13 @@ private:
                          unsigned int inlen);
   int sessionTicketProcess(SSL* ssl, uint8_t* key_name, uint8_t* iv, EVP_CIPHER_CTX* ctx,
                            HMAC_CTX* hmac_ctx, int encrypt);
-  bool isClientEcdsaCapable(const SSL_CLIENT_HELLO* ssl_client_hello);
-  bool isClientOcspCapable(const SSL_CLIENT_HELLO* ssl_client_hello);
-  OcspStapleAction ocspStapleAction(const TlsContext& ctx, bool client_ocsp_capable);
+  // returns true if client-side of the SSL connection requested OCSP
+  bool isClientOcspCapable(SSL* ssl);
+  // returns a reference to a CertContext created in ContextImpl ctor
+  // matching cert SHA1 digest
+  const CertContext& certificateContext(X509* cert);
+  OcspStapleAction ocspStapleAction(const CertContext& cert_context, bool client_ocsp_capable);
+  int handleOcspStapling(SSL* ssl, void*);
 
   SessionContextID generateHashForSessionContextId(const std::vector<std::string>& server_names);
 

@@ -9,6 +9,7 @@
 #include "source/common/singleton/threadsafe_singleton.h"
 
 #include "absl/strings/string_view.h"
+#include "bssl_wrapper/bssl_wrapper.h"
 
 namespace Envoy {
 namespace Common {

@@ -30,6 +30,7 @@
 #include "source/extensions/transport_sockets/tls/utility.h"
 
 #include "absl/synchronization/mutex.h"
+#include "openssl/err.h"
 #include "openssl/ssl.h"
 #include "openssl/x509v3.h"
 
@@ -415,8 +416,10 @@ void DefaultCertValidator::addClientValidationContext(SSL_CTX* ctx, bool require
       BIO_new_mem_buf(const_cast<char*>(config_->caCert().data()), config_->caCert().size()));
   RELEASE_ASSERT(bio != nullptr, "");
   // Based on BoringSSL's SSL_add_file_cert_subjects_to_stack().
-  bssl::UniquePtr<STACK_OF(X509_NAME)> list(sk_X509_NAME_new(
-      [](const X509_NAME** a, const X509_NAME** b) -> int { return X509_NAME_cmp(*a, *b); }));
+  bssl::UniquePtr<STACK_OF(X509_NAME)> list(
+      sk_X509_NAME_new([](const X509_NAME* const* a, const X509_NAME* const* b) -> int {
+        return X509_NAME_cmp(*a, *b);
+      }));
   RELEASE_ASSERT(list != nullptr, "");
   for (;;) {
     bssl::UniquePtr<X509> cert(PEM_read_bio_X509(bio.get(), nullptr, nullptr, nullptr));
@@ -429,7 +432,9 @@ void DefaultCertValidator::addClientValidationContext(SSL_CTX* ctx, bool require
                                         config_->caCertPath()));
     }
     // Check for duplicates.
-    if (sk_X509_NAME_find(list.get(), nullptr, name)) {
+    // Note that BoringSSL call only returns 0 or 1.
+    // OpenSSL can also return -1, for example on sk_find calls in an empty list
+    if (sk_X509_NAME_find(list.get(), nullptr, name) == 1) {
       continue;
     }
     bssl::UniquePtr<X509_NAME> name_dup(X509_NAME_dup(name));

@@ -27,7 +27,7 @@ envoy_cc_test(
     external_deps = ["ssl"],
     shard_count = 4,
     deps = [
-        ":test_private_key_method_provider_test_lib",
+        #        ":test_private_key_method_provider_test_lib",
         "//envoy/network:transport_socket_interface",
         "//source/common/buffer:buffer_lib",
         "//source/common/common:empty_string",
@@ -141,26 +141,26 @@ envoy_cc_test_library(
     ],
 )
 
-envoy_cc_test_library(
-    name = "test_private_key_method_provider_test_lib",
-    srcs = [
-        "test_private_key_method_provider.cc",
-    ],
-    hdrs = [
-        "test_private_key_method_provider.h",
-    ],
-    external_deps = ["ssl"],
-    deps = [
-        "//envoy/api:api_interface",
-        "//envoy/event:dispatcher_interface",
-        "//envoy/server:transport_socket_config_interface",
-        "//envoy/ssl/private_key:private_key_config_interface",
-        "//envoy/ssl/private_key:private_key_interface",
-        "//source/common/config:utility_lib",
-        "//source/common/protobuf:utility_lib",
-        "@envoy_api//envoy/extensions/transport_sockets/tls/v3:pkg_cc_proto",
-    ],
-)
+#envoy_cc_test_library(
+#    name = "test_private_key_method_provider_test_lib",
+#    srcs = [
+#        "test_private_key_method_provider.cc",
+#    ],
+#    hdrs = [
+#        "test_private_key_method_provider.h",
+#    ],
+#    external_deps = ["ssl"],
+#    deps = [
+#        "//envoy/api:api_interface",
+#        "//envoy/event:dispatcher_interface",
+#        "//envoy/server:transport_socket_config_interface",
+#        "//envoy/ssl/private_key:private_key_config_interface",
+#        "//envoy/ssl/private_key:private_key_interface",
+#        "//source/common/config:utility_lib",
+#        "//source/common/protobuf:utility_lib",
+#        "@envoy_api//envoy/extensions/transport_sockets/tls/v3:pkg_cc_proto",
+#    ],
+#)
 
 envoy_cc_test(
     name = "handshaker_test",
@@ -212,6 +212,7 @@ envoy_cc_benchmark_binary(
     external_deps = [
         "benchmark",
         "ssl",
+        "bssl_wrapper_lib",
     ],
     # Uses raw POSIX syscalls, does not build on Windows.
     tags = ["skip_on_windows"],

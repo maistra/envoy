@@ -137,10 +137,16 @@ Network::IoResult SslSocket::doRead(Buffer::Instance& read_buffer) {
             break;
           }
           FALLTHRU;
+        case SSL_ERROR_SSL:
+          // If EAGAIN treat it as if it's SSL_ERROR_WANT_READ
+          if (errno == EAGAIN) {
+            break;
+          }
+          // fall through for other errors
         case SSL_ERROR_WANT_WRITE:
-          // Renegotiation has started. We don't handle renegotiation so just fall through.
+        // Renegotiation has started. We don't handle renegotiation so just fall through.
         default:
-          drainErrorQueue();
+          drainErrorQueue(true);
           action = PostIoAction::Close;
           break;
         }
@@ -186,7 +192,7 @@ void SslSocket::onFailure() { drainErrorQueue(); }
 
 PostIoAction SslSocket::doHandshake() { return info_->doHandshake(); }
 
-void SslSocket::drainErrorQueue() {
+void SslSocket::drainErrorQueue(const bool show_errno) {
   bool saw_error = false;
   bool saw_counted_error = false;
   while (uint64_t err = ERR_get_error()) {
@@ -214,7 +220,12 @@ void SslSocket::drainErrorQueue() {
                                         absl::NullSafeStringView(ERR_reason_error_string(err))));
   }
   if (!failure_reason_.empty()) {
-    ENVOY_CONN_LOG(debug, "{}", callbacks_->connection(), failure_reason_);
+    if (show_errno) {
+      ENVOY_CONN_LOG(debug, "errno:{}:{}:{}", callbacks_->connection(), errno,
+                     Envoy::errorDetails(errno), failure_reason_);
+    } else {
+      ENVOY_CONN_LOG(debug, "{}", callbacks_->connection(), failure_reason_);
+    }
   }
   if (saw_error && !saw_counted_error) {
     ctx_->stats().connection_error_.inc();
@@ -263,10 +274,19 @@ Network::IoResult SslSocket::doWrite(Buffer::Instance& write_buffer, bool end_st
       case SSL_ERROR_WANT_WRITE:
         bytes_to_retry_ = bytes_to_write;
         break;
+      case SSL_ERROR_SSL:
+        // If EAGAIN treat it as if it's SSL_ERROR_WANT_WRITE
+        if (errno == EAGAIN) {
+          ENVOY_CONN_LOG(debug, "errno:{}:{}", callbacks_->connection(), errno,
+                         Envoy::errorDetails(errno));
+          bytes_to_retry_ = bytes_to_write;
+          break;
+        }
+      // fall through for other errors
       case SSL_ERROR_WANT_READ:
       // Renegotiation has started. We don't handle renegotiation so just fall through.
       default:
-        drainErrorQueue();
+        drainErrorQueue(err == SSL_ERROR_SYSCALL || err == SSL_ERROR_SSL);
         return {PostIoAction::Close, total_bytes_written, false};
       }
 

@@ -2,7 +2,7 @@
 
 #include "envoy/common/crypto/crypto.h"
 
-#include "openssl/base.h"
+#include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/evp.h"
 
 namespace Envoy {

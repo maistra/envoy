@@ -20,8 +20,10 @@ class TransportSocketFactoryContext;
 
 namespace Ssl {
 
+// TODO (dmitri-d) figure out a way to propagate -D compiler option to sub-projects, atm only the
+// top-level is affected
 #ifdef OPENSSL_IS_BORINGSSL
-using BoringSslPrivateKeyMethodSharedPtr = std::shared_ptr<SSL_PRIVATE_KEY_METHOD>;
+// using BoringSslPrivateKeyMethodSharedPtr = std::shared_ptr<SSL_PRIVATE_KEY_METHOD>;
 #endif
 
 class PrivateKeyMethodProvider {
@@ -51,13 +53,15 @@ public:
    */
   virtual bool checkFips() PURE;
 
+// TODO (dmitri-d) figure out a way to propagate -D compiler option to sub-projects, atm only the
+// top-level is affected
 #ifdef OPENSSL_IS_BORINGSSL
   /**
    * Get the private key methods from the provider.
    * @return the private key methods associated with this provider and
    * configuration.
    */
-  virtual BoringSslPrivateKeyMethodSharedPtr getBoringSslPrivateKeyMethod() PURE;
+//  virtual BoringSslPrivateKeyMethodSharedPtr getBoringSslPrivateKeyMethod() PURE;
 #endif
 };
 

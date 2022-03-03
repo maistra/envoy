@@ -16,7 +16,10 @@ envoy_cc_test(
     data = [
         "//test/extensions/transport_sockets/tls/ocsp/test_data:certs",
     ],
-    external_deps = ["ssl"],
+    external_deps = [
+        "ssl",
+        "bssl_wrapper_lib",
+    ],
     deps = [
         "//source/common/filesystem:filesystem_lib",
         "//source/extensions/transport_sockets/tls:utility_lib",
@@ -34,7 +37,10 @@ envoy_cc_test(
     srcs = [
         "asn1_utility_test.cc",
     ],
-    external_deps = ["ssl"],
+    external_deps = [
+        "ssl",
+        "bssl_wrapper_lib",
+    ],
     deps = [
         "//source/extensions/transport_sockets/tls/ocsp:asn1_utility_lib",
         "//test/extensions/transport_sockets/tls:ssl_test_utils",
