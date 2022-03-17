@@ -989,10 +989,20 @@ int ServerContextImpl::handleOcspStapling(SSL* ssl, void*) {
     // We avoid setting the OCSP response if the client didn't request it, but doing so is safe.
     RELEASE_ASSERT(cert_context.ocsp_response_,
                    "OCSP response must be present under OcspStapleAction::Staple");
-    auto& resp_bytes = cert_context.ocsp_response_->rawBytes();
-    int rc = SSL_set_tlsext_status_ocsp_resp(ssl, const_cast<unsigned char*>(resp_bytes.data()),
-                                             resp_bytes.size());
-    RELEASE_ASSERT(rc != 0, "Error setting ocsp response");
+    const std::vector<uint8_t>& raw_bytes = cert_context.ocsp_response_->rawBytes();
+    const std::size_t raw_bytes_size = raw_bytes.size();
+    unsigned char* raw_bytes_copy = static_cast<unsigned char *>(OPENSSL_memdup(raw_bytes.data(), raw_bytes_size));
+    if (raw_bytes_copy == nullptr) { 
+      ENVOY_LOG_EVERY_POW_2_MISC(error, "OPENSSL_memdup failure");
+      stats_.ocsp_staple_failed_.inc();
+      return SSL_TLSEXT_ERR_ALERT_FATAL;
+    }
+    if (SSL_set_tlsext_status_ocsp_resp(ssl, raw_bytes_copy, raw_bytes_size) == 0) {
+      ENVOY_LOG_EVERY_POW_2_MISC(error, "SSL_set_tlsext_status_ocsp_resp failure");
+      OPENSSL_free(raw_bytes_copy);
+      stats_.ocsp_staple_failed_.inc();
+      return SSL_TLSEXT_ERR_ALERT_FATAL;
+    }
     stats_.ocsp_staple_responses_.inc();
   }
     return SSL_TLSEXT_ERR_OK;
