@@ -997,12 +997,8 @@ int ServerContextImpl::handleOcspStapling(SSL* ssl, void*) {
       stats_.ocsp_staple_failed_.inc();
       return SSL_TLSEXT_ERR_ALERT_FATAL;
     }
-    if (SSL_set_tlsext_status_ocsp_resp(ssl, raw_bytes_copy, raw_bytes_size) == 0) {
-      ENVOY_LOG_EVERY_POW_2_MISC(error, "SSL_set_tlsext_status_ocsp_resp failure");
-      OPENSSL_free(raw_bytes_copy);
-      stats_.ocsp_staple_failed_.inc();
-      return SSL_TLSEXT_ERR_ALERT_FATAL;
-    }
+    RELEASE_ASSERT(SSL_set_tlsext_status_ocsp_resp(ssl, raw_bytes_copy, raw_bytes_size),
+                   "SSL_set_tlsext_status_ocsp_resp failure");
     stats_.ocsp_staple_responses_.inc();
   }
     return SSL_TLSEXT_ERR_OK;
