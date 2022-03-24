@@ -1134,7 +1134,7 @@ TEST_F(ClientContextConfigImplTest, RSA1024Cert) {
       "Failed to load certificate chain from .*selfsigned_rsa_1024_cert.pem, only RSA certificates "
       "with 2048-bit or larger keys are supported|Failed to load certificate chain from "
       ".*selfsigned_rsa_1024_cert.pem, please see log for details");
-  EXPECT_THROW_WITH_REGEX(manager.createSslClientContext(store, client_context_config, nullptr),
+  EXPECT_THROW_WITH_REGEX(manager_.createSslClientContext(store, client_context_config),
                           EnvoyException, error_msg);
 }
 
