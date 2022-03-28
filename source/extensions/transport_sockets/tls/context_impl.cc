@@ -990,8 +990,8 @@ int ServerContextImpl::handleOcspStapling(SSL* ssl, void*) {
     RELEASE_ASSERT(cert_context.ocsp_response_,
                    "OCSP response must be present under OcspStapleAction::Staple");
     auto& resp_bytes = cert_context.ocsp_response_->rawBytes();
-    int rc = SSL_set_tlsext_status_ocsp_resp(ssl, const_cast<unsigned char*>(resp_bytes.data()),
-                                             resp_bytes.size());
+    size_t resp_len = resp_bytes.size();
+    int rc = SSL_set_tlsext_status_ocsp_resp(ssl, OPENSSL_memdup (resp_bytes.data(), resp_len), resp_len);
     RELEASE_ASSERT(rc != 0, "Error setting ocsp response");
     stats_.ocsp_staple_responses_.inc();
   }
