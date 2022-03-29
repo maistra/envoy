@@ -21,7 +21,8 @@ time bazel build \
   --local_ram_resources=12288 \
   --local_cpu_resources=6 \
   --jobs=3 \
-  --disk_cache=/bazel-cache \
+  --remote_cache=https://storage.googleapis.com/maistra-bazel-cache \
+  --google_credentials=/creds-gcs/service-account.json \
   --deleted_packages=test/common/quic,test/common/quic/platform \
   --//bazel:http3=false \
   //source/exe:envoy-static
@@ -38,7 +39,8 @@ time bazel test \
   --build_tests_only \
   --test_env=ENVOY_IP_TEST_VERSIONS=v4only \
   --test_output=all \
-  --disk_cache=/bazel-cache \
+  --remote_cache=https://storage.googleapis.com/maistra-bazel-cache \
+  --google_credentials=/creds-gcs/service-account.json \
   --deleted_packages=test/common/quic,test/common/quic/platform \
   --//bazel:http3=false \
   //test/...
