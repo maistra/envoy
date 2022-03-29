@@ -991,7 +991,14 @@ int ServerContextImpl::handleOcspStapling(SSL* ssl, void*) {
                    "OCSP response must be present under OcspStapleAction::Staple");
     auto& resp_bytes = cert_context.ocsp_response_->rawBytes();
     size_t resp_len = resp_bytes.size();
-    int rc = SSL_set_tlsext_status_ocsp_resp(ssl, OPENSSL_memdup (resp_bytes.data(), resp_len), resp_len);
+    unsigned char *resp_copy = static_cast<unsigned char*>
+                               (OPENSSL_memdup(resp_bytes.data(), resp_len));
+    if (resp_copy == nullptr) {
+      ENVOY_LOG_EVERY_POW_2_MISC(error, "OPENSSL_memdup failure");
+      stats_.ocsp_staple_failed_.inc();
+      return SSL_TLSEXT_ERR_ALERT_FATAL;
+    }
+    int rc = SSL_set_tlsext_status_ocsp_resp(ssl, resp_copy, resp_len);
     RELEASE_ASSERT(rc != 0, "Error setting ocsp response");
     stats_.ocsp_staple_responses_.inc();
   }
