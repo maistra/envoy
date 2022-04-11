@@ -232,9 +232,9 @@ std::vector<absl::string_view> Filter::getAlpnProtocols(const unsigned char* dat
   // string is preceded by 1 byte that gives it's length (excluding the length
   // byte itself). No string can be zero length, and the last string must not
   // overrun or underrun the buffer.
-  uint8_t protocol_length;
-  for (unsigned int i = 0; i < len; i += protocol_length) {
-    protocol_length = data[i++];
+  unsigned int i = 0;
+  do {
+    uint8_t protocol_length = data[i++];
 
     if (protocol_length == 0) {
       ENVOY_LOG_PERIODIC(warn, std::chrono::minutes(1), "tls inspector: ALPN protocol length is zero");
@@ -247,7 +247,8 @@ std::vector<absl::string_view> Filter::getAlpnProtocols(const unsigned char* dat
     }
 
     protocols.emplace_back(reinterpret_cast<const char*>(data + i), protocol_length);
-  }
+    i += protocol_length;
+  } while (i < len);
 
   return protocols;
 }
