@@ -33,15 +33,15 @@ Incompatible Behavior Changes
 * config: the ``--bootstrap-version`` CLI flag has been removed, Envoy has only been able to accept v3
   bootstrap configurations since 1.18.0.
 * contrib: the :ref:`squash filter <v1.20:config_http_filters_squash>` has been moved to
-  :ref:`contrib images <install_contrib>`.
+  :ref:`contrib images <v1.20:install_contrib>`.
 * contrib: the :ref:`kafka broker filter <v1.20:config_network_filters_kafka_broker>` has been moved to
-  :ref:`contrib images <install_contrib>`.
+  :ref:`contrib images <v1.20:install_contrib>`.
 * contrib: the :ref:`RocketMQ proxy filter <v1.20:config_network_filters_rocketmq_proxy>` has been moved to
-  :ref:`contrib images <install_contrib>`.
+  :ref:`contrib images <v1.20:install_contrib>`.
 * contrib: the :ref:`Postgres proxy filter <v1.20:config_network_filters_postgres_proxy>` has been moved to
-  :ref:`contrib images <install_contrib>`.
+  :ref:`contrib images <v1.20:install_contrib>`.
 * contrib: the :ref:`MySQL proxy filter <v1.20:config_network_filters_mysql_proxy>` has been moved to
-  :ref:`contrib images <install_contrib>`.
+  :ref:`contrib images <v1.20:install_contrib>`.
 * dns_filter: :ref:`dns_filter <v1.20:envoy_v3_api_msg_extensions.filters.udp.dns_filter.v3.DnsFilterConfig>`
   protobuf fields have been renumbered to restore compatibility with Envoy
   1.18, breaking compatibility with Envoy 1.19.0 and 1.19.1. The new field
@@ -127,7 +127,7 @@ Bug Fixes
 
 Removed Config or Runtime
 -------------------------
-*Normally occurs at the end of the* :ref:`deprecation period <deprecated>`
+*Normally occurs at the end of the* :ref:`deprecation period <v1.20:deprecated>`
 
 * http: removed ``envoy.reloadable_features.http_upstream_wait_connect_response`` runtime guard and legacy code paths.
 * http: removed ``envoy.reloadable_features.allow_preconnect`` runtime guard and legacy code paths.

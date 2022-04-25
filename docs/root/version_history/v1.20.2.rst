@@ -25,10 +25,16 @@ Removed Config or Runtime
 New Features
 ------------
 
-+* tls: added support for :ref:`match_typed_subject_alt_names <v1.20:envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.match_typed_subject_alt_names>` for subject alternative names to enforce specifying the subject alternative name type for the matcher to prevent matching against an unintended type in the certificate.
+..
+    TODO(phlax): These links/refs have been set to v1.21 due to v1.20.2 not building/publishing - update once v1.20.3 lands
+
++* tls: added support for :ref:`match_typed_subject_alt_names <v1.21:envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.match_typed_subject_alt_names>` for subject alternative names to enforce specifying the subject alternative name type for the matcher to prevent matching against an unintended type in the certificate.
 
 
 Deprecated
 ----------
 
-+* tls: :ref:`match_subject_alt_names <v1.20:envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.match_subject_alt_names>` has been deprecated in favor of the :ref:`match_typed_subject_alt_names <v1.20:envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.match_typed_subject_alt_names>`.
+..
+    TODO(phlax): These links/refs have been set to v1.21 due to v1.20.2 not building/publishing - update once v1.20.3 lands
+
++* tls: :ref:`match_subject_alt_names <v1.21:envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.match_subject_alt_names>` has been deprecated in favor of the :ref:`match_typed_subject_alt_names <v1.21:envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.match_typed_subject_alt_names>`.
