@@ -15,6 +15,11 @@ envoy_proto_library(
     srcs = ["add_body_filter.proto"],
 )
 
+envoy_proto_library(
+    name = "test_listener_filter_proto",
+    srcs = ["test_listener_filter.proto"],
+)
+
 envoy_cc_test_library(
     name = "test_listener_filter_lib",
     srcs = [
@@ -24,6 +29,7 @@ envoy_cc_test_library(
         "test_listener_filter.h",
     ],
     deps = [
+        ":test_listener_filter_proto_cc_proto",
         "//envoy/network:filter_interface",
         "//envoy/registry",
         "//envoy/server:filter_config_interface",
