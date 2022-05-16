@@ -233,12 +233,9 @@ void SslSocket::drainErrorQueue(const bool show_errno) {
                                         absl::NullSafeStringView(ERR_reason_error_string(err))));
   }
   if (!failure_reason_.empty()) {
-    if (show_errno) {
-      ENVOY_CONN_LOG(debug, "errno:{}:{}:{}", callbacks_->connection(), errno,
-                     Envoy::errorDetails(errno), failure_reason_);
-    } else {
-      ENVOY_CONN_LOG(debug, "{}", callbacks_->connection(), failure_reason_);
-    }
+    ENVOY_CONN_LOG(debug, "remote address:{},{}", callbacks_->connection(),
+                   callbacks_->connection().connectionInfoProvider().remoteAddress()->asString(),
+                   failure_reason_);
   }
   if (saw_error && !saw_counted_error) {
     ctx_->stats().connection_error_.inc();
