@@ -33,6 +33,7 @@
 #include "absl/synchronization/mutex.h"
 #include "openssl/err.h"
 #include "openssl/ssl.h"
+#include "openssl/x509.h"
 #include "openssl/x509v3.h"
 
 namespace Envoy {
@@ -457,9 +458,10 @@ void DefaultCertValidator::addClientValidationContext(SSL_CTX* ctx, bool require
     // Check for duplicates.
     // Note that BoringSSL call only returns 0 or 1.
     // OpenSSL can also return -1, for example on sk_find calls in an empty list
-    if (sk_X509_NAME_find(list.get(), nullptr, name) == 1) {
+    //if (sk_X509_NAME_find(list.get(), nullptr, name) == 1) {
+    //if (sk_X509_NAME_find(list.get(), name) == 1) {
       continue;
-    }
+    //}
     bssl::UniquePtr<X509_NAME> name_dup(X509_NAME_dup(name));
     if (name_dup == nullptr || !sk_X509_NAME_push(list.get(), name_dup.release())) {
       throw EnvoyException(absl::StrCat("Failed to load trusted client CA certificates from ",

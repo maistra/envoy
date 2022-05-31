@@ -111,9 +111,10 @@ void SPIFFEValidator::addClientValidationContext(SSL_CTX* ctx, bool) {
     // Check for duplicates.
     // Note that BoringSSL call only returns 0 or 1.
     // OpenSSL can also return -1, for example on sk_find calls in an empty list
-    if (sk_X509_NAME_find(list.get(), nullptr, name) >= 0) {
+    //if (sk_X509_NAME_find(list.get(), nullptr, name) >= 0) {
+    //if (sk_X509_NAME_find(list.get(), name) >= 0) {
       continue;
-    }
+    //}
 
     bssl::UniquePtr<X509_NAME> name_dup(X509_NAME_dup(name));
     if (name_dup == nullptr || !sk_X509_NAME_push(list.get(), name_dup.release())) {
