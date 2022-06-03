@@ -17,7 +17,7 @@
 
 #include "source/common/common/logger.h"
 #include "source/common/common/matchers.h"
-#include "source/common/stats/symbol_table_impl.h"
+#include "source/common/stats/symbol_table.h"
 #include "source/extensions/transport_sockets/tls/cert_validator/cert_validator.h"
 #include "source/extensions/transport_sockets/tls/cert_validator/san_matcher.h"
 #include "source/extensions/transport_sockets/tls/stats.h"
@@ -89,7 +89,7 @@ public:
    */
   static bool verifySubjectAltName(X509* cert, const std::vector<std::string>& subject_alt_names);
 
-  /**
+ /**
    * Determines whether the given name matches 'pattern' which may optionally begin with a wildcard.
    * NOTE:  public for testing
    * @param dns_name the DNS name to match

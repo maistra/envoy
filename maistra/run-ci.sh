@@ -18,8 +18,8 @@ export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
 COMMON_FLAGS="\
     --config=clang \
     --config=${ARCH} \
-    --local_ram_resources=12288 \
-    --local_cpu_resources=6 \
+    --local_ram_resources=28000 \
+    --local_cpu_resources=8 \
     --jobs=3 \
     --deleted_packages=test/common/quic,test/common/quic/platform \
     --//bazel:http3=false \
@@ -46,5 +46,15 @@ time bazel test \
   --build_tests_only \
   --test_env=ENVOY_IP_TEST_VERSIONS=v4only \
   --test_output=all \
-  //test/...
+  --disk_cache=/bazel-cache \
+  //test/extensions/common/wasm:wasm_vm_test
+#//test/extensions/common/wasm:plugin_test                             \
+#//test/extensions/common/wasm:wasm_test                               \
+#//test/extensions/access_loggers/wasm:config_test                     \
+#//test/extensions/bootstrap/wasm:config_test                          \
+#//test/extensions/bootstrap/wasm:wasm_test                            \
+
+#  //test/extensions/filters/http/wasm:config_test
+#  //test/...
+#  //test/common/network:connection_impl_test
 

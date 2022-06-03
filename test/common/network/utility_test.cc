@@ -106,6 +106,23 @@ TEST(NetworkUtility, resolveUrl) {
   EXPECT_EQ("[a:b:c:d::]:0", Utility::resolveUrl("udp://[a:b:c:d::]:0")->asString());
 }
 
+TEST(NetworkUtility, socketTypeFromUrl) {
+  EXPECT_FALSE(Utility::socketTypeFromUrl("foo").ok());
+  EXPECT_FALSE(Utility::socketTypeFromUrl("abc://foo").ok());
+
+  EXPECT_EQ(Network::Socket::Type::Stream, *Utility::socketTypeFromUrl("unix://"));
+  EXPECT_EQ(Network::Socket::Type::Stream, *Utility::socketTypeFromUrl("unix://foo"));
+  EXPECT_EQ(Network::Socket::Type::Stream, *Utility::socketTypeFromUrl("unix://tmp/server"));
+
+  EXPECT_EQ(Network::Socket::Type::Stream, *Utility::socketTypeFromUrl("tcp://1.2.3.4:1234"));
+  EXPECT_EQ(Network::Socket::Type::Stream, *Utility::socketTypeFromUrl("tcp://0.0.0.0:0"));
+  EXPECT_EQ(Network::Socket::Type::Stream, *Utility::socketTypeFromUrl("tcp://[::1]:1"));
+
+  EXPECT_EQ(Network::Socket::Type::Datagram, *Utility::socketTypeFromUrl("udp://1.2.3.4:1234"));
+  EXPECT_EQ(Network::Socket::Type::Datagram, *Utility::socketTypeFromUrl("udp://0.0.0.0:0"));
+  EXPECT_EQ(Network::Socket::Type::Datagram, *Utility::socketTypeFromUrl("udp://[::1]:1"));
+}
+
 TEST(NetworkUtility, ParseInternetAddress) {
   EXPECT_THROW(Utility::parseInternetAddress(""), EnvoyException);
   EXPECT_THROW(Utility::parseInternetAddress("1.2.3"), EnvoyException);
@@ -226,7 +243,10 @@ INSTANTIATE_TEST_SUITE_P(IpVersions, NetworkUtilityGetLocalAddress,
                          TestUtility::ipTestParamsToString);
 
 TEST_P(NetworkUtilityGetLocalAddress, GetLocalAddress) {
-  EXPECT_NE(nullptr, Utility::getLocalAddress(GetParam()));
+  auto ip_version = GetParam();
+  auto local_address = Utility::getLocalAddress(ip_version);
+  EXPECT_NE(nullptr, local_address);
+  EXPECT_EQ(ip_version, local_address->ip()->version());
 }
 
 TEST(NetworkUtility, GetOriginalDst) {

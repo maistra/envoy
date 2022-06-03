@@ -72,24 +72,26 @@ public:
   ~MockClusterInfo() override;
 
   void resetResourceManager(uint64_t cx, uint64_t rq_pending, uint64_t rq, uint64_t rq_retry,
-                            uint64_t conn_pool) {
+                            uint64_t conn_pool, uint64_t conn_per_host = 100) {
     resource_manager_ = std::make_unique<ResourceManagerImpl>(
-        runtime_, name_, cx, rq_pending, rq, rq_retry, conn_pool, circuit_breakers_stats_,
-        absl::nullopt, absl::nullopt);
+        runtime_, name_, cx, rq_pending, rq, rq_retry, conn_pool, conn_per_host,
+        circuit_breakers_stats_, absl::nullopt, absl::nullopt);
   }
 
   void resetResourceManagerWithRetryBudget(uint64_t cx, uint64_t rq_pending, uint64_t rq,
                                            uint64_t rq_retry, uint64_t conn_pool,
-                                           double budget_percent, uint32_t min_retry_concurrency) {
+                                           double budget_percent, uint32_t min_retry_concurrency,
+                                           uint64_t conn_per_host = 100) {
     resource_manager_ = std::make_unique<ResourceManagerImpl>(
-        runtime_, name_, cx, rq_pending, rq, rq_retry, conn_pool, circuit_breakers_stats_,
-        budget_percent, min_retry_concurrency);
+        runtime_, name_, cx, rq_pending, rq, rq_retry, conn_pool, conn_per_host,
+        circuit_breakers_stats_, budget_percent, min_retry_concurrency);
   }
 
   // Upstream::ClusterInfo
   MOCK_METHOD(bool, addedViaApi, (), (const));
   MOCK_METHOD(std::chrono::milliseconds, connectTimeout, (), (const));
   MOCK_METHOD(const absl::optional<std::chrono::milliseconds>, idleTimeout, (), (const));
+  MOCK_METHOD(const absl::optional<std::chrono::milliseconds>, maxConnectionDuration, (), (const));
   MOCK_METHOD(const absl::optional<std::chrono::milliseconds>, maxStreamDuration, (), (const));
   MOCK_METHOD(const absl::optional<std::chrono::milliseconds>, grpcTimeoutHeaderMax, (), (const));
   MOCK_METHOD(const absl::optional<std::chrono::milliseconds>, grpcTimeoutHeaderOffset, (),
@@ -146,6 +148,7 @@ public:
   MOCK_METHOD(bool, drainConnectionsOnHostRemoval, (), (const));
   MOCK_METHOD(bool, connectionPoolPerDownstreamConnection, (), (const));
   MOCK_METHOD(bool, warmHosts, (), (const));
+  MOCK_METHOD(bool, setLocalInterfaceNameOnUpstreamConnections, (), (const));
   MOCK_METHOD(const absl::optional<envoy::config::core::v3::UpstreamHttpProtocolOptions>&,
               upstreamHttpProtocolOptions, (), (const));
   MOCK_METHOD(const absl::optional<envoy::config::core::v3::AlternateProtocolsCacheOptions>&,
@@ -216,6 +219,12 @@ class MockIdleTimeEnabledClusterInfo : public MockClusterInfo {
 public:
   MockIdleTimeEnabledClusterInfo();
   ~MockIdleTimeEnabledClusterInfo() override;
+};
+
+class MockMaxConnectionDurationEnabledClusterInfo : public MockClusterInfo {
+public:
+  MockMaxConnectionDurationEnabledClusterInfo();
+  ~MockMaxConnectionDurationEnabledClusterInfo() override;
 };
 
 } // namespace Upstream

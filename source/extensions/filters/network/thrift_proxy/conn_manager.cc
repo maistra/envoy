@@ -13,11 +13,13 @@ namespace NetworkFilters {
 namespace ThriftProxy {
 
 ConnectionManager::ConnectionManager(Config& config, Random::RandomGenerator& random_generator,
-                                     TimeSource& time_source)
+                                     TimeSource& time_source,
+                                     const Network::DrainDecision& drain_decision)
     : config_(config), stats_(config_.stats()), transport_(config.createTransport()),
       protocol_(config.createProtocol()),
       decoder_(std::make_unique<Decoder>(*transport_, *protocol_, *this)),
-      random_generator_(random_generator), time_source_(time_source) {}
+      random_generator_(random_generator), time_source_(time_source),
+      drain_decision_(drain_decision) {}
 
 ConnectionManager::~ConnectionManager() = default;
 
@@ -124,8 +126,6 @@ void ConnectionManager::sendLocalReply(MessageMetadata& metadata, const DirectRe
   case DirectResponse::ResponseType::Exception:
     stats_.response_exception_.inc();
     break;
-  default:
-    NOT_REACHED_GCOVR_EXCL_LINE;
   }
 }
 
@@ -171,6 +171,10 @@ void ConnectionManager::initializeReadFilterCallbacks(Network::ReadFilterCallbac
 }
 
 void ConnectionManager::onEvent(Network::ConnectionEvent event) {
+  if (event != Network::ConnectionEvent::LocalClose &&
+      event != Network::ConnectionEvent::RemoteClose) {
+    return;
+  }
   resetAllRpcs(event == Network::ConnectionEvent::LocalClose);
 }
 
@@ -212,11 +216,6 @@ bool ConnectionManager::ResponseDecoder::onData(Buffer::Instance& data) {
 
 FilterStatus ConnectionManager::ResponseDecoder::passthroughData(Buffer::Instance& data) {
   passthrough_ = true;
-  // If passing through data, ensure that first reply field is false as if handling a
-  // fieldBegin. Otherwise all requests will be marked as a success, as if void response,
-  // in messageEnd. Therefore later will only increment reply and not the inferred subtype
-  // success/error which requires reading the field id of the first field, see fieldBegin.
-  first_reply_field_ = false;
   return ProtocolConverter::passthroughData(data);
 }
 
@@ -224,40 +223,36 @@ FilterStatus ConnectionManager::ResponseDecoder::messageBegin(MessageMetadataSha
   metadata_ = metadata;
   metadata_->setSequenceId(parent_.original_sequence_id_);
 
-  first_reply_field_ =
-      (metadata->hasMessageType() && metadata->messageType() == MessageType::Reply);
+  if (metadata->hasReplyType()) {
+    success_ = metadata->replyType() == ReplyType::Success;
+  }
+
+  // Check if the upstream host is draining.
+  //
+  // Note: the drain header needs to be checked here in messageBegin, and not transportBegin, so
+  // that we can support the header in TTwitter protocol, which reads/adds response headers to
+  // metadata in messageBegin when reading the response from upstream. Therefore detecting a drain
+  // should happen here.
+  if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.thrift_connection_draining")) {
+    metadata_->setDraining(!metadata->headers().get(Headers::get().Drain).empty());
+    metadata->headers().remove(Headers::get().Drain);
+
+    // Check if this host itself is draining.
+    //
+    // Note: Similarly as above, the response is buffered until transportEnd. Therefore metadata
+    // should be set before the encodeFrame() call. It should be set at or after the messageBegin
+    // call so that the header is added after all upstream headers passed, due to messageBegin
+    // possibly not getting headers in transportBegin.
+    ConnectionManager& cm = parent_.parent_;
+    if (cm.drain_decision_.drainClose()) {
+      // TODO(rgs1): should the key value contain something useful (e.g.: minutes til drain is
+      // over)?
+      metadata->headers().addReferenceKey(Headers::get().Drain, "true");
+      parent_.parent_.stats_.downstream_response_drain_close_.inc();
+    }
+  }
+
   return ProtocolConverter::messageBegin(metadata);
-}
-
-FilterStatus ConnectionManager::ResponseDecoder::fieldBegin(absl::string_view name,
-                                                            FieldType& field_type,
-                                                            int16_t& field_id) {
-  if (first_reply_field_) {
-    // Reply messages contain a struct where field 0 is the call result and fields 1+ are
-    // exceptions, if defined. At most one field may be set. Therefore, the very first field we
-    // encounter in a reply is either field 0 (success) or not (IDL exception returned).
-    // If first fieldType is FieldType::Stop then it is a void success and handled in messageEnd()
-    // because decoder state machine does not call decoder event callback fieldBegin on
-    // FieldType::Stop.
-    success_ = (field_id == 0);
-    first_reply_field_ = false;
-  }
-
-  return ProtocolConverter::fieldBegin(name, field_type, field_id);
-}
-
-FilterStatus ConnectionManager::ResponseDecoder::messageEnd() {
-  if (first_reply_field_) {
-    // When the response is thrift void type there is never a fieldBegin call on a success
-    // because the response struct has no fields and so the first field type is FieldType::Stop.
-    // The decoder state machine handles FieldType::Stop by going immediately to structEnd,
-    // skipping fieldBegin callback. Therefore if we are still waiting for the first reply field
-    // at end of message then it is a void success.
-    success_ = true;
-    first_reply_field_ = false;
-  }
-
-  return ProtocolConverter::messageEnd();
 }
 
 FilterStatus ConnectionManager::ResponseDecoder::transportEnd() {
@@ -292,9 +287,6 @@ FilterStatus ConnectionManager::ResponseDecoder::transportEnd() {
   switch (metadata_->messageType()) {
   case MessageType::Reply:
     cm.stats_.response_reply_.inc();
-    // success_ is set by inspecting the payload, which wont
-    // occur when passthrough is enabled as parsing the payload
-    // is skipped entirely.
     if (success_) {
       if (success_.value()) {
         cm.stats_.response_success_.inc();

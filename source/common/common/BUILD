@@ -84,6 +84,18 @@ envoy_cc_library(
 )
 
 envoy_cc_library(
+    name = "dns_utils_lib",
+    srcs = ["dns_utils.cc"],
+    hdrs = ["dns_utils.h"],
+    deps = [
+        ":assert_lib",
+        "//envoy/network:dns_interface",
+        "//source/common/network:utility_lib",
+        "@envoy_api//envoy/config/cluster/v3:pkg_cc_proto",
+    ],
+)
+
+envoy_cc_library(
     name = "documentation_url_lib",
     hdrs = ["documentation_url.h"],
 )
@@ -141,10 +153,15 @@ envoy_cc_library(
     name = "key_value_store_lib",
     srcs = ["key_value_store_base.cc"],
     hdrs = ["key_value_store_base.h"],
+    external_deps = [
+        "abseil_cleanup",
+        "quiche_quic_platform",
+    ],
     deps = [
         "//envoy/common:key_value_store_interface",
         "//envoy/event:dispatcher_interface",
         "//envoy/filesystem:filesystem_interface",
+        "@com_github_google_quiche//:quiche_common_lib",
     ],
 )
 
@@ -448,6 +465,18 @@ envoy_cc_library(
         ":thread_lib",
         ":utility_lib",
     ],
+)
+
+envoy_cc_library(
+    name = "perf_tracing_lib",
+    srcs = ["perf_tracing.cc"],
+    hdrs = ["perf_tracing.h"],
+    deps = select({
+        "//bazel:enable_perf_tracing": [
+            "@com_github_google_perfetto//:perfetto",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 envoy_cc_library(

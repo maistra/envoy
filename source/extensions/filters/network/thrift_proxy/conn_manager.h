@@ -4,6 +4,7 @@
 #include "envoy/common/random_generator.h"
 #include "envoy/event/deferred_deletable.h"
 #include "envoy/network/connection.h"
+#include "envoy/network/drain_decision.h"
 #include "envoy/network/filter.h"
 #include "envoy/stats/timespan.h"
 
@@ -51,7 +52,7 @@ class ConnectionManager : public Network::ReadFilter,
                           Logger::Loggable<Logger::Id::thrift> {
 public:
   ConnectionManager(Config& config, Random::RandomGenerator& random_generator,
-                    TimeSource& time_system);
+                    TimeSource& time_system, const Network::DrainDecision& drain_decision);
   ~ConnectionManager() override;
 
   // Network::ReadFilter
@@ -74,7 +75,7 @@ private:
   struct ResponseDecoder : public DecoderCallbacks, public ProtocolConverter {
     ResponseDecoder(ActiveRpc& parent, Transport& transport, Protocol& protocol)
         : parent_(parent), decoder_(std::make_unique<Decoder>(transport, protocol, *this)),
-          complete_(false), first_reply_field_(false), passthrough_{false} {
+          complete_(false), passthrough_{false} {
       initProtocolConverter(*parent_.parent_.protocol_, parent_.response_buffer_);
     }
 
@@ -83,9 +84,6 @@ private:
     // ProtocolConverter
     FilterStatus passthroughData(Buffer::Instance& data) override;
     FilterStatus messageBegin(MessageMetadataSharedPtr metadata) override;
-    FilterStatus messageEnd() override;
-    FilterStatus fieldBegin(absl::string_view name, FieldType& field_type,
-                            int16_t& field_id) override;
     FilterStatus transportBegin(MessageMetadataSharedPtr metadata) override {
       UNREFERENCED_PARAMETER(metadata);
       return FilterStatus::Continue;
@@ -102,7 +100,6 @@ private:
     MessageMetadataSharedPtr metadata_;
     absl::optional<bool> success_;
     bool complete_ : 1;
-    bool first_reply_field_ : 1;
     bool passthrough_ : 1;
   };
   using ResponseDecoderPtr = std::unique_ptr<ResponseDecoder>;
@@ -272,6 +269,7 @@ private:
   bool stopped_{false};
   bool half_closed_{false};
   TimeSource& time_source_;
+  const Network::DrainDecision& drain_decision_;
 
   // The number of requests accumulated on the current connection.
   uint64_t accumulated_requests_{};

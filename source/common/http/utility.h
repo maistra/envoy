@@ -132,6 +132,7 @@ envoy::config::core::v3::Http3ProtocolOptions
 initializeAndValidateOptions(const envoy::config::core::v3::Http3ProtocolOptions& options,
                              bool hcm_stream_error_set,
                              const Protobuf::BoolValue& hcm_stream_error);
+
 } // namespace Utility
 } // namespace Http3
 namespace Http {
@@ -195,6 +196,14 @@ void appendXff(RequestHeaderMap& headers, const Network::Address::Instance& remo
 void appendVia(RequestOrResponseHeaderMap& headers, const std::string& via);
 
 /**
+ * Update authority with the specified hostname.
+ * @param headers headers where authority should be updated.
+ * @param hostname hostname that authority should be updated with.
+ * @param append_xfh append the original authority to the x-forwarded-host header.
+ */
+void updateAuthority(RequestHeaderMap& headers, absl::string_view hostname, bool append_xfh);
+
+/**
  * Creates an SSL (https) redirect path based on the input host and path headers.
  * @param headers supplies the request headers.
  * @return std::string the redirect path.
@@ -247,6 +256,20 @@ absl::string_view findQueryStringStart(const HeaderString& path);
  * @return std::string the path without query string.
  */
 std::string stripQueryString(const HeaderString& path);
+
+/**
+ * Replace the query string portion of a given path with a new one.
+ *
+ * e.g. replaceQueryString("/foo?key=1", {key:2}) -> "/foo?key=2"
+ *      replaceQueryString("/bar", {hello:there}) -> "/bar?hello=there"
+ *
+ * @param path the original path that may or may not contain an existing query string
+ * @param params the new params whose string representation should be formatted onto
+ *               the `path` above
+ * @return std::string the new path whose query string has been replaced by `params` and whose path
+ *         portion from `path` remains unchanged.
+ */
+std::string replaceQueryString(const HeaderString& path, const QueryParams& params);
 
 /**
  * Parse a particular value out of a cookie
@@ -599,6 +622,19 @@ AuthorityAttributes parseAuthority(absl::string_view host);
 envoy::config::route::v3::RetryPolicy
 convertCoreToRouteRetryPolicy(const envoy::config::core::v3::RetryPolicy& retry_policy,
                               const std::string& retry_on);
+
+/**
+ * @param request_headers the request header to be looked into.
+ * @return true if the request method is safe as defined in
+ * https://www.rfc-editor.org/rfc/rfc7231#section-4.2.1
+ */
+bool isSafeRequest(Http::RequestHeaderMap& request_headers);
+
+/**
+ * Return the GatewayTimeout HTTP code to indicate the request is full received.
+ */
+Http::Code maybeRequestTimeoutCode(bool remote_decode_complete);
+
 } // namespace Utility
 } // namespace Http
 } // namespace Envoy

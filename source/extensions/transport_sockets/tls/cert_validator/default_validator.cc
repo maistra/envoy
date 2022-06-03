@@ -22,7 +22,7 @@
 #include "source/common/network/address_impl.h"
 #include "source/common/protobuf/utility.h"
 #include "source/common/runtime/runtime_features.h"
-#include "source/common/stats/symbol_table_impl.h"
+#include "source/common/stats/symbol_table.h"
 #include "source/common/stats/utility.h"
 #include "source/extensions/transport_sockets/tls/cert_validator/cert_validator.h"
 #include "source/extensions/transport_sockets/tls/cert_validator/factory.h"
@@ -102,7 +102,9 @@ int DefaultCertValidator::initializeSslContexts(std::vector<SSL_CTX*> contexts,
             absl::StrCat("Failed to load trusted CA certificates from ", config_->caCertPath()));
       }
       if (has_crl) {
-        X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
+        X509_STORE_set_flags(store, config_->onlyVerifyLeafCertificateCrl()
+                                        ? X509_V_FLAG_CRL_CHECK
+                                        : X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
       }
       verify_mode = SSL_VERIFY_PEER;
       verify_trusted_ca_ = true;
@@ -138,8 +140,9 @@ int DefaultCertValidator::initializeSslContexts(std::vector<SSL_CTX*> contexts,
           X509_STORE_add_crl(store, item->crl);
         }
       }
-
-      X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
+      X509_STORE_set_flags(store, config_->onlyVerifyLeafCertificateCrl()
+                                      ? X509_V_FLAG_CRL_CHECK
+                                      : X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
     }
   }
 
@@ -148,7 +151,12 @@ int DefaultCertValidator::initializeSslContexts(std::vector<SSL_CTX*> contexts,
     if (!cert_validation_config->subjectAltNameMatchers().empty()) {
       for (const envoy::extensions::transport_sockets::tls::v3::SubjectAltNameMatcher& matcher :
            cert_validation_config->subjectAltNameMatchers()) {
-        subject_alt_name_matchers_.emplace_back(createStringSanMatcher(matcher));
+        auto san_matcher = createStringSanMatcher(matcher);
+        if (san_matcher == nullptr) {
+          throw EnvoyException(
+              absl::StrCat("Failed to create string SAN matcher of type ", matcher.san_type()));
+        }
+        subject_alt_name_matchers_.push_back(std::move(san_matcher));
       }
       verify_mode = verify_mode_validation_context;
     }
@@ -279,8 +287,25 @@ bool DefaultCertValidator::verifySubjectAltName(X509* cert,
   for (const GENERAL_NAME* general_name : san_names.get()) {
     const std::string san = Utility::generalNameAsString(general_name);
     for (auto& config_san : subject_alt_names) {
-      if (general_name->type == GEN_DNS ? dnsNameMatch(config_san, san.c_str())
+      if (general_name->type == GEN_DNS ? Utility::dnsNameMatch(config_san, san.c_str())
                                         : config_san == san) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool DefaultCertValidator::matchSubjectAltName(
+    X509* cert, const std::vector<SanMatcherPtr>& subject_alt_name_matchers) {
+  bssl::UniquePtr<GENERAL_NAMES> san_names(
+      static_cast<GENERAL_NAMES*>(X509_get_ext_d2i(cert, NID_subject_alt_name, nullptr, nullptr)));
+  if (san_names == nullptr) {
+    return false;
+  }
+  for (const auto& config_san_matcher : subject_alt_name_matchers) {
+    for (const GENERAL_NAME* general_name : san_names.get()) {
+      if (config_san_matcher->match(general_name)) {
         return true;
       }
     }
@@ -306,23 +331,6 @@ bool DefaultCertValidator::dnsNameMatch(const absl::string_view dns_name,
     }
   }
 
-  return false;
-}
-
-bool DefaultCertValidator::matchSubjectAltName(
-    X509* cert, const std::vector<SanMatcherPtr>& subject_alt_name_matchers) {
-  bssl::UniquePtr<GENERAL_NAMES> san_names(
-      static_cast<GENERAL_NAMES*>(X509_get_ext_d2i(cert, NID_subject_alt_name, nullptr, nullptr)));
-  if (san_names == nullptr) {
-    return false;
-  }
-  for (const auto& config_san_matcher : subject_alt_name_matchers) {
-    for (const GENERAL_NAME* general_name : san_names.get()) {
-      if (config_san_matcher->match(general_name)) {
-        return true;
-      }
-    }
-  }
   return false;
 }
 
@@ -479,6 +487,10 @@ void DefaultCertValidator::addClientValidationContext(SSL_CTX* ctx, bool require
 
   if (require_client_cert) {
     SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, nullptr);
+  }
+  // Set the verify_depth
+  if (config_->maxVerifyDepth().has_value()) {
+    SSL_CTX_set_verify_depth(ctx, config_->maxVerifyDepth().value());
   }
 }
 

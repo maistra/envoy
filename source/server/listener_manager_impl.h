@@ -91,10 +91,10 @@ public:
     return createUdpListenerFilterFactoryList_(filters, context);
   }
 
-  Network::SocketSharedPtr createListenSocket(Network::Address::InstanceConstSharedPtr address,
-                                              Network::Socket::Type socket_type,
-                                              const Network::Socket::OptionsSharedPtr& options,
-                                              BindType bind_type, uint32_t worker_index) override;
+  Network::SocketSharedPtr createListenSocket(
+      Network::Address::InstanceConstSharedPtr address, Network::Socket::Type socket_type,
+      const Network::Socket::OptionsSharedPtr& options, BindType bind_type,
+      const Network::SocketCreationOptions& creation_options, uint32_t worker_index) override;
 
   DrainManagerPtr
   createDrainManager(envoy::config::listener::v3::Listener::DrainType drain_type) override;
@@ -299,6 +299,8 @@ private:
   createListenSocketFactory(const envoy::config::core::v3::Address& proto_address,
                             ListenerImpl& listener);
 
+  void maybeCloseSocketsForListener(ListenerImpl& listener);
+
   ApiListenerPtr api_listener_;
   // Active listeners are listeners that are currently accepting new connections on the workers.
   ListenerList active_listeners_;
@@ -316,7 +318,7 @@ private:
   std::vector<WorkerPtr> workers_;
   bool workers_started_{};
   absl::optional<StopListenersType> stop_listeners_type_;
-  Stats::ScopePtr scope_;
+  Stats::ScopeSharedPtr scope_;
   ListenerManagerStats stats_;
   ConfigTracker::EntryOwnerPtr config_tracker_entry_;
   LdsApiPtr lds_api_;

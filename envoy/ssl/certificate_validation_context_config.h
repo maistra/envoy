@@ -15,6 +15,11 @@
 namespace Envoy {
 namespace Ssl {
 
+// SECURITY NOTE
+//
+// When adding or changing this interface, it is likely that a change is needed to
+// `DefaultCertValidator::updateDigestForSessionId` in
+// `source/extensions/transport_sockets/tls/cert_validator/default_validator.cc`.
 class CertificateValidationContextConfig {
 public:
   virtual ~CertificateValidationContextConfig() = default;
@@ -79,6 +84,16 @@ public:
    * @return a reference to the api object.
    */
   virtual Api::Api& api() const PURE;
+
+  /**
+   * @return whether to validate certificate chain with all CRL or not.
+   */
+  virtual bool onlyVerifyLeafCertificateCrl() const PURE;
+
+  /**
+   * @return the max depth used when verifying the certificate-chain
+   */
+  virtual absl::optional<uint32_t> maxVerifyDepth() const PURE;
 };
 
 using CertificateValidationContextConfigPtr = std::unique_ptr<CertificateValidationContextConfig>;

@@ -198,7 +198,8 @@ void OriginalConnPoolImpl::onConnectionEvent(ActiveConn& conn, Network::Connecti
         PendingRequestPtr request =
             pending_requests_to_purge.front()->removeFromList(pending_requests_to_purge);
         host_->cluster().stats().upstream_rq_pending_failure_eject_.inc();
-        request->callbacks_.onPoolFailure(reason, "", conn.real_host_description_);
+        request->callbacks_.onPoolFailure(reason, conn.conn_->transportFailureReason(),
+                                          conn.real_host_description_);
       }
     }
 
@@ -215,7 +216,7 @@ void OriginalConnPoolImpl::onConnectionEvent(ActiveConn& conn, Network::Connecti
     }
   }
 
-  if (conn.connect_timer_) {
+  if (event != Network::ConnectionEvent::ConnectedZeroRtt && conn.connect_timer_) {
     conn.connect_timer_->disableTimer();
     conn.connect_timer_.reset();
   }

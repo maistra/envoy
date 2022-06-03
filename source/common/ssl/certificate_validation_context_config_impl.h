@@ -49,6 +49,10 @@ public:
 
   Api::Api& api() const override { return api_; }
 
+  bool onlyVerifyLeafCertificateCrl() const override { return only_verify_leaf_cert_crl_; }
+
+  absl::optional<uint32_t> maxVerifyDepth() const override { return max_verify_depth_; }
+
 private:
   static std::vector<envoy::extensions::transport_sockets::tls::v3::SubjectAltNameMatcher>
   getSubjectAltNameMatchers(
@@ -66,6 +70,8 @@ private:
       TrustChainVerification trust_chain_verification_;
   const absl::optional<envoy::config::core::v3::TypedExtensionConfig> custom_validator_config_;
   Api::Api& api_;
+  const bool only_verify_leaf_cert_crl_;
+  absl::optional<uint32_t> max_verify_depth_;
 };
 
 } // namespace Ssl

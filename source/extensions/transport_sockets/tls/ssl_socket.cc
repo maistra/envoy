@@ -42,7 +42,9 @@ public:
   void onConnected() override {}
   Ssl::ConnectionInfoConstSharedPtr ssl() const override { return nullptr; }
   bool startSecureTransport() override { return false; }
+  void configureInitialCongestionWindow(uint64_t, std::chrono::microseconds) override {}
 };
+
 } // namespace
 
 SslSocket::SslSocket(Envoy::Ssl::ContextSharedPtr ctx, InitialState state,
@@ -74,6 +76,7 @@ void SslSocket::setTransportSocketCallbacks(Network::TransportSocketCallbacks& c
   // Use custom BIO that reads from/writes to IoHandle
   BIO* bio = BIO_new_io_handle(&callbacks_->ioHandle());
   SSL_set_bio(rawSsl(), bio, bio);
+  SSL_set_ex_data(rawSsl(), ContextImpl::sslSocketIndex(), static_cast<void*>(callbacks_));
 }
 
 SslSocket::ReadResult SslSocket::sslReadIntoSlice(Buffer::RawSlice& slice) {
@@ -185,6 +188,16 @@ Network::Connection& SslSocket::connection() const { return callbacks_->connecti
 
 void SslSocket::onSuccess(SSL* ssl) {
   ctx_->logHandshake(ssl);
+
+  if (callbacks_->connection().streamInfo().upstreamInfo()) {
+    callbacks_->connection()
+        .streamInfo()
+        .upstreamInfo()
+        ->upstreamTiming()
+     
+        .onUpstreamHandshakeComplete(callbacks_->connection().dispatcher().timeSource());
+  }
+
   callbacks_->raiseEvent(Network::ConnectionEvent::Connected);
 }
 
@@ -355,12 +368,7 @@ void SslSocket::closeSocket(Network::ConnectionEvent) {
   }
 }
 
-std::string SslSocket::protocol() const {
-  const unsigned char* proto;
-  unsigned int proto_len;
-  SSL_get0_alpn_selected(rawSsl(), &proto, &proto_len);
-  return std::string(reinterpret_cast<const char*>(proto), proto_len);
-}
+std::string SslSocket::protocol() const { return ssl()->alpn(); }
 
 absl::string_view SslSocket::failureReason() const { return failure_reason_; }
 
@@ -432,8 +440,8 @@ Envoy::Ssl::ClientContextSharedPtr ClientSslSocketFactory::sslCtx() {
   return ssl_ctx_;
 }
 
-Network::TransportSocketPtr
-ServerSslSocketFactory::createTransportSocket(Network::TransportSocketOptionsConstSharedPtr) const {
+Network::TransportSocketPtr ServerSslSocketFactory::createTransportSocket(
+    Network::TransportSocketOptionsConstSharedPtr transport_socket_options) const {
   // onAddOrUpdateSecret() could be invoked in the middle of checking the existence of ssl_ctx and
   // creating SslSocket using ssl_ctx. Capture ssl_ctx_ into a local variable so that we check and
   // use the same ssl_ctx to create SslSocket.
@@ -443,8 +451,8 @@ ServerSslSocketFactory::createTransportSocket(Network::TransportSocketOptionsCon
     ssl_ctx = ssl_ctx_;
   }
   if (ssl_ctx) {
-    return std::make_unique<SslSocket>(std::move(ssl_ctx), InitialState::Server, nullptr,
-                                       config_->createHandshaker());
+    return std::make_unique<SslSocket>(std::move(ssl_ctx), InitialState::Server,
+                                       transport_socket_options, config_->createHandshaker());
   } else {
     ENVOY_LOG(debug, "Create NotReadySslSocket");
     stats_.downstream_context_secrets_not_ready_.inc();

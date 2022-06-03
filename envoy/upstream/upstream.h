@@ -543,6 +543,7 @@ public:
   COUNTER(upstream_cx_connect_attempts_exceeded)                                                   \
   COUNTER(upstream_cx_connect_fail)                                                                \
   COUNTER(upstream_cx_connect_timeout)                                                             \
+  COUNTER(upstream_cx_connect_with_0_rtt)                                                          \
   COUNTER(upstream_cx_destroy)                                                                     \
   COUNTER(upstream_cx_destroy_local)                                                               \
   COUNTER(upstream_cx_destroy_local_with_active_rq)                                                \
@@ -553,6 +554,7 @@ public:
   COUNTER(upstream_cx_http2_total)                                                                 \
   COUNTER(upstream_cx_http3_total)                                                                 \
   COUNTER(upstream_cx_idle_timeout)                                                                \
+  COUNTER(upstream_cx_max_duration_reached)                                                        \
   COUNTER(upstream_cx_max_requests)                                                                \
   COUNTER(upstream_cx_none_healthy)                                                                \
   COUNTER(upstream_cx_overflow)                                                                    \
@@ -743,6 +745,11 @@ public:
    * @return the idle timeout for upstream connection pool connections.
    */
   virtual const absl::optional<std::chrono::milliseconds> idleTimeout() const PURE;
+
+  /**
+   * @return optional maximum connection duration timeout for manager connections.
+   */
+  virtual const absl::optional<std::chrono::milliseconds> maxConnectionDuration() const PURE;
 
   /**
    * @return how many streams should be anticipated per each current stream.
@@ -994,6 +1001,11 @@ public:
    * computations until they have been health checked for the first time.
    */
   virtual bool warmHosts() const PURE;
+
+  /**
+   * @return true if this cluster is configured to set local interface name on upstream connections.
+   */
+  virtual bool setLocalInterfaceNameOnUpstreamConnections() const PURE;
 
   /**
    * @return eds cluster service_name of the cluster.

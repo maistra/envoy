@@ -29,13 +29,14 @@ bool StringSanMatcher::match(const GENERAL_NAME* general_name) const {
              : matcher_.match(san);
 }
 
+
 SanMatcherPtr createStringSanMatcher(
     envoy::extensions::transport_sockets::tls::v3::SubjectAltNameMatcher const& matcher) {
   // Verify that a new san type has not been added.
   static_assert(envoy::extensions::transport_sockets::tls::v3::SubjectAltNameMatcher::SanType_MAX ==
                 4);
-
   switch (matcher.san_type()) {
+    PANIC_ON_PROTO_ENUM_SENTINEL_VALUES;
   case envoy::extensions::transport_sockets::tls::v3::SubjectAltNameMatcher::DNS:
     return SanMatcherPtr{std::make_unique<StringSanMatcher>(GEN_DNS, matcher.matcher())};
   case envoy::extensions::transport_sockets::tls::v3::SubjectAltNameMatcher::EMAIL:
@@ -44,9 +45,10 @@ SanMatcherPtr createStringSanMatcher(
     return SanMatcherPtr{std::make_unique<StringSanMatcher>(GEN_URI, matcher.matcher())};
   case envoy::extensions::transport_sockets::tls::v3::SubjectAltNameMatcher::IP_ADDRESS:
     return SanMatcherPtr{std::make_unique<StringSanMatcher>(GEN_IPADD, matcher.matcher())};
-  default:
-    NOT_REACHED_GCOVR_EXCL_LINE;
+  case envoy::extensions::transport_sockets::tls::v3::SubjectAltNameMatcher::SAN_TYPE_UNSPECIFIED:
+    PANIC("unhandled value");
   }
+  return nullptr;
 }
 
 } // namespace Tls

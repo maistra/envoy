@@ -11,6 +11,7 @@ ALS
 AMZ
 APC
 API
+ARRAYSIZE
 ARN
 ASAN
 ASCII
@@ -20,9 +21,11 @@ ASSERTs
 AST
 AWS
 BACKTRACE
+BBR
 BSON
 BPF
 Repick
+TRA
 btree
 CAS
 CB
@@ -30,7 +33,9 @@ cbor
 CDN
 CDS
 CEL
+CWND
 DSR
+DSS
 EBADF
 ENOTCONN
 EPIPE
@@ -128,6 +133,9 @@ FQDN
 FREEBIND
 FUZZER
 FUZZERS
+dereferencing
+differentially
+dnsresolvers
 guarddog
 GC
 GCC
@@ -145,7 +153,6 @@ GSS
 GTEST
 GURL
 Grabbit
-Hashable
 HC
 HCM
 HDS
@@ -156,6 +163,7 @@ HTML
 HTTP
 HTTPS
 HV
+Hyperscan
 IAM
 IANA
 IDL
@@ -203,6 +211,7 @@ MD
 MERCHANTABILITY
 Merkle
 MGET
+MPTCP
 MQ
 MSDN
 MSET
@@ -233,6 +242,8 @@ Nilsson
 Nonhashable
 Oauth
 OCSP
+OD
+ODCDS
 OID
 OK
 OOM
@@ -247,11 +258,13 @@ OVFL
 PAYLOADLEN
 PB
 PCC
+PCRE
 PEERCRED
 PEM
 PERF
 PGV
 PID
+PKCS12
 PKTINFO
 PNG
 Pointwise
@@ -290,6 +303,7 @@ RTDS
 RTOS
 RTTI
 RUNDIR
+RVCM
 RW
 RX
 RXQ
@@ -311,6 +325,7 @@ SIGINT
 SIGPIPE
 SIGSEGV
 SIGTERM
+SIO
 SMTP
 SNI
 SOTW
@@ -329,6 +344,7 @@ STDSTRING
 STL
 STRLEN
 STS
+SUBCOMMAND
 SVG
 SVID
 SXG
@@ -366,6 +382,7 @@ UUID
 UUIDs
 VC
 VCHAR
+VCL
 VH
 VHDS
 VLOG
@@ -396,6 +413,7 @@ absl
 accesslog
 accessor
 accessors
+acked
 ackless
 acks
 acls
@@ -436,6 +454,7 @@ authlen
 authn
 auths
 authz
+automata
 autoscale
 backend
 backends
@@ -573,6 +592,7 @@ dedup
 dedupe
 deduplicate
 deduplicates
+deduplication
 deflater
 deletable
 deleter
@@ -635,6 +655,7 @@ evbuffer
 evbuffers
 evconnlistener
 evented
+eventfd
 evwatch
 exe
 execlp
@@ -699,6 +720,7 @@ handshaker
 hardcoded
 hardcodes
 hardcoding
+hashable
 hasher
 hashtagging
 hd
@@ -732,6 +754,7 @@ inflater
 inflight
 -ing
 init
+initialize
 initializer
 initializers
 inlined
@@ -745,6 +768,7 @@ interpretable
 intra
 ints
 invariance
+invoker
 iovec
 iovecs
 ips
@@ -765,6 +789,7 @@ keyder
 kqueue
 kubernetes
 kv
+kvlist
 kvs
 lala
 latencies
@@ -814,6 +839,7 @@ megamiss
 mem
 memcmp
 memcpy
+memset
 memoize
 mergeable
 messagename
@@ -840,6 +866,7 @@ multi
 multicast
 multikill
 multimap
+multiple
 multivalue
 mutator
 mutex
@@ -857,6 +884,7 @@ nan
 nanos
 natively
 ndk
+negative
 netblock
 netblocks
 netfilter
@@ -993,6 +1021,7 @@ ratelimited
 ratelimiter
 rawseti
 rc
+rdsone
 readded
 readonly
 readv
@@ -1002,6 +1031,7 @@ rebalancer
 rebalancing
 rebuffer
 rebuilder
+receival
 reconnection
 recurse
 recv
@@ -1071,6 +1101,7 @@ rver
 rxhash
 sandboxed
 sanitization
+sanitizations
 sanitizer
 satisfiable
 scalability
@@ -1097,6 +1128,7 @@ siginfo
 signalstack
 siloed
 sim
+sinked
 sizeof
 smatch
 snapshotted
@@ -1112,6 +1144,7 @@ spdlog
 splitter
 spoofable
 src
+srtt
 ssize
 stackdriver
 stacktrace
@@ -1150,11 +1183,13 @@ subnets
 suboptimal
 subsecond
 subseconds
+subsegment
 subsequence
 subsetting
 substr
 substring
 substrings
+subtree
 subtrees
 subtype
 subtypes
@@ -1208,6 +1243,7 @@ transcoded
 transcoder
 transcoding
 transferral
+trds
 triaged
 trie
 tuple
@@ -1228,6 +1264,7 @@ underflowing
 unfreed
 unicast
 unicode
+unicodes
 unindexed
 uninstantiated
 uniq
@@ -1294,6 +1331,7 @@ zag
 zig
 zipkin
 zlib
+zstd
 OBQ
 SemVer
 SCM
@@ -1304,3 +1342,11 @@ crlf
 ep
 suri
 transid
+routable
+vhosts
+infos
+ElastiCache
+pinterest
+NSS
+SSLKEYLOGFILE
+

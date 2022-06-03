@@ -45,12 +45,20 @@ public:
       copy->setMethodName(methodName());
     }
 
+    if (hasHeaderFlags()) {
+      copy->setHeaderFlags(headerFlags());
+    }
+
     if (hasSequenceId()) {
       copy->setSequenceId(sequenceId());
     }
 
     if (hasMessageType()) {
       copy->setMessageType(messageType());
+    }
+
+    if (hasReplyType()) {
+      copy->setReplyType(replyType());
     }
 
     Http::HeaderMapImpl::copyFrom(copy->headers(), headers());
@@ -107,6 +115,10 @@ public:
   const std::string& methodName() const { return method_name_.value(); }
   void setMethodName(const std::string& method_name) { method_name_ = method_name; }
 
+  bool hasHeaderFlags() const { return header_flags_.has_value(); }
+  int16_t headerFlags() const { return header_flags_.value(); }
+  void setHeaderFlags(int16_t header_flags) { header_flags_ = header_flags; }
+
   bool hasSequenceId() const { return seq_id_.has_value(); }
   int32_t sequenceId() const { return seq_id_.value(); }
   void setSequenceId(int32_t seq_id) { seq_id_ = seq_id; }
@@ -114,6 +126,10 @@ public:
   bool hasMessageType() const { return msg_type_.has_value(); }
   MessageType messageType() const { return msg_type_.value(); }
   void setMessageType(MessageType msg_type) { msg_type_ = msg_type; }
+
+  bool hasReplyType() const { return reply_type_.has_value(); }
+  ReplyType replyType() const { return reply_type_.value(); }
+  void setReplyType(ReplyType reply_type) { reply_type_ = reply_type; }
 
   /**
    * @return HeaderMap of current headers (never throws)
@@ -144,6 +160,9 @@ public:
     protocol_upgrade_message_ = upgrade_message;
   }
 
+  bool isDraining() const { return is_draining_; }
+  void setDraining(bool draining) { is_draining_ = draining; }
+
   absl::optional<int64_t> traceId() const { return trace_id_; }
   void setTraceId(int64_t trace_id) { trace_id_ = trace_id; }
 
@@ -166,12 +185,15 @@ private:
   absl::optional<uint32_t> frame_size_{};
   absl::optional<ProtocolType> proto_{};
   absl::optional<std::string> method_name_{};
+  absl::optional<int16_t> header_flags_{};
   absl::optional<int32_t> seq_id_{};
   absl::optional<MessageType> msg_type_{};
+  absl::optional<ReplyType> reply_type_{};
   Http::HeaderMapPtr headers_{Http::RequestHeaderMapImpl::create()};
   absl::optional<AppExceptionType> app_ex_type_;
   absl::optional<std::string> app_ex_msg_;
   bool protocol_upgrade_message_{false};
+  bool is_draining_{false};
   SpanList spans_;
   absl::optional<int64_t> trace_id_;
   absl::optional<int64_t> trace_id_high_;
@@ -191,6 +213,7 @@ public:
   const Http::LowerCaseString ClientId{":client-id"};
   const Http::LowerCaseString Dest{":dest"};
   const Http::LowerCaseString MethodName{":method-name"};
+  const Http::LowerCaseString Drain{":drain"};
 };
 using Headers = ConstSingleton<HeaderValues>;
 

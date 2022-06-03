@@ -48,6 +48,29 @@ RouteEntryImplBase::RouteEntryImplBase(
   }
 }
 
+// Similar validation procedure with Envoy::Router::RouteEntryImplBase::validateCluster
+void RouteEntryImplBase::validateClusters(
+    const Upstream::ClusterManager::ClusterInfoMaps& cluster_info_maps) const {
+  // Currently, we verify that the cluster exists in the CM if we have an explicit cluster or
+  // weighted cluster rule. We obviously do not verify a cluster_header rule. This means that
+  // trying to use all CDS clusters with a static route table will not work. In the upcoming RDS
+  // change we will make it so that dynamically loaded route tables do *not* perform CM checks.
+  // In the future we might decide to also have a config option that turns off checks for static
+  // route tables. This would enable the all CDS with static route table case.
+  if (!cluster_name_.empty()) {
+    if (!cluster_info_maps.hasCluster(cluster_name_)) {
+      throw EnvoyException(fmt::format("route: unknown thrift cluster '{}'", cluster_name_));
+    }
+  } else if (!weighted_clusters_.empty()) {
+    for (const WeightedClusterEntrySharedPtr& cluster : weighted_clusters_) {
+      if (!cluster_info_maps.hasCluster(cluster->clusterName())) {
+        throw EnvoyException(
+            fmt::format("route: unknown thrift weighted cluster '{}'", cluster->clusterName()));
+      }
+    }
+  }
+}
+
 std::vector<std::shared_ptr<RequestMirrorPolicy>> RouteEntryImplBase::buildMirrorPolicies(
     const envoy::extensions::filters::network::thrift_proxy::v3::RouteAction& route) {
   std::vector<std::shared_ptr<RequestMirrorPolicy>> policies{};
@@ -169,20 +192,37 @@ RouteConstSharedPtr ServiceNameRouteEntryImpl::matches(const MessageMetadata& me
 }
 
 RouteMatcher::RouteMatcher(
-    const envoy::extensions::filters::network::thrift_proxy::v3::RouteConfiguration& config) {
+    const envoy::extensions::filters::network::thrift_proxy::v3::RouteConfiguration& config,
+    const absl::optional<Upstream::ClusterManager::ClusterInfoMaps>& validation_clusters) {
   using envoy::extensions::filters::network::thrift_proxy::v3::RouteMatch;
 
   for (const auto& route : config.routes()) {
+    RouteEntryImplBaseConstSharedPtr route_entry;
     switch (route.match().match_specifier_case()) {
     case RouteMatch::MatchSpecifierCase::kMethodName:
-      routes_.emplace_back(new MethodNameRouteEntryImpl(route));
+      route_entry = std::make_shared<MethodNameRouteEntryImpl>(route);
       break;
     case RouteMatch::MatchSpecifierCase::kServiceName:
-      routes_.emplace_back(new ServiceNameRouteEntryImpl(route));
+      route_entry = std::make_shared<ServiceNameRouteEntryImpl>(route);
       break;
-    default:
-      NOT_REACHED_GCOVR_EXCL_LINE;
+    case RouteMatch::MatchSpecifierCase::MATCH_SPECIFIER_NOT_SET:
+      PANIC_DUE_TO_CORRUPT_ENUM;
     }
+
+    if (validation_clusters) {
+      // Throw exception for unknown clusters.
+      route_entry->validateClusters(*validation_clusters);
+
+      for (const auto& mirror_policy : route_entry->requestMirrorPolicies()) {
+        if (!validation_clusters->hasCluster(mirror_policy->clusterName())) {
+          throw EnvoyException(fmt::format("route: unknown thrift shadow cluster '{}'",
+                                           mirror_policy->clusterName()));
+        }
+      }
+    }
+
+    // Now we pass the validation. Add the route to the table.
+    routes_.emplace_back(route_entry);
   }
 }
 
@@ -236,7 +276,7 @@ FilterStatus Router::messageBegin(MessageMetadataSharedPtr metadata) {
   route_ = callbacks_->route();
   if (!route_) {
     ENVOY_STREAM_LOG(debug, "no route match for method '{}'", *callbacks_, metadata->methodName());
-    stats().route_missing_.inc();
+    stats().named_.route_missing_.inc();
     callbacks_->sendLocalReply(
         AppException(AppExceptionType::UnknownMethod,
                      fmt::format("no route for method '{}'", metadata->methodName())),
@@ -294,7 +334,7 @@ FilterStatus Router::messageEnd() {
   ProtocolConverter::messageEnd();
   const auto encode_size = upstream_request_->encodeAndWrite(upstream_request_buffer_);
   addSize(encode_size);
-  recordUpstreamRequestSize(*cluster_, request_size_);
+  stats().recordUpstreamRequestSize(*cluster_, request_size_);
 
   // Dispatch shadow requests, if any.
   // Note: if connections aren't ready, the write will happen when appropriate.

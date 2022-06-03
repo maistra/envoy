@@ -19,6 +19,7 @@
 #include "test/fuzz/fuzz_runner.h"
 #include "test/test_common/environment.h"
 #include "test/test_common/utility.h"
+#include "test/test_listener.h"
 
 #include "absl/debugging/symbolize.h"
 
@@ -56,7 +57,6 @@ INSTANTIATE_TEST_SUITE_P(CorpusExamples, FuzzerCorpusTest, testing::ValuesIn(tes
 
 int main(int argc, char** argv) {
   Envoy::TestEnvironment::initializeTestMain(argv[0]);
-  Envoy::Thread::TestThread test_thread;
 
   // Expected usage: <test path> <corpus paths..> [other gtest flags]
   RELEASE_ASSERT(argc >= 2, "");
@@ -87,6 +87,9 @@ int main(int argc, char** argv) {
     argv[i] = argv[i + input_args];
   }
 
+  // Make sure flags are restored. Fuzz tests do not pass the singleton checks.
+  ::testing::TestEventListeners& listeners = ::testing::UnitTest::GetInstance()->listeners();
+  listeners.Append(new Envoy::TestListener(false));
   testing::InitGoogleTest(&argc, argv);
   testing::InitGoogleMock(&argc, argv);
   Envoy::Fuzz::Runner::setupEnvironment(argc, argv, spdlog::level::info);
