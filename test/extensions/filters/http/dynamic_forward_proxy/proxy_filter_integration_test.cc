@@ -279,10 +279,12 @@ TEST_P(ProxyFilterIntegrationTest, RequestWithUnknownDomain) {
   auto response = codec_client_->makeHeaderOnlyRequest(default_request_headers_);
   ASSERT_TRUE(response->waitForEndStream());
   EXPECT_EQ("503", response->headers().getStatusValue());
-  // Manage several possible error strings
-  ASSERT_TRUE(
-    waitForAccessLog(access_log_name_).find("connection_failure")     != std::string::npos ||
-    waitForAccessLog(access_log_name_).find("dns_resolution_failure") != std::string::npos);
+  EXPECT_THAT(waitForAccessLog(access_log_name_), HasSubstr("dns_resolution_failure"));
+
+  response = codec_client_->makeHeaderOnlyRequest(default_request_headers_);
+  ASSERT_TRUE(response->waitForEndStream());
+  EXPECT_EQ("503", response->headers().getStatusValue());
+  EXPECT_THAT(waitForAccessLog(access_log_name_), HasSubstr("dns_resolution_failure"));
 }
 
 // Verify that after we populate the cache and reload the cluster we reattach to the cache with
