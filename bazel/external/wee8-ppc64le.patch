@@ -4,7 +4,7 @@
  
    if (is_clang) {
      cflags += [ "-Wmissing-field-initializers" ]
-+    if (v8_current_cpu == "ppc64le") {
++    if (v8_current_cpu == "ppc64") {
 +      cflags += [
 +        "-fno-integrated-as",
 +        "-Wno-unreachable-code",
