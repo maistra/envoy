@@ -1,11 +1,11 @@
 # FIXME: https://issues.redhat.com/browse/OSSM-1201
 build --cxxopt -w
 
-build --copt -DOPENSSL_IS_BORINGSSL=0
+build --copt -DOPENSSL_IS_BORINGSSL=0 
 build --verbose_failures
 
 # Arch-specific build flags, triggered with --config=$ARCH in bazel build command
 build:x86_64 --linkopt=-fuse-ld=lld
 build:s390x --//source/extensions/filters/common/lua:luajit2=1 --copt="-Wno-deprecated-declarations" --linkopt=-fuse-ld=gold
-build:ppc64le --//source/extensions/filters/common/lua:luajit2=1 --linkopt=-fuse-ld=lld
+build:ppc --//source/extensions/filters/common/lua:luajit2=1 --linkopt=-fuse-ld=lld --copt -DPPC64LE_ARCH
 build:aarch64 --linkopt=-fuse-ld=lld

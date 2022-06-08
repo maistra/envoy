@@ -464,7 +464,11 @@ void DefaultCertValidator::addClientValidationContext(SSL_CTX* ctx, bool require
     // OpenSSL can also return -1, for example on sk_find calls in an empty list
     // COnflict with openssl and BoringSSL hence commented below line TODO
 #ifdef PPC64LE_ARCH
-      continue;	
+    if (sk_X509_NAME_find(list.get(), nullptr, name) == 1) {
+
+                continue;
+      }
+
 #else      
     	if (sk_X509_NAME_find(list.get(), nullptr, name) == 1) {
     	if (sk_X509_NAME_find(list.get(), name) == 1) {
