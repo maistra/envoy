@@ -5,7 +5,6 @@
 #include <functional>
 #include <string>
 #include <vector>
-#include <sys/utsname.h>
 
 #include "envoy/network/transport_socket.h"
 #include "envoy/ssl/context.h"
@@ -437,9 +436,6 @@ void DefaultCertValidator::addClientValidationContext(SSL_CTX* ctx, bool require
     return;
   }
 
-  struct utsname uts;
-  uname(&uts);
-  std::string ppc64le_arch("ppc64le");
   bssl::UniquePtr<BIO> bio(
       BIO_new_mem_buf(const_cast<char*>(config_->caCert().data()), config_->caCert().size()));
   RELEASE_ASSERT(bio != nullptr, "");
@@ -463,7 +459,9 @@ void DefaultCertValidator::addClientValidationContext(SSL_CTX* ctx, bool require
     // Note that BoringSSL call only returns 0 or 1.
     // OpenSSL can also return -1, for example on sk_find calls in an empty list
     if (sk_X509_NAME_find(list.get(), nullptr, name) == 1) {
+	    if (sk_X509_NAME_find(list.get(),  name) == 1) {
                 continue;
+	    }
       }
 
     bssl::UniquePtr<X509_NAME> name_dup(X509_NAME_dup(name));
