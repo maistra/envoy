@@ -829,7 +829,7 @@ def _com_googlesource_chromium_v8():
         build_file = "@envoy//bazel/external:wee8.BUILD",
         patches = [
             "@envoy//bazel/external:wee8.patch",
-            "@envoy//bazel/external:wee8-ppc64le.patch",
+            "@envoy//bazel/external:wee8-ppc64le-s390x.patch",
         ],
     )
     native.bind(
