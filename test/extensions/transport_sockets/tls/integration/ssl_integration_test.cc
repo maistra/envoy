@@ -113,7 +113,7 @@ TEST_P(SslIntegrationTest, DISABLED_UnknownSslAlert) {
           ->ssl();
   ASSERT_EQ(connection->state(), Network::Connection::State::Open);
   ASSERT_NE(ssl, nullptr);
-  SSL_send_fatal_alert(ssl, 255);
+  // SSL_send_fatal_alert(ssl, 255);
   while (!callbacks.closed()) {
     dispatcher_->run(Event::Dispatcher::RunType::NonBlock);
   }
