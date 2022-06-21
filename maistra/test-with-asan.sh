@@ -20,13 +20,10 @@ DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source "$DIR/common.sh"
 
 SANITIZER=${SANITIZER:-asan}
-BAZEL_TESTS=${1:-//test/...}
+BAZEL_TESTS=${@:-//test/...}
 
 FLAGS="${COMMON_FLAGS} \
   --config=clang-${SANITIZER} \
-  --build_tests_only \
-  --test_env=ENVOY_IP_TEST_VERSIONS=v4only \
-  --test_output=all \
   ${BAZEL_TESTS} \
 "
 

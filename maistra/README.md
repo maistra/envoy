@@ -69,22 +69,21 @@ This will build Envoy and check that all tests pass. When this succeeds, general
 Our build flows support executing Envoy's test suite with [sanitizers](https://github.com/google/sanitizers) enabled.
 This allows one to test for memory leaks, undefined behaviour, data races, and so on.
 The easiest way to get started is to execute the examples below in the docker image pointed out above.
-We pass `CI_CONFIG=0` in this example to avoid applying some CI-specific configuration.
+We wipe the `CI` environment variable in this example to stop bazel from applying CI-specific configuration.
 
 ```sh
 # Test for undefined behaviour / leaks
-CI_CONFIG=0  maistra/test-with-asan.sh //test/common/common:base64_test
-
+CI=  maistra/test-with-asan.sh //test/common/common:base64_test
  ```
 
 ```sh
 # Test for potential data races and deadlocks
-CI_CONFIG=0  maistra/test-with-tsan.sh //test/common/common:base64_test
+CI=  maistra/test-with-tsan.sh //test/common/common:base64_test
 ```
 
 ```sh
 # Test for uninitialized memory access
-CI_CONFIG=0 maistra/test-with-msan.sh //test/common/common:base64_test
+CI= maistra/test-with-msan.sh //test/common/common:base64_test
 ```
 
 ## New versions

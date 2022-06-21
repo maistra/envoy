@@ -23,3 +23,6 @@ build:ci-config --jobs=3
 
 # Colored ouput messes with some of the logging systems in CI, so we disable that.
 build:ci-config --color=no
+
+build:ci-config --test_output=all
+build:ci-config --test_env=ENVOY_IP_TEST_VERSIONS=v4only

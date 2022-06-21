@@ -15,7 +15,5 @@ bazel-bin/source/exe/envoy-static --version
 time bazel test \
   ${COMMON_FLAGS} \
   --build_tests_only \
-  --test_env=ENVOY_IP_TEST_VERSIONS=v4only \
-  --test_output=all \
   //test/...
 

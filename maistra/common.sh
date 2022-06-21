@@ -14,13 +14,12 @@ export ARCH
 
 export BUILD_SCM_REVISION="Maistra PR #${PULL_NUMBER:-undefined}"
 export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
-export CI_CONFIG=${CI_CONFIG:-1}
 
 COMMON_FLAGS="\
     --config=${ARCH} \
 "
-if [ "${CI_CONFIG}" -eq "1" ]; then
-  COMMON_FLAGS+=" --config=ci-config "  
+if [ -n "${CI}" ]; then
+  COMMON_FLAGS+=" --config=ci-config " 
 fi
 
 if [ -n "${BAZEL_REMOTE_CACHE}" ]; then
