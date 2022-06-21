@@ -12,9 +12,9 @@
 # to specify other sanitizers, as support in our bazel setup. 
 # As of writing this, known valid values are "tsan" and "msan".
 
-# Lastly, when running this in development flows, one might want to set BAZEL_CONFIG=
+# Lastly, when running this in development flows, one might want to set CI=
 # Doing so wipes ci-specific settings, which amongst other things unthrottles the build
-# to use all the available memoruy and cpu resources.
+# to use all the available memory and cpu resources.
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source "$DIR/common.sh"
@@ -24,11 +24,14 @@ BAZEL_TESTS=${@:-//test/...}
 
 FLAGS="${COMMON_FLAGS} \
   --config=clang-${SANITIZER} \
+  -c dbg \
   ${BAZEL_TESTS} \
 "
 
-echo "Build tests with ${SANITIZER:asan} enabled."
+# We build and test in separate steps as in the past that has been observed to help
+# stabilize the build as well as test execution.
+echo "Build tests with ${SANITIZER} enabled."
 time bazel build $FLAGS
   
-echo "Execute tests with ${SANITIZER:asan} enabled."
+echo "Execute tests with ${SANITIZER} enabled."
 time bazel test $FLAGS

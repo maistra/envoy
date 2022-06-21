@@ -12,9 +12,6 @@ if [ "${ARCH}" = "ppc64le" ]; then
 fi
 export ARCH
 
-export BUILD_SCM_REVISION="Maistra PR #${PULL_NUMBER:-undefined}"
-export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
-
 COMMON_FLAGS="\
     --config=${ARCH} \
 "
