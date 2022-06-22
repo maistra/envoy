@@ -12,10 +12,6 @@
 # to specify other sanitizers, as support in our bazel setup. 
 # As of writing this, known valid values are "tsan" and "msan".
 
-# Lastly, when running this in development flows, one might want to set CI=
-# Doing so wipes ci-specific settings, which amongst other things unthrottles the build
-# to use all the available memory and cpu resources.
-
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source "$DIR/common.sh"
 
