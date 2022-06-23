@@ -374,7 +374,7 @@ void testUtil(const TestUtilOptions& options) {
                                                    client_stats_store);
   Network::ClientConnectionPtr client_connection = dispatcher->createClientConnection(
       socket->connectionInfoProvider().localAddress(), Network::Address::InstanceConstSharedPtr(),
-      client_ssl_socket_factory.createTransportSocket(nullptr), nullptr);
+      client_ssl_socket_factory.createTransportSocket(nullptr, nullptr), nullptr);
   Network::ConnectionPtr server_connection;
   Network::MockConnectionCallbacks server_connection_callbacks;
   NiceMock<StreamInfo::MockStreamInfo> stream_info;
@@ -710,7 +710,8 @@ void testUtilV2(const TestUtilOptionsV2& options) {
                                                    client_stats_store);
   Network::ClientConnectionPtr client_connection = dispatcher->createClientConnection(
       socket->connectionInfoProvider().localAddress(), Network::Address::InstanceConstSharedPtr(),
-      client_ssl_socket_factory.createTransportSocket(options.transportSocketOptions()), nullptr);
+      client_ssl_socket_factory.createTransportSocket(options.transportSocketOptions(), nullptr),
+      nullptr);
 
   if (!options.clientSession().empty()) {
     const SslHandshakerImpl* ssl_socket =
@@ -2652,7 +2653,7 @@ TEST_P(SslSocketTest, HalfClose) {
                                                    client_stats_store);
   Network::ClientConnectionPtr client_connection = dispatcher_->createClientConnection(
       socket->connectionInfoProvider().localAddress(), Network::Address::InstanceConstSharedPtr(),
-      client_ssl_socket_factory.createTransportSocket(nullptr), nullptr);
+      client_ssl_socket_factory.createTransportSocket(nullptr, nullptr), nullptr);
   client_connection->enableHalfClose(true);
   client_connection->addReadFilter(client_read_filter);
   client_connection->connect();
@@ -2734,7 +2735,7 @@ TEST_P(SslSocketTest, ShutdownWithCloseNotify) {
                                                    client_stats_store);
   Network::ClientConnectionPtr client_connection = dispatcher_->createClientConnection(
       socket->connectionInfoProvider().localAddress(), Network::Address::InstanceConstSharedPtr(),
-      client_ssl_socket_factory.createTransportSocket(nullptr), nullptr);
+      client_ssl_socket_factory.createTransportSocket(nullptr, nullptr), nullptr);
   Network::MockConnectionCallbacks client_connection_callbacks;
   client_connection->enableHalfClose(true);
   client_connection->addReadFilter(client_read_filter);
@@ -2822,7 +2823,7 @@ TEST_P(SslSocketTest, ShutdownWithoutCloseNotify) {
                                                    client_stats_store);
   Network::ClientConnectionPtr client_connection = dispatcher_->createClientConnection(
       socket->connectionInfoProvider().localAddress(), Network::Address::InstanceConstSharedPtr(),
-      client_ssl_socket_factory.createTransportSocket(nullptr), nullptr);
+      client_ssl_socket_factory.createTransportSocket(nullptr, nullptr), nullptr);
   Network::MockConnectionCallbacks client_connection_callbacks;
   client_connection->enableHalfClose(true);
   client_connection->addReadFilter(client_read_filter);
@@ -2928,7 +2929,7 @@ TEST_P(SslSocketTest, ClientAuthMultipleCAs) {
   ClientSslSocketFactory ssl_socket_factory(std::move(client_cfg), manager, client_stats_store);
   Network::ClientConnectionPtr client_connection = dispatcher_->createClientConnection(
       socket->connectionInfoProvider().localAddress(), Network::Address::InstanceConstSharedPtr(),
-      ssl_socket_factory.createTransportSocket(nullptr), nullptr);
+      ssl_socket_factory.createTransportSocket(nullptr, nullptr), nullptr);
 
   // Verify that server sent list with 2 acceptable client certificate CA names.
   const SslHandshakerImpl* ssl_socket =
@@ -3027,7 +3028,7 @@ void testTicketSessionResumption(const std::string& server_ctx_yaml1,
   ClientSslSocketFactory ssl_socket_factory(std::move(client_cfg), manager, client_stats_store);
   Network::ClientConnectionPtr client_connection = dispatcher->createClientConnection(
       socket1->connectionInfoProvider().localAddress(), Network::Address::InstanceConstSharedPtr(),
-      ssl_socket_factory.createTransportSocket(nullptr), nullptr);
+      ssl_socket_factory.createTransportSocket(nullptr, nullptr), nullptr);
 
   Network::MockConnectionCallbacks client_connection_callbacks;
   client_connection->addConnectionCallbacks(client_connection_callbacks);
@@ -3070,7 +3071,7 @@ void testTicketSessionResumption(const std::string& server_ctx_yaml1,
 
   client_connection = dispatcher->createClientConnection(
       socket2->connectionInfoProvider().localAddress(), Network::Address::InstanceConstSharedPtr(),
-      ssl_socket_factory.createTransportSocket(nullptr), nullptr);
+      ssl_socket_factory.createTransportSocket(nullptr, nullptr), nullptr);
   client_connection->addConnectionCallbacks(client_connection_callbacks);
   const SslHandshakerImpl* ssl_socket =
       dynamic_cast<const SslHandshakerImpl*>(client_connection->ssl().get());
@@ -3167,8 +3168,8 @@ void testSupportForStatelessSessionResumption(const std::string& server_ctx_yaml
   ClientSslSocketFactory ssl_socket_factory(std::move(client_cfg), manager, client_stats_store);
   Network::ClientConnectionPtr client_connection = dispatcher->createClientConnection(
       tcp_socket->connectionInfoProvider().localAddress(),
-      Network::Address::InstanceConstSharedPtr(), ssl_socket_factory.createTransportSocket(nullptr),
-      nullptr);
+      Network::Address::InstanceConstSharedPtr(),
+      ssl_socket_factory.createTransportSocket(nullptr, nullptr), nullptr);
 
   Network::MockConnectionCallbacks client_connection_callbacks;
   client_connection->addConnectionCallbacks(client_connection_callbacks);
@@ -3772,7 +3773,7 @@ TEST_P(SslSocketTest, ClientAuthCrossListenerSessionResumption) {
   ClientSslSocketFactory ssl_socket_factory(std::move(client_cfg), manager, client_stats_store);
   Network::ClientConnectionPtr client_connection = dispatcher_->createClientConnection(
       socket->connectionInfoProvider().localAddress(), Network::Address::InstanceConstSharedPtr(),
-      ssl_socket_factory.createTransportSocket(nullptr), nullptr);
+      ssl_socket_factory.createTransportSocket(nullptr, nullptr), nullptr);
 
   Network::MockConnectionCallbacks client_connection_callbacks;
   client_connection->addConnectionCallbacks(client_connection_callbacks);
@@ -3814,7 +3815,7 @@ TEST_P(SslSocketTest, ClientAuthCrossListenerSessionResumption) {
 
   client_connection = dispatcher_->createClientConnection(
       socket2->connectionInfoProvider().localAddress(), Network::Address::InstanceConstSharedPtr(),
-      ssl_socket_factory.createTransportSocket(nullptr), nullptr);
+      ssl_socket_factory.createTransportSocket(nullptr, nullptr), nullptr);
   client_connection->addConnectionCallbacks(client_connection_callbacks);
   const SslHandshakerImpl* ssl_socket =
       dynamic_cast<const SslHandshakerImpl*>(client_connection->ssl().get());
@@ -3892,7 +3893,7 @@ void SslSocketTest::testClientSessionResumption(const std::string& server_ctx_ya
                                                    client_stats_store);
   Network::ClientConnectionPtr client_connection = dispatcher->createClientConnection(
       socket->connectionInfoProvider().localAddress(), Network::Address::InstanceConstSharedPtr(),
-      client_ssl_socket_factory.createTransportSocket(nullptr), nullptr);
+      client_ssl_socket_factory.createTransportSocket(nullptr, nullptr), nullptr);
 
   Network::MockConnectionCallbacks client_connection_callbacks;
   client_connection->addConnectionCallbacks(client_connection_callbacks);
@@ -3954,7 +3955,7 @@ void SslSocketTest::testClientSessionResumption(const std::string& server_ctx_ya
 
   client_connection = dispatcher->createClientConnection(
       socket->connectionInfoProvider().localAddress(), Network::Address::InstanceConstSharedPtr(),
-      client_ssl_socket_factory.createTransportSocket(nullptr), nullptr);
+      client_ssl_socket_factory.createTransportSocket(nullptr, nullptr), nullptr);
   client_connection->addConnectionCallbacks(client_connection_callbacks);
   client_connection->connect();
 
@@ -5163,7 +5164,7 @@ TEST_P(SslSocketTest, UpstreamNotReadySslSocket) {
 
   ContextManagerImpl manager(time_system_);
   ClientSslSocketFactory client_ssl_socket_factory(std::move(client_cfg), manager, stats_store);
-  auto transport_socket = client_ssl_socket_factory.createTransportSocket(nullptr);
+  auto transport_socket = client_ssl_socket_factory.createTransportSocket(nullptr, nullptr);
   EXPECT_EQ(EMPTY_STRING, transport_socket->protocol());
   EXPECT_EQ(nullptr, transport_socket->ssl());
   EXPECT_EQ(true, transport_socket->canFlushClose());
@@ -5195,7 +5196,7 @@ TEST_P(SslSocketTest, TestTransportSocketCallback) {
   ClientSslSocketFactory client_ssl_socket_factory(std::move(client_cfg), manager, stats_store);
 
   Network::TransportSocketPtr transport_socket =
-      client_ssl_socket_factory.createTransportSocket(nullptr);
+      client_ssl_socket_factory.createTransportSocket(nullptr, nullptr);
 
   SslSocket* ssl_socket = dynamic_cast<SslSocket*>(transport_socket.get());
 
@@ -5228,7 +5229,7 @@ protected:
 
     client_ssl_socket_factory_ = std::make_unique<ClientSslSocketFactory>(
         std::move(client_cfg), *manager_, client_stats_store_);
-    auto transport_socket = client_ssl_socket_factory_->createTransportSocket(nullptr);
+    auto transport_socket = client_ssl_socket_factory_->createTransportSocket(nullptr, nullptr);
     client_transport_socket_ = transport_socket.get();
     client_connection_ =
         dispatcher_->createClientConnection(socket_->connectionInfoProvider().localAddress(),
