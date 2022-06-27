@@ -392,7 +392,8 @@ std::vector<uint8_t> ContextImpl::parseAlpnProtocols(const std::string& alpn_pro
   return out;
 }
 
-bssl::UniquePtr<SSL> ContextImpl::newSsl(const Network::TransportSocketOptions*) {
+bssl::UniquePtr<SSL>
+ContextImpl::newSsl(const Network::TransportSocketOptionsConstSharedPtr& options) {
   // We use the first certificate for a new SSL object, later in the
   // SSL_CTX_set_select_certificate_cb() callback following ClientHello, we replace with the
   // selected certificate via SSL_set_SSL_CTX().
@@ -413,7 +414,7 @@ int ContextImpl::verifyCallback(X509_STORE_CTX* store_ctx, void* arg) {
       store_ctx,
       reinterpret_cast<Envoy::Ssl::SslExtendedSocketInfo*>(
           SSL_get_ex_data(ssl, ContextImpl::sslExtendedSocketInfoIndex())),
-      *cert, static_cast<const Network::TransportSocketOptions*>(SSL_get_app_data(ssl)));
+      *cert, transport_socket_options);
 }
 
 void ContextImpl::incCounter(const Stats::StatName name, absl::string_view value,
@@ -584,7 +585,8 @@ bool ContextImpl::parseAndSetAlpn(const std::vector<std::string>& alpn, SSL& ssl
   return false;
 }
 
-bssl::UniquePtr<SSL> ClientContextImpl::newSsl(const Network::TransportSocketOptions* options) {
+bssl::UniquePtr<SSL>
+ClientContextImpl::newSsl(const Network::TransportSocketOptionsConstSharedPtr& options) {
   bssl::UniquePtr<SSL> ssl_con(ContextImpl::newSsl(options));
 
   const std::string server_name_indication = options && options->serverNameOverride().has_value()
@@ -597,7 +599,6 @@ bssl::UniquePtr<SSL> ClientContextImpl::newSsl(const Network::TransportSocketOpt
   }
 
   if (options && !options->verifySubjectAltNameListOverride().empty()) {
-    SSL_set_app_data(ssl_con.get(), options);
     SSL_set_verify(ssl_con.get(), SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, nullptr);
   }
 
