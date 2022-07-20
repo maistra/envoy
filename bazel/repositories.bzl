@@ -274,11 +274,6 @@ def _openssl_includes():
         actual = "@com_github_openssl_openssl//:openssl_includes_lib",
     )
 
-#def _com_github_maistra_bssl_wrapper():
-#    native.bind(
-#        name = "bssl_wrapper_lib",
-#        actual = "@envoy//bssl_wrapper:bssl_wrapper_lib",
-#    )
 def _com_github_maistra_bssl_wrapper():
     external_http_archive(
         name = "com_github_maistra_bssl_wrapper",
