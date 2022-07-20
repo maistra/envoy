@@ -171,7 +171,8 @@ TEST_P(TlsInspectorIntegrationTest, ContinueOnListenerTimeout) {
 }
 
 // The `JA3` fingerprint is correct in the access log.
-TEST_P(TlsInspectorIntegrationTest, JA3FingerprintIsSet) {
+// FIXME https://issues.redhat.com/browse/OSSM-1803
+TEST_P(TlsInspectorIntegrationTest, DISABLED_JA3FingerprintIsSet) {
   // These TLS options will create a client hello message with
   // `JA3` fingerprint:
   //   `771,49199,23-65281-10-11-35-16-13,23,0`

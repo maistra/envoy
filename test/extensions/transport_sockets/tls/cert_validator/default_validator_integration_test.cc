@@ -50,7 +50,8 @@ INSTANTIATE_TEST_SUITE_P(
     SslCertValidatorIntegrationTest::ipClientVersionTestParamsToString);
 
 // Default case, certificate is accepted
-TEST_P(SslCertValidatorIntegrationTest, CertValidated) {
+// FIXME https://issues.redhat.com/browse/OSSM-1801
+TEST_P(SslCertValidatorIntegrationTest, DISABLED_CertValidated) {
   config_helper_.addSslConfig(ConfigHelper::ServerSslOptions()
                                   .setRsaCert(true)
                                   .setTlsV13(true)

@@ -6298,7 +6298,8 @@ filter_chains:
   EXPECT_CALL(*listener_foo_update1, onDestroy());
 }
 
-TEST_P(ListenerManagerImplTest, ListenSocketFactoryIsClonedFromListenerDrainingFilterChain) {
+// FIXME https://issues.redhat.com/browse/OSSM-1802
+TEST_P(ListenerManagerImplTest, DISABLED_ListenSocketFactoryIsClonedFromListenerDrainingFilterChain) {
   InSequence s;
 
   EXPECT_CALL(*worker_, start(_, _));
