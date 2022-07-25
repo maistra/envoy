@@ -960,8 +960,6 @@ void ConfigHelper::setPorts(const std::vector<uint32_t>& ports, bool override_po
     setConnectTimeout(std::chrono::seconds(5));
 #endif
   }
-
-  finalized_ = true;
 }
 
 void ConfigHelper::setSourceAddress(const std::string& address_string) {
