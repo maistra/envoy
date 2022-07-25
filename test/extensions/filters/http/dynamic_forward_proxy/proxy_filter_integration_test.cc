@@ -227,6 +227,12 @@ INSTANTIATE_TEST_SUITE_P(IpVersions, ProxyFilterIntegrationTest,
 // A basic test where we pause a request to lookup localhost, and then do another request which
 // should hit the TLS cache.
 TEST_P(ProxyFilterIntegrationTest, RequestWithBody) {
+  int64_t original_usec = dispatcher_->timeSource().monotonicTime().time_since_epoch().count();
+
+  config_helper_.prependFilter(fmt::format(R"EOF(
+  name: stream-info-to-headers-filter
+)EOF"));
+
   initializeWithArgs();
   codec_client_ = makeHttpConnection(lookupPort("http"));
   const Http::TestRequestHeaderMapImpl request_headers{
@@ -239,16 +245,25 @@ TEST_P(ProxyFilterIntegrationTest, RequestWithBody) {
   auto response =
       sendRequestAndWaitForResponse(request_headers, 1024, default_response_headers_, 1024);
   checkSimpleRequestSuccess(1024, 1024, response.get());
+  testConnectionTiming(response, false, original_usec);
   EXPECT_EQ(1, test_server_->counter("dns_cache.foo.dns_query_attempt")->value());
   EXPECT_EQ(1, test_server_->counter("dns_cache.foo.host_added")->value());
 
   // Now send another request. This should hit the DNS cache.
   response = sendRequestAndWaitForResponse(request_headers, 512, default_response_headers_, 512);
   checkSimpleRequestSuccess(512, 512, response.get());
+  testConnectionTiming(response, true, original_usec);
   EXPECT_EQ(1, test_server_->counter("dns_cache.foo.dns_query_attempt")->value());
   EXPECT_EQ(1, test_server_->counter("dns_cache.foo.host_added")->value());
-}
+  // Make sure dns timings are tracked for cache-hits.
+  ASSERT_FALSE(response->headers().get(Http::LowerCaseString("dns_start")).empty());
+  ASSERT_FALSE(response->headers().get(Http::LowerCaseString("dns_end")).empty());
 
+  const Extensions::TransportSockets::Tls::SslHandshakerImpl* ssl_socket =
+      dynamic_cast<const Extensions::TransportSockets::Tls::SslHandshakerImpl*>(
+          fake_upstream_connection_->connection().ssl().get());
+  EXPECT_STREQ("localhost", SSL_get_servername(ssl_socket->ssl(), TLSEXT_NAMETYPE_host_name));
+}
 
 // Currently if the first DNS resolution fails, the filter will continue with
 // a null address. Make sure this mode fails gracefully.
@@ -264,7 +279,8 @@ TEST_P(ProxyFilterIntegrationTest, RequestWithUnknownDomain) {
   auto response = codec_client_->makeHeaderOnlyRequest(default_request_headers_);
   ASSERT_TRUE(response->waitForEndStream());
   EXPECT_EQ("503", response->headers().getStatusValue());
-  EXPECT_THAT(waitForAccessLog(access_log_name_), HasSubstr("dns_resolution_failure"));
+  std::cout << waitForAccessLog(access_log_name_) << "\n";
+  EXPECT_THAT(waitForAccessLog(access_log_name_), HasSubstr("connection_failure"));
 }
 
 // Verify that after we populate the cache and reload the cluster we reattach to the cache with
