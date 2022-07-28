@@ -33,12 +33,12 @@ elif [ -n "${BAZEL_DISK_CACHE}" ]; then
 fi
 
 # Build
-time bazel build \
-  ${COMMON_FLAGS} \
-  //source/exe:envoy-static
+#time bazel build \
+#  ${COMMON_FLAGS} \
+#  //source/exe:envoy-static
 
-echo "Build succeeded. Binary generated:"
-bazel-bin/source/exe/envoy-static --version
+#echo "Build succeeded. Binary generated:"
+#bazel-bin/source/exe/envoy-static --version
 
 # Run tests
 time bazel test \
@@ -46,6 +46,5 @@ time bazel test \
   --build_tests_only \
   --test_env=ENVOY_IP_TEST_VERSIONS=v4only \
   --test_output=all \
-  //test/...
-
+  //test/extensions/transport_sockets/tcp_stats/...
 

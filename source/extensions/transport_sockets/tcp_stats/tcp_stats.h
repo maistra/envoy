@@ -12,6 +12,8 @@
 #include "source/common/common/logger.h"
 #include "source/extensions/transport_sockets/common/passthrough.h"
 
+#define LAST_TCP_INFO_FIELD_WE_USE tcpi_data_segs_out
+
 // Defined in /usr/include/linux/tcp.h.
 struct tcp_info;
 
