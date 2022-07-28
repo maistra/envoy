@@ -950,16 +950,6 @@ void ConfigHelper::setPorts(const std::vector<uint32_t>& ports, bool override_po
   }
   ASSERT(skip_port_usage_validation_ || port_idx == ports.size() || eds_hosts ||
          original_dst_cluster || custom_cluster || bootstrap_.dynamic_resources().has_cds_config());
-  if (!connect_timeout_set_) {
-#ifdef __APPLE__
-    // Set a high default connect timeout. Under heavy load (and in particular in CI), macOS
-    // connections can take inordinately long to complete.
-    setConnectTimeout(std::chrono::seconds(30));
-#else
-    // Set a default connect timeout.
-    setConnectTimeout(std::chrono::seconds(5));
-#endif
-  }
 }
 
 void ConfigHelper::setSourceAddress(const std::string& address_string) {
