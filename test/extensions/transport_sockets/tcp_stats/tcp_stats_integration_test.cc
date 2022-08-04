@@ -47,7 +47,7 @@ INSTANTIATE_TEST_SUITE_P(IpVersions, TcpStatsSocketIntegrationTest,
 // Verify that:
 // * Stats are in the correct scope/namespace.
 // * The syscall to get the data is producing meaningful results.
-TEST_P(TcpStatsSocketIntegrationTest, DISABLED_Basic) {
+TEST_P(TcpStatsSocketIntegrationTest, Basic) {
   initialize();
 
   auto begin = std::chrono::steady_clock::now(); // NO_CHECK_FORMAT(real_time)
