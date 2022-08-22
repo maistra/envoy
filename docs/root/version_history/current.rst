@@ -10,6 +10,7 @@ Minor Behavior Changes
 *Changes that may cause incompatibilities for some users, but should not for most*
 
 * cryptomb: remove RSA PKCS1 v1.5 padding support.
+* tls: removed RSA key transport and SHA-1 cipher suites from the client-side defaults.
 
 Bug Fixes
 ---------
