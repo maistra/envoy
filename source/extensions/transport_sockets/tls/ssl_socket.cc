@@ -195,6 +195,9 @@ void SslSocket::onSuccess(SSL* ssl) {
         ->upstreamTiming()
      
         .onUpstreamHandshakeComplete(callbacks_->connection().dispatcher().timeSource());
+  } else {
+    callbacks_->connection().streamInfo().downstreamTiming().onDownstreamHandshakeComplete(
+        callbacks_->connection().dispatcher().timeSource());
   }
 
   callbacks_->raiseEvent(Network::ConnectionEvent::Connected);
