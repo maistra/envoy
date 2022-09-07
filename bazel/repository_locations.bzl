@@ -26,6 +26,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/grailbio/bazel-compilation-database/archive/{version}.tar.gz"],
         release_date = "2021-09-10",
         use_category = ["build"],
+        license = "Apache-2.0",
+        license_url = "https://github.com/grailbio/bazel-compilation-database/blob/{version}/LICENSE",
     ),
     bazel_gazelle = dict(
         project_name = "Gazelle",
@@ -36,6 +38,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/bazelbuild/bazel-gazelle/releases/download/v{version}/bazel-gazelle-v{version}.tar.gz"],
         release_date = "2022-06-26",
         use_category = ["build"],
+        license = "Apache-2.0",
+        license_url = "https://github.com/bazelbuild/bazel-gazelle/blob/v{version}/LICENSE",
     ),
     bazel_toolchains = dict(
         project_name = "bazel-toolchains",
@@ -49,6 +53,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         ],
         release_date = "2021-11-30",
         use_category = ["build"],
+        license = "Apache-2.0",
+        license_url = "https://github.com/bazelbuild/bazel-toolchains/blob/v{version}/LICENSE",
     ),
     build_bazel_rules_apple = dict(
         project_name = "Apple Rules for Bazel",
@@ -59,6 +65,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/bazelbuild/rules_apple/releases/download/{version}/rules_apple.{version}.tar.gz"],
         release_date = "2022-06-17",
         use_category = ["build"],
+        license = "Apache-2.0",
+        license_url = "https://github.com/bazelbuild/rules_apple/blob/{version}/LICENSE",
     ),
     rules_fuzzing = dict(
         project_name = "Fuzzing Rules for Bazel",
@@ -75,6 +83,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
             # engine target from the CFLAGS/CXXFLAGS environment.
             "rules_fuzzing_oss_fuzz",
         ],
+        license = "Apache-2.0",
+        license_url = "https://github.com/bazelbuild/rules_fuzzing/blob/v{version}/LICENSE",
     ),
     envoy_build_tools = dict(
         project_name = "envoy-build-tools",
@@ -86,6 +96,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/envoyproxy/envoy-build-tools/archive/{version}.tar.gz"],
         release_date = "2022-08-26",
         use_category = ["build"],
+        license = "Apache-2.0",
+        license_url = "https://github.com/envoyproxy/envoy-build-tools/blob/{version}/LICENSE",
     ),
     com_github_openssl_openssl = dict(
         project_name = "openssl",
@@ -96,17 +108,18 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         strip_prefix = "openssl-894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596",
         urls = ["https://github.com/openssl/openssl/archive/894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596.tar.gz"],
         use_category = ["controlplane", "dataplane_core"],
-        release_date = "2019-09-10",
-        cpe = "N/A",
+        release_date = "2022-07-19",
+        cpe = "cpe:2.3:a:google:boringssl:*",
+        license = "Mixed",
+        license_url = "https://github.com/google/boringssl/blob/{version}/LICENSE",
     ),
-    com_github_maistra_bssl_wrapper = dict(
-        project_name = "BoringSSL compatibility layer",
-        project_desc = "Library providing compatibility with BoringSSL for OpenSSL-based applications",
-        project_url = "https://github.com/maistra/bssl_wrapper",
-        version = "4f68bbdb2859e7a0bba7692352323df6b0bfb9e5",
-        sha256 = "a34c91719a67c7a3a030f72b95afd205cc0a6fc56b0b5a29f12b66d5f3b6f515",
-        strip_prefix = "bssl_wrapper-4f68bbdb2859e7a0bba7692352323df6b0bfb9e5",
-        urls = ["https://github.com/maistra/bssl_wrapper/archive/4f68bbdb2859e7a0bba7692352323df6b0bfb9e5.tar.gz"],
+    boringssl_fips = dict(
+        project_name = "BoringSSL (FIPS)",
+        project_desc = "FIPS compliant BoringSSL",
+        project_url = "https://boringssl.googlesource.com/boringssl/+/master/crypto/fipsmodule/FIPS.md",
+        version = "fips-20190808",
+        sha256 = "3b5fdf23274d4179c2077b5e8fa625d9debd7a390aac1d165b7e47234f648bb8",
+        urls = ["https://commondatastorage.googleapis.com/chromium-boringssl-fips/boringssl-ae223d6138807a13006342edfeef32e813246b39.tar.xz"],
         use_category = ["controlplane", "dataplane_core"],
         cpe = "N/A",
         release_date = "2021-05-18",
@@ -122,6 +135,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["build"],
         release_date = "2022-08-12",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/aspect-build/bazel-lib/blob/v{version}/LICENSE",
     ),
     com_google_absl = dict(
         project_name = "Abseil",
@@ -134,6 +149,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_core", "controlplane"],
         release_date = "2022-07-05",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/abseil/abseil-cpp/blob/{version}/LICENSE",
     ),
     com_github_aignas_rules_shellcheck = dict(
         project_name = "Shellcheck rules for bazel",
@@ -146,6 +163,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         release_date = "2022-05-30",
         use_category = ["build"],
         cpe = "N/A",
+        license = "MIT",
+        license_url = "https://github.com/aignas/rules_shellcheck/blob/v{version}/LICENSE",
     ),
     com_github_axboe_liburing = dict(
         project_name = "liburing",
@@ -172,6 +191,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_core", "controlplane"],
         release_date = "2022-08-02",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/google/perfetto/blob/v{version}/LICENSE",
     ),
     com_github_c_ares_c_ares = dict(
         project_name = "c-ares",
@@ -184,6 +205,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_core", "controlplane"],
         release_date = "2021-10-27",
         cpe = "cpe:2.3:a:c-ares_project:c-ares:*",
+        license = "c-ares",
+        license_url = "https://github.com/c-ares/c-ares/blob/cares-{underscore_version}/LICENSE.md",
     ),
     com_github_circonus_labs_libcircllhist = dict(
         project_name = "libcircllhist",
@@ -196,6 +219,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["controlplane", "observability_core", "dataplane_core"],
         release_date = "2019-02-11",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/circonus-labs/libcircllhist/blob/{version}/LICENSE",
     ),
     com_github_cyan4973_xxhash = dict(
         project_name = "xxHash",
@@ -208,6 +233,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_core", "controlplane"],
         release_date = "2021-11-29",
         cpe = "N/A",
+        license = "BSD-2-Clause",
+        license_url = "https://github.com/Cyan4973/xxHash/blob/v{version}/LICENSE",
     ),
     com_github_envoyproxy_sqlparser = dict(
         project_name = "C++ SQL Parser Library",
@@ -224,6 +251,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         ],
         release_date = "2020-06-10",
         cpe = "N/A",
+        license = "MIT",
+        license_url = "https://github.com/envoyproxy/sql-parser/blob/{version}/LICENSE",
     ),
     com_github_mirror_tclap = dict(
         project_name = "tclap",
@@ -236,6 +265,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         release_date = "2021-11-01",
         use_category = ["other"],
         cpe = "cpe:2.3:a:tclap_project:tclap:*",
+        license = "MIT",
+        license_url = "https://github.com/mirror/tclap/blob/v{version}/COPYING",
     ),
     com_github_fmtlib_fmt = dict(
         project_name = "fmt",
@@ -248,6 +279,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_core", "controlplane"],
         release_date = "2022-01-06",
         cpe = "cpe:2.3:a:fmt:fmt:*",
+        license = "fmt",
+        license_url = "https://github.com/fmtlib/fmt/blob/{version}/LICENSE.rst",
     ),
     com_github_gabime_spdlog = dict(
         project_name = "spdlog",
@@ -260,6 +293,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_core", "controlplane"],
         release_date = "2021-08-12",
         cpe = "N/A",
+        license = "MIT",
+        license_url = "https://github.com/gabime/spdlog/blob/v{version}/LICENSE",
     ),
     com_github_google_libprotobuf_mutator = dict(
         project_name = "libprotobuf-mutator",
@@ -271,6 +306,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/google/libprotobuf-mutator/archive/v{version}.tar.gz"],
         release_date = "2020-11-13",
         use_category = ["test_only"],
+        license = "Apache-2.0",
+        license_url = "https://github.com/google/libprotobuf-mutator/blob/v{version}/LICENSE",
     ),
     com_github_google_libsxg = dict(
         project_name = "libsxg",
@@ -284,6 +321,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.filters.http.sxg"],
         release_date = "2021-07-08",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/google/libsxg/blob/{version}/LICENSE",
     ),
     com_github_google_tcmalloc = dict(
         project_name = "tcmalloc",
@@ -296,6 +335,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_core", "controlplane"],
         release_date = "2022-08-06",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/google/tcmalloc/blob/{version}/LICENSE",
     ),
     com_github_gperftools_gperftools = dict(
         project_name = "gperftools",
@@ -308,6 +349,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         release_date = "2022-05-31",
         use_category = ["dataplane_core", "controlplane"],
         cpe = "cpe:2.3:a:gperftools_project:gperftools:*",
+        license = "BSD-3-Clause",
+        license_url = "https://github.com/gperftools/gperftools/blob/gperftools-{version}/COPYING",
     ),
     com_github_grpc_grpc = dict(
         project_name = "gRPC",
@@ -320,6 +363,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_core", "controlplane"],
         release_date = "2022-08-18",
         cpe = "cpe:2.3:a:grpc:grpc:*",
+        license = "Apache-2.0",
+        license_url = "https://github.com/grpc/grpc/blob/v{version}/LICENSE",
     ),
     com_github_unicode_org_icu = dict(
         project_name = "ICU Library",
@@ -333,6 +378,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.filters.http.language"],
         release_date = "2022-04-06",
         cpe = "N/A",
+        license = "ICU",
+        license_url = "https://github.com/unicode-org/icu/blob/release-{version}/icu4c/LICENSE",
     ),
     com_github_intel_ipp_crypto_crypto_mb = dict(
         project_name = "libipp-crypto",
@@ -346,6 +393,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_ext"],
         extensions = ["envoy.tls.key_providers.cryptomb"],
         cpe = "cpe:2.3:a:intel:cryptography_for_intel_integrated_performance_primitives:*",
+        license = "Apache-2.0",
+        license_url = "https://github.com/intel/ipp-crypto/blob/ippcp_{version}/LICENSE",
     ),
     com_github_intel_qatlib = dict(
         project_name = "qatlib",
@@ -359,6 +408,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         release_date = "2021-11-10",
         extensions = ["envoy.tls.key_providers.qat"],
         cpe = "N/A",
+        license = "BSD-3-Clause",
+        license_url = "https://github.com/intel/qatlib/blob/{version}/LICENSE",
     ),
     com_github_luajit_luajit = dict(
         project_name = "LuaJIT",
@@ -374,6 +425,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_ext"],
         extensions = ["envoy.filters.http.lua"],
         cpe = "cpe:2.3:a:luajit:luajit:*",
+        license = "MIT",
+        license_url = "https://github.com/LuaJIT/LuaJIT/blob/{version}/COPYRIGHT",
     ),
     com_github_moonjit_moonjit = dict(
         project_name = "Moonjit",
@@ -387,6 +440,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.filters.http.lua"],
         release_date = "2020-01-14",
         cpe = "cpe:2.3:a:moonjit_project:moonjit:*",
+        license = "moonjit",
+        license_url = "https://github.com/moonjit/moonjit/blob/{version}/COPYRIGHT",
     ),
     com_github_luajit2_luajit2 = dict(
         project_name = "Luajit2",
@@ -412,6 +467,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["controlplane", "dataplane_core"],
         release_date = "2022-06-24",
         cpe = "cpe:2.3:a:nghttp2:nghttp2:*",
+        license = "MIT",
+        license_url = "https://github.com/nghttp2/nghttp2/blob/v{version}/LICENSE",
     ),
     io_hyperscan = dict(
         project_name = "Hyperscan",
@@ -428,6 +485,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         ],
         release_date = "2021-01-13",
         cpe = "N/A",
+        license = "BSD-3-Clause",
+        license_url = "https://github.com/intel/hyperscan/blob/v{version}/LICENSE",
     ),
     io_opentracing_cpp = dict(
         project_name = "OpenTracing",
@@ -444,6 +503,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         ],
         release_date = "2019-01-16",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/opentracing/opentracing-cpp/blob/v{version}/LICENSE",
     ),
     skywalking_data_collect_protocol = dict(
         project_name = "skywalking-data-collect-protocol",
@@ -458,6 +519,7 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.tracers.skywalking"],
         release_date = "2021-12-11",
         cpe = "cpe:2.3:a:apache:skywalking:*",
+        license = "Apache-2.0",
     ),
     com_github_skyapm_cpp2sky = dict(
         project_name = "cpp2sky",
@@ -471,6 +533,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.tracers.skywalking"],
         release_date = "2022-03-28",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/SkyAPM/cpp2sky/blob/v{version}/LICENSE",
     ),
     com_github_datadog_dd_opentracing_cpp = dict(
         project_name = "Datadog OpenTracing C++ Client",
@@ -484,6 +548,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.tracers.datadog"],
         release_date = "2021-01-27",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/DataDog/dd-opentracing-cpp/blob/v{version}/LICENSE",
     ),
     com_github_google_benchmark = dict(
         project_name = "Benchmark",
@@ -495,6 +561,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/google/benchmark/archive/v{version}.tar.gz"],
         use_category = ["test_only"],
         release_date = "2022-07-25",
+        license = "Apache-2.0",
+        license_url = "https://github.com/google/benchmark/blob/v{version}/LICENSE",
     ),
     com_github_libevent_libevent = dict(
         project_name = "libevent",
@@ -517,6 +585,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_core", "controlplane"],
         release_date = "2020-07-28",
         cpe = "cpe:2.3:a:libevent_project:libevent:*",
+        license = "BSD-3-Clause",
+        license_url = "https://github.com/libevent/libevent/blob/{version}/LICENSE",
     ),
     net_colm_open_source_colm = dict(
         project_name = "Colm",
@@ -537,6 +607,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         ],
         release_date = "2021-12-28",
         cpe = "N/A",
+        license = "MIT",
+        license_url = "https://github.com/adrian-thurston/colm/blob/{version}/COPYING",
     ),
     net_colm_open_source_ragel = dict(
         project_name = "Ragel",
@@ -560,6 +632,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         ],
         release_date = "2021-12-28",
         cpe = "N/A",
+        license = "MIT",
+        license_url = "https://github.com/adrian-thurston/ragel/blob/{version}/COPYING",
     ),
     # This should be removed, see https://github.com/envoyproxy/envoy/issues/13261.
     net_zlib = dict(
@@ -573,6 +647,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["controlplane", "dataplane_core"],
         release_date = "2022-03-27",
         cpe = "cpe:2.3:a:gnu:zlib:*",
+        license = "zlib",
+        license_url = "https://github.com/madler/zlib/blob/v{version}/zlib.h",
     ),
     org_boost = dict(
         project_name = "Boost",
@@ -589,6 +665,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         ],
         release_date = "2021-12-08",
         cpe = "cpe:2.3:a:boost:boost:*",
+        license = "Boost",
+        license_url = "https://github.com/boostorg/boost/blob/boost-{version}/LICENSE_1_0.txt",
     ),
     org_brotli = dict(
         project_name = "brotli",
@@ -607,6 +685,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         ],
         release_date = "2020-09-08",
         cpe = "cpe:2.3:a:google:brotli:*",
+        license = "MIT",
+        license_url = "https://github.com/google/brotli/blob/{version}/LICENSE",
     ),
     com_github_facebook_zstd = dict(
         project_name = "zstd",
@@ -635,6 +715,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["controlplane", "dataplane_core"],
         release_date = "2021-12-24",
         cpe = "N/A",
+        license = "zlib",
+        license_url = "https://github.com/zlib-ng/zlib-ng/blob/{version}/LICENSE.md",
     ),
     com_github_jbeder_yaml_cpp = dict(
         project_name = "yaml-cpp",
@@ -649,6 +731,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["controlplane", "dataplane_core"],
         release_date = "2022-04-27",
         cpe = "cpe:2.3:a:yaml-cpp_project:yaml-cpp:*",
+        license = "MIT",
+        license_url = "https://github.com/jbeder/yaml-cpp/blob/{version}/LICENSE",
     ),
     com_github_msgpack_msgpack_c = dict(
         project_name = "msgpack for C/C++",
@@ -662,6 +746,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.tracers.datadog"],
         release_date = "2020-06-05",
         cpe = "N/A",
+        license = "Boost",
+        license_url = "https://github.com/msgpack/msgpack-c/blob/cpp-{version}/LICENSE_1_0.txt",
     ),
     com_github_google_jwt_verify = dict(
         project_name = "jwt_verify_lib",
@@ -675,6 +761,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.filters.http.jwt_authn", "envoy.filters.http.gcp_authn"],
         release_date = "2021-03-05",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/google/jwt_verify_lib/blob/{version}/LICENSE",
     ),
     com_github_alibaba_hessian2_codec = dict(
         project_name = "hessian2-codec",
@@ -688,6 +776,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.filters.network.dubbo_proxy"],
         release_date = "2021-04-05",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/alibaba/hessian2-codec/blob/{version}/LICENSE",
     ),
     com_github_tencent_rapidjson = dict(
         project_name = "RapidJSON",
@@ -702,6 +792,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.tracers.zipkin", "envoy.tracers.opencensus"],
         release_date = "2019-12-03",
         cpe = "cpe:2.3:a:tencent:rapidjson:*",
+        license = "RapidJSON",
+        license_url = "https://github.com/Tencent/rapidjson/blob/{version}/license.txt",
     ),
     com_github_nlohmann_json = dict(
         project_name = "nlohmann JSON",
@@ -716,6 +808,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["controlplane", "dataplane_core"],
         release_date = "2022-08-12",
         cpe = "cpe:2.3:a:json-for-modern-cpp_project:json-for-modern-cpp:*",
+        license = "MIT",
+        license_url = "https://github.com/nlohmann/json/blob/v{version}/LICENSE.MIT",
     ),
     # This is an external dependency needed while running the
     # envoy docker image. A bazel target has been created since
@@ -733,6 +827,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["other"],
         release_date = "2019-09-18",
         cpe = "N/A",
+        license = "MIT",
+        license_url = "https://github.com/ncopa/su-exec/blob/{version}/LICENSE",
     ),
     com_google_googletest = dict(
         project_name = "Google Test",
@@ -747,6 +843,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         release_date = "2020-09-10",
         use_category = ["test_only"],
         cpe = "cpe:2.3:a:google:google_test:*",
+        license = "BSD-3-Clause",
+        license_url = "https://github.com/google/googletest/blob/{version}/LICENSE",
     ),
     com_google_protobuf = dict(
         project_name = "Protocol Buffers",
@@ -763,6 +861,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_core", "controlplane"],
         release_date = "2022-04-22",
         cpe = "cpe:2.3:a:google:protobuf:*",
+        license = "Protocol Buffers",
+        license_url = "https://github.com/protocolbuffers/protobuf/blob/v{version}/LICENSE",
     ),
     grpc_httpjson_transcoding = dict(
         project_name = "grpc-httpjson-transcoding",
@@ -776,6 +876,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.filters.http.grpc_json_transcoder"],
         release_date = "2022-06-18",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/grpc-ecosystem/grpc-httpjson-transcoding/blob/{version}/LICENSE",
     ),
     io_bazel_rules_go = dict(
         project_name = "Go rules for Bazel",
@@ -792,6 +894,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
             "org_golang_google_protobuf",
             "org_golang_x_tools",
         ],
+        license = "Apache-2.0",
+        license_url = "https://github.com/bazelbuild/rules_go/blob/v{version}/LICENSE.txt",
     ),
     rules_foreign_cc = dict(
         project_name = "Rules for using foreign build systems in Bazel",
@@ -803,6 +907,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/bazelbuild/rules_foreign_cc/archive/{version}.tar.gz"],
         release_date = "2022-04-18",
         use_category = ["build", "dataplane_core", "controlplane"],
+        license = "Apache-2.0",
+        license_url = "https://github.com/bazelbuild/rules_foreign_cc/blob/{version}/LICENSE",
     ),
     rules_python = dict(
         project_name = "Python rules for Bazel",
@@ -814,6 +920,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         strip_prefix = "rules_python-{version}",
         urls = ["https://github.com/bazelbuild/rules_python/archive/{version}.tar.gz"],
         use_category = ["build"],
+        license = "Apache-2.0",
+        license_url = "https://github.com/bazelbuild/rules_python/blob/{version}/LICENSE",
     ),
     rules_pkg = dict(
         project_name = "Packaging rules for Bazel",
@@ -825,6 +933,28 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/bazelbuild/rules_pkg/archive/{version}.tar.gz"],
         use_category = ["build"],
         release_date = "2022-04-07",
+        license = "Apache-2.0",
+        license_url = "https://github.com/bazelbuild/rules_pkg/blob/{version}/LICENSE",
+    ),
+    org_llvm_llvm = dict(
+        # When changing this, you must re-generate the list of llvm libs
+        # see `bazel/foreign_cc/BUILD` for further information.
+        project_name = "LLVM",
+        project_desc = "LLVM Compiler Infrastructure",
+        project_url = "https://llvm.org",
+        version = "12.0.1",
+        sha256 = "7d9a8405f557cefc5a21bf5672af73903b64749d9bc3a50322239f56f34ffddf",
+        strip_prefix = "llvm-{version}.src",
+        urls = ["https://github.com/llvm/llvm-project/releases/download/llvmorg-{version}/llvm-{version}.src.tar.xz"],
+        release_date = "2021-07-09",
+        use_category = ["dataplane_ext"],
+        extensions = [
+            "envoy.wasm.runtime.wamr",
+            "envoy.wasm.runtime.wavm",
+        ],
+        cpe = "cpe:2.3:a:llvm:*:*",
+        license = "Apache-2.0",
+        license_url = "https://github.com/llvm/llvm-project/blob/llvmorg-{version}/llvm/LICENSE.TXT",
     ),
     com_github_wamr = dict(
         project_name = "Webassembly Micro Runtime",
@@ -838,6 +968,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_ext"],
         extensions = ["envoy.wasm.runtime.wamr"],
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/bytecodealliance/wasm-micro-runtime/blob/{version}/LICENSE",
     ),
     com_github_wavm_wavm = dict(
         project_name = "WAVM",
@@ -864,6 +996,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_ext"],
         extensions = ["envoy.wasm.runtime.wasmtime"],
         cpe = "cpe:2.3:a:bytecodealliance:wasmtime:*",
+        license = "Apache-2.0",
+        license_url = "https://github.com/bytecodealliance/wasmtime/blob/v{version}/LICENSE",
     ),
     com_github_wasm_c_api = dict(
         project_name = "wasm-c-api",
@@ -879,6 +1013,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_ext"],
         extensions = ["envoy.wasm.runtime.wasmtime"],
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/WebAssembly/wasm-c-api/blob/{version}/LICENSE",
     ),
     io_opencensus_cpp = dict(
         project_name = "OpenCensus C++",
@@ -892,6 +1028,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.tracers.opencensus"],
         release_date = "2020-10-08",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/census-instrumentation/opencensus-cpp/blob/{version}/LICENSE",
     ),
     # This should be removed, see https://github.com/envoyproxy/envoy/issues/11816.
     com_github_curl = dict(
@@ -911,6 +1049,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         ],
         release_date = "2022-06-27",
         cpe = "cpe:2.3:a:haxx:libcurl:*",
+        license = "curl",
+        license_url = "https://github.com/curl/curl/blob/curl-{underscore_version}/COPYING",
     ),
     v8 = dict(
         project_name = "V8",
@@ -955,6 +1095,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.wasm.runtime.v8"],
         release_date = "2022-05-31",
         cpe = "N/A",
+        license = "zlib",
+        license_url = "https://chromium.googlesource.com/chromium/src/third_party/zlib/+/{version}/LICENSE",
     ),
     com_github_google_quiche = dict(
         project_name = "QUICHE",
@@ -967,6 +1109,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["dataplane_core"],
         release_date = "2022-08-29",
         cpe = "N/A",
+        license = "BSD-3-Clause",
+        license_url = "https://github.com/google/quiche/blob/{version}/LICENSE",
     ),
     com_googlesource_googleurl = dict(
         project_name = "Chrome URL parsing library",
@@ -980,6 +1124,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = [],
         release_date = "2022-04-04",
         cpe = "N/A",
+        license = "googleurl",
+        license_url = "https://quiche.googlesource.com/googleurl/+/{version}/LICENSE",
     ),
     com_google_cel_cpp = dict(
         project_name = "Common Expression Language (CEL) C++ library",
@@ -1028,6 +1174,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         ],
         release_date = "2022-08-30",
         cpe = "cpe:2.3:a:google:flatbuffers:*",
+        license = "Apache-2.0",
+        license_url = "https://github.com/google/flatbuffers/blob/v{version}/LICENSE.txt",
     ),
     com_googlesource_code_re2 = dict(
         project_name = "RE2",
@@ -1040,6 +1188,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["controlplane", "dataplane_core"],
         release_date = "2022-05-31",
         cpe = "N/A",
+        license = "BSD-3-Clause",
+        license_url = "https://github.com/google/re2/blob/{version}/LICENSE",
     ),
     # Included to access FuzzedDataProvider.h. This is compiler agnostic but
     # provided as part of the compiler-rt source distribution. We can't use the
@@ -1056,6 +1206,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         release_date = "2022-03-23",
         use_category = ["test_only"],
         cpe = "cpe:2.3:a:llvm:compiler-rt:*",
+        license = "Apache-2.0",
+        license_url = "https://github.com/llvm/llvm-project/blob/llvmorg-{version}/compiler-rt/LICENSE.TXT",
     ),
     upb = dict(
         project_name = "upb",
@@ -1068,6 +1220,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/protocolbuffers/upb/archive/{version}.tar.gz"],
         use_category = ["controlplane"],
         cpe = "N/A",
+        license = "upb",
+        license_url = "https://github.com/protocolbuffers/upb/blob/{version}/LICENSE",
     ),
     kafka_source = dict(
         project_name = "Kafka (source)",
@@ -1081,6 +1235,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.filters.network.kafka_broker", "envoy.filters.network.kafka_mesh"],
         release_date = "2022-05-03",
         cpe = "cpe:2.3:a:apache:kafka:*",
+        license = "Apache-2.0",
+        license_url = "https://github.com/apache/kafka/blob/{version}/LICENSE",
     ),
     edenhill_librdkafka = dict(
         project_name = "Kafka (C/C++ client)",
@@ -1094,6 +1250,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.filters.network.kafka_mesh"],
         release_date = "2021-05-06",
         cpe = "N/A",
+        license = "librdkafka",
+        license_url = "https://github.com/edenhill/librdkafka/blob/v{version}/LICENSE",
     ),
     kafka_server_binary = dict(
         project_name = "Kafka (server binary)",
@@ -1116,6 +1274,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/dpkp/kafka-python/archive/{version}.tar.gz"],
         release_date = "2020-09-30",
         use_category = ["test_only"],
+        license = "Apache-2.0",
+        license_url = "https://github.com/dpkp/kafka-python/blob/{version}/LICENSE",
     ),
     proxy_wasm_cpp_sdk = dict(
         project_name = "WebAssembly for Proxies (C++ SDK)",
@@ -1140,6 +1300,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         ],
         release_date = "2022-03-15",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/proxy-wasm/proxy-wasm-cpp-sdk/blob/{version}/LICENSE",
     ),
     proxy_wasm_cpp_host = dict(
         project_name = "WebAssembly for Proxies (C++ host implementation)",
@@ -1164,6 +1326,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         ],
         release_date = "2022-08-05",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/proxy-wasm/proxy-wasm-cpp-host/blob/{version}/LICENSE",
     ),
     proxy_wasm_rust_sdk = dict(
         project_name = "WebAssembly for Proxies (Rust SDK)",
@@ -1176,6 +1340,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         use_category = ["test_only"],
         release_date = "2022-04-08",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/proxy-wasm/proxy-wasm-rust-sdk/blob/v{version}/LICENSE",
     ),
     emsdk = dict(
         project_name = "Emscripten SDK",
@@ -1188,6 +1354,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/emscripten-core/emsdk/archive/{version}.tar.gz"],
         use_category = ["test_only"],
         release_date = "2022-03-09",
+        license = "Emscripten SDK",
+        license_url = "https://github.com/emscripten-core/emsdk/blob/{version}/LICENSE",
     ),
     rules_rust = dict(
         project_name = "Bazel rust rules",
@@ -1200,6 +1368,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.wasm.runtime.wasmtime"],
         release_date = "2022-04-26",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/bazelbuild/rules_rust/blob/{version}/LICENSE.txt",
     ),
     com_github_fdio_vpp_vcl = dict(
         project_name = "VPP Comms Library",
@@ -1213,6 +1383,8 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         extensions = ["envoy.bootstrap.vcl"],
         release_date = "2022-03-02",
         cpe = "N/A",
+        license = "Apache-2.0",
+        license_url = "https://github.com/FDio/vpp/blob/{version}/LICENSE",
     ),
     intel_dlb = dict(
         project_name = "Intel Dlb",
@@ -1240,6 +1412,8 @@ def _compiled_protoc_deps(locations, versions):
             use_category = ["dataplane_core", "controlplane"],
             release_date = "2022-04-22",
             cpe = "N/A",
+            license = "Protocol Buffers",
+            license_url = "https://github.com/protocolbuffers/protobuf/blob/v{version}/LICENSE",
         )
 
 _compiled_protoc_deps(REPOSITORY_LOCATIONS_SPEC, PROTOC_VERSIONS)
