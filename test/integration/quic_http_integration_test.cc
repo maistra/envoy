@@ -175,7 +175,7 @@ public:
     auto session = std::make_unique<EnvoyQuicClientSession>(
         persistent_info.quic_config_, supported_versions_, std::move(connection),
         quic::QuicServerId{
-            (host.empty() ? transport_socket_factory_->clientContextConfig().serverNameIndication()
+            (host.empty() ? transport_socket_factory_->clientContextConfig()->serverNameIndication()
                           : host),
             static_cast<uint16_t>(port), false},
         transport_socket_factory_->getCryptoConfig(), &push_promise_index_, *dispatcher_,
@@ -252,7 +252,25 @@ public:
         static_cast<QuicClientTransportSocketFactory*>(quic_transport_socket_factory_.get());
     registerTestServerPorts({"http"});
 
-    ASSERT(&transport_socket_factory_->clientContextConfig());
+    // Initialize the transport socket factory using a customized ssl option.
+    ssl_client_option_.setAlpn(true).setSan(san_to_match_).setSni("lyft.com");
+    NiceMock<Server::Configuration::MockTransportSocketFactoryContext> context;
+    ON_CALL(context, api()).WillByDefault(testing::ReturnRef(*api_));
+    ON_CALL(context, scope()).WillByDefault(testing::ReturnRef(stats_store_));
+    ON_CALL(context, sslContextManager()).WillByDefault(testing::ReturnRef(context_manager_));
+    envoy::extensions::transport_sockets::quic::v3::QuicUpstreamTransport
+        quic_transport_socket_config;
+    auto* tls_context = quic_transport_socket_config.mutable_upstream_tls_context();
+    initializeUpstreamTlsContextConfig(ssl_client_option_, *tls_context);
+
+    envoy::config::core::v3::TransportSocket message;
+    message.mutable_typed_config()->PackFrom(quic_transport_socket_config);
+    auto& config_factory = Config::Utility::getAndCheckFactory<
+        Server::Configuration::UpstreamTransportSocketConfigFactory>(message);
+    transport_socket_factory_.reset(static_cast<QuicClientTransportSocketFactory*>(
+        config_factory.createTransportSocketFactory(quic_transport_socket_config, context)
+            .release()));
+    ASSERT(transport_socket_factory_->clientContextConfig());
   }
 
   void setConcurrency(size_t concurrency) {
@@ -491,7 +509,7 @@ TEST_P(QuicHttpIntegrationTest, RuntimeEnableDraft29) {
   initialize();
 
   codec_client_ = makeRawHttpConnection(makeClientConnection(lookupPort("http")), absl::nullopt);
-  EXPECT_EQ(transport_socket_factory_->clientContextConfig().serverNameIndication(),
+  EXPECT_EQ(transport_socket_factory_->clientContextConfig()->serverNameIndication(),
             codec_client_->connection()->requestedServerName());
   auto response = codec_client_->makeHeaderOnlyRequest(default_request_headers_);
   waitForNextUpstreamRequest(0);
@@ -509,7 +527,7 @@ TEST_P(QuicHttpIntegrationTest, ZeroRtt) {
   initialize();
   // Start the first connection.
   codec_client_ = makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  EXPECT_EQ(transport_socket_factory_->clientContextConfig().serverNameIndication(),
+  EXPECT_EQ(transport_socket_factory_->clientContextConfig()->serverNameIndication(),
             codec_client_->connection()->requestedServerName());
   // Send a complete request on the first connection.
   auto response1 = codec_client_->makeHeaderOnlyRequest(default_request_headers_);
@@ -591,7 +609,7 @@ TEST_P(QuicHttpIntegrationTest, EarlyDataDisabled) {
   initialize();
   // Start the first connection.
   codec_client_ = makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  EXPECT_EQ(transport_socket_factory_->clientContextConfig().serverNameIndication(),
+  EXPECT_EQ(transport_socket_factory_->clientContextConfig()->serverNameIndication(),
             codec_client_->connection()->requestedServerName());
   // Send a complete request on the first connection.
   auto response1 = codec_client_->makeHeaderOnlyRequest(default_request_headers_);
