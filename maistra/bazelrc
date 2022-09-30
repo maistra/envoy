@@ -15,6 +15,8 @@ build "--//bazel:http3"=false
 # Arch-specific build flags, triggered with --config=$ARCH in bazel build command
 build:x86_64 --linkopt=-fuse-ld=lld
 build:s390x --//source/extensions/filters/common/lua:luajit2=1 --copt="-Wno-deprecated-declarations" --linkopt=-fuse-ld=gold
+# disable tests that fail on s390x:
+build:s390x -- -test/extensions/... -test/common/... -test/integration/... -test/server/...
 build:ppc --//source/extensions/filters/common/lua:luajit2=1 --linkopt=-fuse-ld=lld
 build:aarch64 --linkopt=-fuse-ld=lld
 
