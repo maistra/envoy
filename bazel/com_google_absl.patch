@@ -1,0 +1,13 @@
+diff -ruN a/absl/time/internal/cctz/src/time_zone_libc.cc b/absl/time/internal/cctz/src/time_zone_libc.cc
+--- a/absl/time/internal/cctz/src/time_zone_libc.cc	2022-09-30 18:32:00.167756471 +0200
++++ b/absl/time/internal/cctz/src/time_zone_libc.cc	2022-09-30 18:32:00.199756759 +0200
+@@ -27,6 +27,9 @@
+ #include "absl/time/internal/cctz/include/cctz/civil_time.h"
+ #include "absl/time/internal/cctz/include/cctz/time_zone.h"
+ 
++// The following undef added to fix OSSM-1931
++#undef __EMSCRIPTEN__
++
+ #if defined(_AIX)
+ extern "C" {
+ extern long altzone;

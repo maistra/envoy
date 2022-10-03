@@ -1,0 +1,13 @@
+diff -ruN a/include/flatbuffers/base.h b/include/flatbuffers/base.h
+--- a/include/flatbuffers/base.h	2022-09-30 18:32:00.076755650 +0200
++++ b/include/flatbuffers/base.h	2022-09-30 18:32:00.103755894 +0200
+@@ -258,6 +258,9 @@
+   #endif
+ #endif // !FLATBUFFERS_HAS_NEW_STRTOD
+ 
++// The following define added to fix OSSM-1931
++#define FLATBUFFERS_LOCALE_INDEPENDENT 0
++
+ #ifndef FLATBUFFERS_LOCALE_INDEPENDENT
+   // Enable locale independent functions {strtof_l, strtod_l,strtoll_l, strtoull_l}.
+   #if ((defined(_MSC_VER) && _MSC_VER >= 1800)            || \

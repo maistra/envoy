@@ -219,7 +219,7 @@ def envoy_dependencies(skip_targets = []):
     external_http_archive("proxy_wasm_rust_sdk")
     _com_google_cel_cpp()
     _com_github_google_perfetto()
-    external_http_archive("com_github_google_flatbuffers")
+    _com_github_google_flatbuffers()
     external_http_archive("bazel_toolchains")
     external_http_archive("bazel_compdb")
     external_http_archive("envoy_build_tools")
@@ -438,7 +438,8 @@ def _net_zlib():
         name = "net_zlib",
         build_file_content = BUILD_ALL_CONTENT,
         patch_args = ["-p1"],
-        patches = ["@envoy//bazel/foreign_cc:zlib.patch"],
+        patches = ["@envoy//bazel/foreign_cc:zlib.patch", 
+	               "@envoy//bazel/foreign_cc:net_zlib.patch"],
     )
 
     native.bind(
@@ -669,7 +670,8 @@ def _com_google_googletest():
 def _com_google_absl():
     external_http_archive(
         name = "com_google_absl",
-        patches = ["@envoy//bazel:abseil.patch"],
+	patches = ["@envoy//bazel:abseil.patch", 
+	           "@envoy//bazel:com_google_absl.patch"],
         patch_args = ["-p1"],
     )
     native.bind(
@@ -1045,7 +1047,18 @@ def _proxy_wasm_cpp_host():
     )
 
 def _emsdk():
-    external_http_archive(name = "emsdk")
+    external_http_archive(
+        "emsdk",
+        patches = ["@envoy//bazel:emsdk.patch"],
+        patch_args = ["-p1"],
+    )
+
+def _com_github_google_flatbuffers():
+    external_http_archive(
+        "com_github_google_flatbuffers",
+	    patches = ["@envoy//bazel:com_github_google_flatbuffers.patch"],
+        patch_args = ["-p1"],
+    )
 
 def _com_github_google_jwt_verify():
     external_http_archive("com_github_google_jwt_verify")
