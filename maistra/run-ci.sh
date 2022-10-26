@@ -13,7 +13,7 @@ export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
 # Build
 time bazel build \
   ${COMMON_FLAGS} \
-  //source/exe:envoy-static
+  //source/exe:envoy-static 
 
 echo "Build succeeded. Binary generated:"
 bazel-bin/source/exe/envoy-static --version
@@ -23,13 +23,19 @@ bazel-bin/source/exe/envoy-static --version
 # The following build step helps reduce resources usage
 # by compiling tests first.
 # Build tests
-time bazel build \
-  ${COMMON_FLAGS} \
-  --build_tests_only \
-  //test/...
+#time bazel build \
+#  ${COMMON_FLAGS} \
+#  --jobs=8 \
+#  --build_tests_only -- \
+#  //test/... \
+#  -//test/server:listener_manager_impl_quic_only_test
 
 # Run tests
 time bazel test \
   ${COMMON_FLAGS} \
   --build_tests_only \
-  //test/...
+  --test_output=errors \
+  --jobs=8 \
+  -- \
+  //test/... \
+  -//test/server:listener_manager_impl_quic_only_test 

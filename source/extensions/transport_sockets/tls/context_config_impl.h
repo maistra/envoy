@@ -185,6 +185,8 @@ private:
   static const unsigned DEFAULT_NON_FIPS_MAX_VERSION;
   static const std::string DEFAULT_NON_FIPS_CIPHER_SUITES;
   static const std::string DEFAULT_NON_FIPS_CURVES;
+  static const std::string DEFAULT_CIPHER_SUITES;
+  static const std::string DEFAULT_CURVES;
 
   const bool require_client_certificate_;
   const OcspStaplePolicy ocsp_staple_policy_;
