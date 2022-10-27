@@ -1,3 +1,4 @@
+
 # This file is sourced in /.bazelrc, and therefore is always interpreted for all bazel invocations
 build --config=clang
 build --test_env=ENVOY_IP_TEST_VERSIONS=v4only
@@ -6,6 +7,10 @@ build --test_env=ENVOY_IP_TEST_VERSIONS=v4only
 build:ci-config --local_ram_resources=12288
 build:ci-config --local_cpu_resources=6
 build:ci-config --jobs=3
+
+
+# Arch-specific build flags, triggered with --config=$ARCH in bazel build command
+build:x86_64 --linkopt=-fuse-ld=lld
 
 # Colored ouput messes with some of the logging systems in CI, so we disable that.
 build:ci-config --color=no
