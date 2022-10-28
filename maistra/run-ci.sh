@@ -15,8 +15,8 @@ export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
 #  ${COMMON_FLAGS} \
 #  //source/exe:envoy-static 
 
-echo "Build succeeded. Binary generated:"
-bazel-bin/source/exe/envoy-static --version
+#echo "Build succeeded. Binary generated:"
+#bazel-bin/source/exe/envoy-static --version
 
 # By default, `bazel test` command performs simultaneous
 # build and test activity.
