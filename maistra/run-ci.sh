@@ -37,6 +37,9 @@ time bazel test \
   --test_output=errors \
   --jobs=8 \
   -- \
+  //test/integration:multiplexed_integration_test \
+  //test/extensions/transport_sockets/tls:ssl_socket_test  \
   //test/extensions/common/async_files:async_file_handle_thread_pool_test \
   //test/common/signal:signals_test \
+  //test/extensions/transport_sockets/tls/ocsp:ocsp_test \
   -//test/server:listener_manager_impl_quic_only_test 
