@@ -163,8 +163,7 @@ TEST_P(TcpProxyIntegrationTest, TcpProxyDownstreamDisconnectBytesMeter) {
                                                    "\r?.*")));
 }
 
-// XXX(oschaaf): disabled, too many open files/crash
-TEST_P(TcpProxyIntegrationTest, DISABLED_TcpProxyManyConnections) {
+TEST_P(TcpProxyIntegrationTest, TcpProxyManyConnections) {
   autonomous_upstream_ = true;
   config_helper_.addConfigModifier([&](envoy::config::bootstrap::v3::Bootstrap& bootstrap) -> void {
     auto* static_resources = bootstrap.mutable_static_resources();

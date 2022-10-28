@@ -6828,7 +6828,6 @@ filter_chains:
   EXPECT_CALL(*listener_foo_update1, onDestroy());
 }
 
-
 TEST_P(ListenerManagerImplTest, ListenSocketFactoryIsClonedFromListenerDrainingFilterChain) {
   InSequence s;
 

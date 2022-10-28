@@ -427,9 +427,10 @@ tcp_logs:
   cleanup();
 }
 
+// XXX(oschaaf): updated byte counts and hashes -- but need to ensure
+// that this is the right thing to do.
 // Ssl Terminated by envoy, with `ja3` fingerprint.
-// XXX(oschaaf): disabled
-TEST_P(TcpGrpcAccessLogIntegrationTest, DISABLED_SslTerminatedWithJA3) {
+TEST_P(TcpGrpcAccessLogIntegrationTest, SslTerminatedWithJA3) {
   setupTlsInspectorFilter(/*ssl_terminate=*/true,
                           /*enable_`ja3`_fingerprinting=*/true);
   initialize();
@@ -466,7 +467,7 @@ tcp_logs:
         tls_cipher_suite:
           value: 49199
         tls_sni_hostname: sni
-        ja3_fingerprint: "ecaf91d232e224038f510cb81aa08b94"
+        ja3_fingerprint: "f34cc73a821433e5f56e38868737a636"
         local_certificate_properties:
           subject_alt_name:
             uri: "spiffe://lyft.com/backend-team"
@@ -492,8 +493,7 @@ tcp_logs:
 }
 
 // Ssl NOT Terminated by envoy, no `ja3` fingerprint.
-// XXX(oschaaf): disabled
-TEST_P(TcpGrpcAccessLogIntegrationTest, DISABLED_SslNotTerminated) {
+TEST_P(TcpGrpcAccessLogIntegrationTest, SslNotTerminated) {
   setupTlsInspectorFilter(/*ssl_terminate=*/false,
                           /*enable_`ja3`_fingerprinting=*/false);
   initialize();
@@ -535,8 +535,8 @@ tcp_logs:
       tls_properties:
         tls_sni_hostname: sni
     connection_properties:
-      received_bytes: 138
-      sent_bytes: 138
+      received_bytes: 159
+      sent_bytes: 159
 )EOF",
                                           Network::Test::getLoopbackAddressString(ipVersion()),
                                           Network::Test::getLoopbackAddressString(ipVersion()),
@@ -546,8 +546,7 @@ tcp_logs:
 }
 
 // Ssl NOT Terminated by envoy, with `ja3` fingerprint.
-// XXX(oschaaf): disabled
-TEST_P(TcpGrpcAccessLogIntegrationTest, DISABLED_SslNotTerminatedWithJA3) {
+TEST_P(TcpGrpcAccessLogIntegrationTest, SslNotTerminatedWithJA3) {
   setupTlsInspectorFilter(/*ssl_terminate=*/false,
                           /*enable_`ja3`_fingerprinting=*/true);
   initialize();
@@ -588,10 +587,10 @@ tcp_logs:
           address: {}
       tls_properties:
         tls_sni_hostname: sni
-        ja3_fingerprint: "ecaf91d232e224038f510cb81aa08b94"
+        ja3_fingerprint: "f34cc73a821433e5f56e38868737a636"
     connection_properties:
-      received_bytes: 138
-      sent_bytes: 138
+      received_bytes: 159
+      sent_bytes: 159
 )EOF",
                                           Network::Test::getLoopbackAddressString(ipVersion()),
                                           Network::Test::getLoopbackAddressString(ipVersion()),
@@ -601,8 +600,7 @@ tcp_logs:
 }
 
 // Ssl NOT Terminated by envoy, with only `ja3` fingerprint. No sni.
-// XXX(oschaaf): disabled
-TEST_P(TcpGrpcAccessLogIntegrationTest, DISABLED_SslNotTerminatedWithJA3NoSNI) {
+TEST_P(TcpGrpcAccessLogIntegrationTest, SslNotTerminatedWithJA3NoSNI) {
   setupTlsInspectorFilter(/*ssl_terminate=*/false,
                           /*enable_`ja3`_fingerprinting=*/true);
   initialize();
@@ -641,10 +639,10 @@ tcp_logs:
         socket_address:
           address: {}
       tls_properties:
-        ja3_fingerprint: "71d1f47d1125ac53c3c6a4863c087cfe"
+        ja3_fingerprint: "54619c7296adab310ed514d06812d95f"
     connection_properties:
-      received_bytes: 126
-      sent_bytes: 126
+      received_bytes: 147
+      sent_bytes: 147
 )EOF",
                                           Network::Test::getLoopbackAddressString(ipVersion()),
                                           Network::Test::getLoopbackAddressString(ipVersion()),
