@@ -11,9 +11,9 @@ export BUILD_SCM_REVISION="Maistra PR #${PULL_NUMBER:-undefined}"
 export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
 
 # Build
-time bazel build \
-  ${COMMON_FLAGS} \
-  //source/exe:envoy-static 
+#time bazel build \
+#  ${COMMON_FLAGS} \
+#  //source/exe:envoy-static 
 
 echo "Build succeeded. Binary generated:"
 bazel-bin/source/exe/envoy-static --version
@@ -37,5 +37,6 @@ time bazel test \
   --test_output=errors \
   --jobs=8 \
   -- \
-  //test/... \
+  //test/extensions/common/async_files:async_file_handle_thread_pool_test \
+  //test/common/signal:signals_test \
   -//test/server:listener_manager_impl_quic_only_test 
