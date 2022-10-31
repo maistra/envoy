@@ -13,7 +13,7 @@ export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
 # Build
 time bazel build \
   ${COMMON_FLAGS} \
-  //source/exe:envoy-static
+  //source/exe:envoy-static 
 
 echo "Build succeeded. Binary generated:"
 bazel-bin/source/exe/envoy-static --version
@@ -26,10 +26,13 @@ bazel-bin/source/exe/envoy-static --version
 time bazel build \
   ${COMMON_FLAGS} \
   --build_tests_only \
-  //test/...
+  //test/...\
+  -//test/server:listener_manager_impl_quic_only_test
+
 
 # Run tests
 time bazel test \
   ${COMMON_FLAGS} \
   --build_tests_only \
   //test/...
+  -//test/server:listener_manager_impl_quic_only_test 

@@ -11,6 +11,7 @@
 #include "absl/strings/str_join.h"
 #include "openssl/ssl.h"
 #include "openssl/x509v3.h"
+#include "openssl/err.h"
 
 namespace Envoy {
 namespace Extensions {

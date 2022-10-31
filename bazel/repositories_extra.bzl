@@ -3,6 +3,7 @@ load("@rules_python//python:repositories.bzl", "python_register_toolchains")
 load("@proxy_wasm_cpp_host//bazel/cargo/wasmtime:crates.bzl", "wasmtime_fetch_remote_crates")
 load("//bazel/external/cargo:crates.bzl", "raze_fetch_remote_crates")
 load("@aspect_bazel_lib//lib:repositories.bzl", "aspect_bazel_lib_dependencies")
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 # Python version for `rules_python`
 PYTHON_VERSION = "3.10.2"

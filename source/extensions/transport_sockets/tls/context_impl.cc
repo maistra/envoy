@@ -397,7 +397,9 @@ ContextImpl::newSsl(const Network::TransportSocketOptionsConstSharedPtr& options
   // We use the first certificate for a new SSL object, later in the
   // SSL_CTX_set_select_certificate_cb() callback following ClientHello, we replace with the
   // selected certificate via SSL_set_SSL_CTX().
-  return bssl::UniquePtr<SSL>(SSL_new(tls_context_.ssl_ctx_.get()));
+  auto ssl_con = bssl::UniquePtr<SSL>(SSL_new(tls_context_.ssl_ctx_.get()));
+  SSL_set_app_data(ssl_con.get(), &options);  
+  return ssl_con;//ssl::UniquePtr<SSL>(SSL_new(tls_context_.ssl_ctx_.get()));
 }
 
 int ContextImpl::verifyCallback(X509_STORE_CTX* store_ctx, void* arg) {
@@ -409,8 +411,12 @@ int ContextImpl::verifyCallback(X509_STORE_CTX* store_ctx, void* arg) {
   if (cert == nullptr) {
     cert = X509_STORE_CTX_get0_cert(store_ctx);
   }
-
-  return impl->cert_validator_->doVerifyCertChain(
+  auto transport_socket_options_shared_ptr_ptr =
+      static_cast<const Network::TransportSocketOptionsConstSharedPtr*>(SSL_get_app_data(ssl));
+  ASSERT(transport_socket_options_shared_ptr_ptr);
+  const Network::TransportSocketOptions* transport_socket_options =
+      (*transport_socket_options_shared_ptr_ptr).get();
+  return impl->cert_validator_->doSynchronousVerifyCertChain(
       store_ctx,
       reinterpret_cast<Envoy::Ssl::SslExtendedSocketInfo*>(
           SSL_get_ex_data(ssl, ContextImpl::sslExtendedSocketInfoIndex())),
@@ -486,7 +492,7 @@ absl::optional<uint32_t> ContextImpl::daysUntilFirstCertExpires() const {
   if (!daysUntilExpiration.has_value()) {
     return absl::nullopt;
   }
-  for (auto& ctx : tls_contexts_) {
+  for (auto& ctx : tls_context_.cert_contexts_) {
     const absl::optional<uint32_t> tmp =
         Utility::getDaysUntilExpiration(ctx.cert_chain_.get(), time_source_);
     if (!tmp.has_value()) {
