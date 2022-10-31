@@ -408,15 +408,18 @@ const unsigned ServerContextConfigImpl::DEFAULT_FIPS_MAX_VERSION = TLS1_2_VERSIO
 const std::string ServerContextConfigImpl::DEFAULT_FIPS_CIPHER_SUITES =
     "ECDHE-ECDSA-AES128-GCM-SHA256:"
     "ECDHE-RSA-AES128-GCM-SHA256:"
-#endif
     "ECDHE-ECDSA-AES256-GCM-SHA384:"
     "ECDHE-RSA-AES256-GCM-SHA384:";
-
-const std::string ServerContextConfigImpl::DEFAULT_CURVES =
-#ifndef BORINGSSL_FIPS
-    "X25519:"
-#endif
-    "P-256";
+const std::string ServerContextConfigImpl::DEFAULT_FIPS_CURVES = "P-256";
+// Non FIPS configuration
+const unsigned ServerContextConfigImpl::DEFAULT_NON_FIPS_MAX_VERSION = TLS1_3_VERSION;
+const std::string ServerContextConfigImpl::DEFAULT_NON_FIPS_CIPHER_SUITES =
+    "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:"
+    "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-CHACHA20-POLY1305:"
+    "ECDHE-ECDSA-AES256-GCM-SHA384:"
+    "ECDHE-RSA-AES256-GCM-SHA384:";
+const std::string ServerContextConfigImpl::DEFAULT_NON_FIPS_CURVES = "X25519:"
+                                                                     "P-256";
 
 ServerContextConfigImpl::ServerContextConfigImpl(
     const envoy::extensions::transport_sockets::tls::v3::DownstreamTlsContext& config,

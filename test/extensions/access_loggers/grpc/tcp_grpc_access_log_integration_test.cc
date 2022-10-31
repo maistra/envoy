@@ -465,7 +465,7 @@ tcp_logs:
         tls_cipher_suite:
           value: 49199
         tls_sni_hostname: sni
-        ja3_fingerprint: "ecaf91d232e224038f510cb81aa08b94"
+        ja3_fingerprint: "f34cc73a821433e5f56e38868737a636"
         local_certificate_properties:
           subject_alt_name:
             uri: "spiffe://lyft.com/backend-team"
@@ -533,8 +533,8 @@ tcp_logs:
       tls_properties:
         tls_sni_hostname: sni
     connection_properties:
-      received_bytes: 138
-      sent_bytes: 138
+      received_bytes: 159
+      sent_bytes: 159
 )EOF",
                                           Network::Test::getLoopbackAddressString(ipVersion()),
                                           Network::Test::getLoopbackAddressString(ipVersion()),
@@ -585,10 +585,10 @@ tcp_logs:
           address: {}
       tls_properties:
         tls_sni_hostname: sni
-        ja3_fingerprint: "ecaf91d232e224038f510cb81aa08b94"
+        ja3_fingerprint: "f34cc73a821433e5f56e38868737a636"
     connection_properties:
-      received_bytes: 138
-      sent_bytes: 138
+      received_bytes: 159
+      sent_bytes: 159
 )EOF",
                                           Network::Test::getLoopbackAddressString(ipVersion()),
                                           Network::Test::getLoopbackAddressString(ipVersion()),
@@ -637,10 +637,10 @@ tcp_logs:
         socket_address:
           address: {}
       tls_properties:
-        ja3_fingerprint: "71d1f47d1125ac53c3c6a4863c087cfe"
+        ja3_fingerprint: "54619c7296adab310ed514d06812d95f"
     connection_properties:
-      received_bytes: 126
-      sent_bytes: 126
+      received_bytes: 147
+      sent_bytes: 147
 )EOF",
                                           Network::Test::getLoopbackAddressString(ipVersion()),
                                           Network::Test::getLoopbackAddressString(ipVersion()),
