@@ -46,9 +46,12 @@ public:
   absl::Status executeImpl() override {
     ASSERT(fileDescriptor() != -1);
     std::string procfile = absl::StrCat("/proc/self/fd/", fileDescriptor());
-    auto result = posix().linkat(fileDescriptor(), procfile.c_str(), AT_FDCWD, filename_.c_str(),
+    std::cout << "PROCFILE = " << procfile << std::endl;
+    std::cout << "FILENAME = " << filename_ << std::endl;
+    auto result = posix().linkat(AT_FDCWD, procfile.c_str(), AT_FDCWD, filename_.c_str(),
                                  AT_SYMLINK_FOLLOW);
     if (result.return_value_ == -1) {
+      std::cout << "ERROR = " << Envoy::errorDetails(result.errno_) << std::endl;
       return statusAfterFileError(result);
     }
     return absl::OkStatus();

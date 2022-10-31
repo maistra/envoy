@@ -11,28 +11,29 @@ export BUILD_SCM_REVISION="Maistra PR #${PULL_NUMBER:-undefined}"
 export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
 
 # Build
-time bazel build \
-  ${COMMON_FLAGS} \
-  //source/exe:envoy-static 
+# time bazel build \
+#   ${COMMON_FLAGS} \
+#   //source/exe:envoy-static 
 
-echo "Build succeeded. Binary generated:"
-bazel-bin/source/exe/envoy-static --version
+# echo "Build succeeded. Binary generated:"
+# bazel-bin/source/exe/envoy-static --version
 
 # By default, `bazel test` command performs simultaneous
 # build and test activity.
 # The following build step helps reduce resources usage
 # by compiling tests first.
 # Build tests
-time bazel build \
-  ${COMMON_FLAGS} \
-  --build_tests_only \
-  //test/...\
-  -//test/server:listener_manager_impl_quic_only_test
+# time bazel build \
+#   ${COMMON_FLAGS} \
+#   --build_tests_only \
+#   //test/...\
+#   -//test/server:listener_manager_impl_quic_only_test
 
 
 # Run tests
 time bazel test \
   ${COMMON_FLAGS} \
   --build_tests_only \
-  //test/...
-  -//test/server:listener_manager_impl_quic_only_test 
+  --test_output=all \
+  //test/extensions/common/async_files:async_file_handle_thread_pool_test \
+  --test_arg="--gtest_filter=*LinkCreatesNamedFile*"

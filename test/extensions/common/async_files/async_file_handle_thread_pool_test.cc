@@ -147,16 +147,18 @@ TEST_F(AsyncFileHandleTest, LinkCreatesNamedFile) {
   absl::StatusOr<size_t> write_status = write_status_promise.get_future().get();
   ASSERT_THAT(write_status, IsOkAndHolds(5U));
   char filename[1024];
-  snprintf(filename, sizeof(filename), "%s/async_link_test.XXXXXX", tmpdir_.c_str());
+  //snprintf(filename, sizeof(filename), "%s/async_link_test.XXXXXX", tmpdir_.c_str());
+  snprintf(filename, sizeof(filename), "/tmp/xyz");
   // Have to use `mkstemp` even though we actually only wanted a filename
   // for the purpose of this test, because `mktemp` has aggressive warnings.
   Api::OsSysCalls& posix = Api::OsSysCallsSingleton().get();
-  int fd = posix.mkstemp(filename).return_value_;
-  ASSERT_GT(strlen(filename), 0);
-  ASSERT_NE(-1, fd);
-  posix.close(fd);
-  // Delete the file so we're where we would have been with `mktemp`!
-  posix.unlink(filename);
+  // int fd = posix.mkstemp(filename).return_value_;
+  // ASSERT_GT(strlen(filename), 0);
+  // ASSERT_NE(-1, fd);
+  // posix.close(fd);
+  // // Delete the file so we're where we would have been with `mktemp`!
+  // fd = posix.unlink(filename).return_value_;
+  // ASSERT_NE(-1, fd);
 
   // Link the anonymous file into our tmp file name.
   std::promise<absl::Status> link_status;
@@ -164,7 +166,10 @@ TEST_F(AsyncFileHandleTest, LinkCreatesNamedFile) {
 
   EXPECT_OK(handle->createHardLink(std::string(filename),
                                    [&](absl::Status status) { link_status.set_value(status); }));
-  ASSERT_OK(link_status.get_future().get());
+  auto res = link_status.get_future().get();
+  std::cout << "CODE = " << res.code() << std::endl;
+  ASSERT_OK(res);
+  //ASSERT_OK(link_status.get_future().get());
   // Read the contents of the linked file back, raw.
   char fileContents[6];
   fileContents[5] = '\0';

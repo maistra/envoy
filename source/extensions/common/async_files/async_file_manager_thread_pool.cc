@@ -162,6 +162,8 @@ public:
     // char buffer, and we can't give it that with C++ strings.
     snprintf(filename, sizeof(filename), "%s%s", path_.c_str(), file_suffix);
     open_result = posix().mkstemp(filename);
+    std::cout << "FALLBACK => " << filename << std::endl;
+    std::cout << "RETURNED FD => " << open_result.return_value_ << std::endl;
     if (open_result.return_value_ == -1) {
       return statusAfterFileError(open_result);
     }
