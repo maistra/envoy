@@ -154,16 +154,11 @@ def envoy_dependencies(skip_targets = []):
     # Binding to an alias pointing to the selected version of BoringSSL:
     # - BoringSSL FIPS from @boringssl_fips//:ssl,
     # - non-FIPS BoringSSL from @boringssl//:ssl.
-    _boringssl()
-    _boringssl_fips()
-    native.bind(
-        name = "ssl",
-        actual = "@envoy//bazel:boringssl",
-    )
-    native.bind(
-        name = "crypto",
-        actual = "@envoy//bazel:boringcrypto",
-    )
+
+    # EXTERNAL OPENSSL
+    _openssl()
+    _openssl_includes()
+    _com_github_maistra_bssl_wrapper()
 
     # The long repo names (`com_github_fmtlib_fmt` instead of `fmtlib`) are
     # semi-standard in the Bazel community, intended to avoid both duplicate
@@ -969,7 +964,7 @@ def _com_github_grpc_grpc():
     )
     native.bind(
         name = "libcrypto",
-        actual = "//external:crypto",
+        actual = "//external:ssl",
     )
     native.bind(
         name = "cares",
