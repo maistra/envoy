@@ -502,5 +502,9 @@ HeaderUtility::validateContentLength(absl::string_view header_value,
   return HeaderValidationResult::ACCEPT;
 }
 
+bool HeaderUtility::isPseudoHeader(absl::string_view header_name) {
+  return !header_name.empty() && header_name[0] == ':';
+}
+
 } // namespace Http
 } // namespace Envoy

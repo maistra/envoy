@@ -280,6 +280,11 @@ public:
   validateContentLength(absl::string_view header_value,
                         bool override_stream_error_on_invalid_http_message,
                         bool& should_close_connection);
+  /**
+   * Return true if the given header name is a pseudo header.
+   */
+  static bool isPseudoHeader(absl::string_view header_name);
+
 };
 
 } // namespace Http
