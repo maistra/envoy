@@ -4505,10 +4505,10 @@ TEST_P(SslSocketTest, CipherSuites) {
   // A very similar test for an unsupported cipher suite is immediately above.
   // TODO (dmitri-d) Enable this check if we start deprecating cipher-suites.
   // Client connects to a server offering only deprecated cipher suites, connection fails.
-  // server_params->add_cipher_suites("ECDHE-RSA-AES128-SHA");
+  server_params->add_cipher_suites("ECDHE-RSA-AES128-SHA");
   // updateFilterChain(tls_context, *filter_chain);
-  // error_test_options.setExpectedServerStats("ssl.connection_error");
-  // testUtilV2(error_test_options);
+  error_test_options.setExpectedServerStats("ssl.connection_error");
+  testUtilV2(error_test_options);
   server_params->clear_cipher_suites();
 
   // Verify that ECDHE-RSA-CHACHA20-POLY1305 is not offered by default in FIPS builds.

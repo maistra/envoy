@@ -14,6 +14,7 @@ Minor Behavior Changes
 
 * cryptomb: remove RSA PKCS1 v1.5 padding support.
 * tls: if both :ref:`match_subject_alt_names <envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.match_subject_alt_names>` and :ref:`match_typed_subject_alt_names <envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.match_typed_subject_alt_names>` are specified, the former (deprecated) field is ignored. Previously, setting both fields would result in an error.
+* tls: removed RSA key transport and SHA-1 cipher suites from the client-side defaults.
 
 Bug Fixes
 ---------
