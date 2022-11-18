@@ -31,6 +31,8 @@ Bug Fixes
   Previously this would also remove the header at any Envoy instance upstream of an external request, including an Envoy instance that added the header.
 * cors: Fix a use-after-free bug that occurs in the CORS filter if the ``origin`` header is removed between request header decoding and response header encoding.
 * Fix memory leak in nghttp2 when scheduled requests are cancelled due to the ``GOAWAY`` frame being received from the upstream service.
+* Fixed a cookie validator bug that meant the HMAC calculation could be the same for different payloads. This prevents malicious clients from constructing credentials with permanent validity in some specific scenarios.
+
 
 
 Removed Config or Runtime
