@@ -56,6 +56,9 @@ bug_fixes:
 - area: validation
   change: |
     fixed a crash which could happen when optional ``engine_type`` is not provided in regex.
+- area: oauth2
+  change: |
+    fixed a bug where the oauth2 filter would crash if it received a redirect URL without a state query param set.
 
 removed_config_or_runtime:
 # *Normally occurs at the end of the* :ref:`deprecation period <deprecated>`
