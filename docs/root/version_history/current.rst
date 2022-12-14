@@ -23,6 +23,7 @@ Bug Fixes
 * oauth: fixed CVE-2022-29228 due to which oauth filter calls continueDecoding() from within decodeHeaders(). The OAuth filter would try to invoke the remaining filters in the chain after emitting a local response, which triggers an ASSERT() in newer versions and corrupts memory on earlier versions.
 * router: fixed CVE-2022-29227 which caused an internal redirect crash for requests with body/trailers. Envoy would previously crash in some cases when processing internal redirects for requests with bodies or trailers if the redirect prompts an Envoy-generated local reply.
 * ci: fix disk space issue that have prevented publication.
+* oauth: fixed a bug where the oauth2 filter would crash if it received a redirect URL without a state query param set.
 
 Removed Config or Runtime
 -------------------------
