@@ -6053,9 +6053,12 @@ TEST_P(SslSocketTest, TestConnectionFailsWhenCertIsMustStapleAndResponseExpired)
 // https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_cert_cb.html) and check OCSP response
 // validity then. Using this callback raises a question of cert chain compatibility with the client
 // side and how to handle it.
-TEST_P(SslSocketTest, DISABLED_TestFilterMultipleCertsFilterByOcspPolicyFallbackOnFirst) {
+TEST_P(SslSocketTest, TestFilterMultipleCertsFilterByOcspPolicyFallbackOnFirst) {
   const std::string server_ctx_yaml = R"EOF(
   common_tls_context:
+    tls_params:
+      cipher_suites:
+      - AES128-GCM-SHA256
     tls_certificates:
     - certificate_chain:
         filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/ocsp/test_data/good_cert.pem"
