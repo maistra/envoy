@@ -2,6 +2,7 @@
 
 #include "envoy/config/route/v3/route_components.pb.h"
 
+#include "source/common/common/json_escape_string.h"
 #include "source/common/common/matchers.h"
 #include "source/common/common/regex.h"
 #include "source/common/common/utility.h"
@@ -194,6 +195,11 @@ bool HeaderUtility::headerValueIsValid(const absl::string_view header_value) {
                                     header_value.size()) != 0;
 }
 
+bool HeaderUtility::headerNameIsValid(const absl::string_view header_key) {
+  return nghttp2_check_header_name(reinterpret_cast<const uint8_t*>(header_key.data()),
+                                   header_key.size()) != 0;
+}
+
 bool HeaderUtility::headerNameContainsUnderscore(const absl::string_view header_name) {
   return header_name.find('_') != absl::string_view::npos;
 }
@@ -356,6 +362,42 @@ Http::Status HeaderUtility::checkRequiredRequestHeaders(const Http::RequestHeade
       return absl::InvalidArgumentError(
           absl::StrCat("missing required header: ", Envoy::Http::Headers::get().Path.get()));
     }
+  }
+  return Http::okStatus();
+}
+
+Http::Status HeaderUtility::checkValidRequestHeaders(const Http::RequestHeaderMap& headers) {
+  if (!Runtime::runtimeFeatureEnabled("envoy.reloadable_features.validate_upstream_headers")) {
+    return Http::okStatus();
+  }
+
+  const HeaderEntry* invalid_entry = nullptr;
+  bool invalid_key = false;
+  headers.iterate([&invalid_entry, &invalid_key](const HeaderEntry& header) -> HeaderMap::Iterate {
+    if (!HeaderUtility::headerNameIsValid(header.key().getStringView())) {
+      invalid_entry = &header;
+      invalid_key = true;
+      return HeaderMap::Iterate::Break;
+    }
+
+    if (!HeaderUtility::headerValueIsValid(header.value().getStringView())) {
+      invalid_entry = &header;
+      invalid_key = false;
+      return HeaderMap::Iterate::Break;
+    }
+
+    return HeaderMap::Iterate::Continue;
+  });
+
+  if (invalid_entry) {
+    // The header key may contain non-printable characters. Escape the key so that the error
+    // details can be safely presented.
+    const absl::string_view key = invalid_entry->key().getStringView();
+    uint64_t extra_length = JsonEscaper::extraSpace(key);
+    const std::string escaped_key = JsonEscaper::escapeString(key, extra_length);
+
+    return absl::InvalidArgumentError(
+        absl::StrCat("invalid header ", invalid_key ? "name: " : "value for: ", escaped_key));
   }
   return Http::okStatus();
 }
