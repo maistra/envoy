@@ -19,6 +19,8 @@ Bug Fixes
 ---------
 *Changes expected to improve the state of the world and are unlikely to have negative effects*
 
+
+* lua: lua coroutine should not execute after local reply is sent.
 * decompression: fixed CVE-2022-29225 due to which decompressors can be zip bombed. Previously decompressors were susceptible to memory inflation in takes in which specially crafted payloads could cause a large amount of memory usage by Envoy. The max inflation payload size is now limited.  This change can be reverted via the ``envoy.reloadable_features.enable_compression_bomb_protection`` runtime flag.
 * health_check: fixed CVE-2022-29224 which caused a segfault in GrpcHealthCheckerImpl. An attacker-controlled upstream server that is health checked using gRPC health checking can crash Envoy via a null pointer dereference in certain circumstances.
 * oauth: fixed CVE-2022-29226 due to which oauth filter allows trivial bypass. The OAuth filter implementation does not include a mechanism for validating access tokens, so by design when the HMAC signed cookie is missing a full authentication flow should be triggered. However, the current implementation assumes that access tokens are always validated thus allowing access in the presence of any access token attached to the request.
