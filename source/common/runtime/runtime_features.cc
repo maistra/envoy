@@ -104,6 +104,7 @@ constexpr const char* runtime_features[] = {
     "envoy.restart_features.use_apple_api_for_dns_lookups",
     "envoy.reloadable_features.header_map_correctly_coalesce_cookies",
     "envoy.reloadable_features.sanitize_http_header_referer",
+    "envoy.reloadable_features.service_sanitize_non_utf8_strings",
     "envoy.reloadable_features.skip_dispatching_frames_for_closed_connection",
 };
 
