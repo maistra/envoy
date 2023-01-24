@@ -59,8 +59,6 @@ build:sanitizer --test_tag_filters=-no_san
 
 # Common flags for Clang
 build:clang --action_env=BAZEL_COMPILER=clang
-build:clang --action_env=CC=clang --action_env=CXX=clang++
-build:clang --linkopt=-fuse-ld=lld
 
 # Flags for Clang + PCH
 build:clang-pch --spawn_strategy=local
@@ -417,3 +415,5 @@ build:windows --dynamic_mode=off
 try-import %workspace%/clang.bazelrc
 try-import %workspace%/user.bazelrc
 try-import %workspace%/local_tsan.bazelrc
+
+import %workspace%/maistra/bazelrc

@@ -1365,7 +1365,8 @@ envoy_cc_test(
         "//source/extensions/transport_sockets/tls:context_config_lib",
         "//source/extensions/transport_sockets/tls:context_lib",
         "//test/common/grpc:grpc_client_integration_lib",
-        "//test/extensions/transport_sockets/tls:test_private_key_method_provider_test_lib",
+        # TODO (dmitri-d) private key providers are not available under OpenSSL atm
+        #"//test/extensions/transport_sockets/tls:test_private_key_method_provider_test_lib",
         "//test/mocks/runtime:runtime_mocks",
         "//test/mocks/secret:secret_mocks",
         "//test/test_common:resources_lib",
@@ -1922,8 +1923,6 @@ envoy_cc_test(
         "nofips",
     ],
     deps = envoy_select_enable_http3([
-        "//test/common/config:dummy_config_proto_cc_proto",
-        "//test/extensions/transport_sockets/tls/cert_validator:timed_cert_validator",
         ":http_integration_lib",
         "//source/common/quic:client_connection_factory_lib",
         "//source/common/quic:envoy_quic_client_connection_lib",
@@ -1934,7 +1933,6 @@ envoy_cc_test(
         "//test/common/quic:test_utils_lib",
         "//test/integration/filters:encoder_decoder_buffer_filter_lib",
         "//test/integration/filters:stream_info_to_headers_filter_lib",
-        "//test/integration/filters:test_network_filter_lib",
         "//test/test_common:test_runtime_lib",
         "@envoy_api//envoy/config/bootstrap/v3:pkg_cc_proto",
         "@envoy_api//envoy/config/overload/v3:pkg_cc_proto",

@@ -2,6 +2,7 @@
 
 #include "source/common/common/assert.h"
 
+#include "bssl_wrapper/bssl_wrapper.h"
 #include "absl/strings/str_split.h"
 #include "openssl/ssl.h"
 
@@ -11,7 +12,8 @@ namespace Test {
 
 std::vector<uint8_t> generateClientHello(uint16_t tls_min_version, uint16_t tls_max_version,
                                          const std::string& sni_name, const std::string& alpn) {
-  bssl::UniquePtr<SSL_CTX> ctx(SSL_CTX_new(TLS_with_buffers_method()));
+  // TODO (dmitri-d) add an implementation of TLS_with_buffers_method to bssl_wrapper
+  bssl::UniquePtr<SSL_CTX> ctx(SSL_CTX_new(TLS_method()));
 
   SSL_CTX_set_min_proto_version(ctx.get(), tls_min_version);
   SSL_CTX_set_max_proto_version(ctx.get(), tls_max_version);
@@ -117,6 +119,18 @@ std::vector<uint8_t> generateClientHelloFromJA3Fingerprint(const std::string& ja
                                                // algorithm
                                                0x04, 0x03};
 
+  // ALPN extension
+  const uint16_t alpn_id = 0x10;
+  std::vector<uint8_t> alpn_extension = {(alpn_id & 0xff00) >> 8, alpn_id & 0xff,
+                                          // length
+                                          0x00, 0x0b,
+                                          // list length
+                                          0x00, 0x09,
+                                          // protocol length
+                                          0x08,
+                                          // protocol name
+                                          'H', 'T', 'T', 'P', '/', '1', '.', '1'};
+
   // extensions
   values = absl::StrSplit(fingerprint[2], '-', absl::SkipEmpty());
   std::vector<uint8_t> extensions;
@@ -139,6 +153,11 @@ std::vector<uint8_t> generateClientHelloFromJA3Fingerprint(const std::string& ja
     case signature_algorithms_id: {
       extensions.insert(std::end(extensions), std::begin(signature_algorithms),
                         std::end(signature_algorithms));
+      break;
+    }
+    case alpn_id: {
+      extensions.insert(std::end(extensions), std::begin(alpn_extension),
+                        std::end(alpn_extension));
       break;
     }
     default: {

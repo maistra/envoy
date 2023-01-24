@@ -99,20 +99,14 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         license = "Apache-2.0",
         license_url = "https://github.com/envoyproxy/envoy-build-tools/blob/{version}/LICENSE",
     ),
-    boringssl = dict(
-        project_name = "BoringSSL",
-        project_desc = "Minimal OpenSSL fork",
-        project_url = "https://github.com/google/boringssl",
-        # To update BoringSSL, which tracks Chromium releases:
-        # 1. Open https://omahaproxy.appspot.com/ and note <current_version> of linux/beta release.
-        # 2. Open https://chromium.googlesource.com/chromium/src/+/refs/tags/<current_version>/DEPS and note <boringssl_revision>.
-        # 3. Find a commit in BoringSSL's "master-with-bazel" branch that merges <boringssl_revision>.
-        #
-        # chromium-105.0.5195.37 (linux/beta)
-        version = "098695591f3a2665fccef83a3732ecfc99acdcdd",
-        sha256 = "e141448cf6f686b6e9695f6b6459293fd602c8d51efe118a83106752cf7e1280",
-        strip_prefix = "boringssl-{version}",
-        urls = ["https://github.com/google/boringssl/archive/{version}.tar.gz"],
+    com_github_openssl_openssl = dict(
+        project_name = "openssl",
+        project_desc = "Cryptography and TLS/SSL Toolkit",
+        project_url = "https://github.com/openssl/openssl",
+        version = "1.1.1",
+        sha256 = "cf26f056a955cff721d3a3c08d8126d1e4f69803e08c9600dac3b6b7158586d6",
+        strip_prefix = "openssl-894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596",
+        urls = ["https://github.com/openssl/openssl/archive/894da2fb7ed5d314ee5c2fc9fd2d9b8b74111596.tar.gz"],
         use_category = ["controlplane", "dataplane_core"],
         release_date = "2022-07-19",
         cpe = "cpe:2.3:a:google:boringssl:*",
@@ -123,14 +117,12 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         project_name = "BoringSSL (FIPS)",
         project_desc = "FIPS compliant BoringSSL",
         project_url = "https://boringssl.googlesource.com/boringssl/+/master/crypto/fipsmodule/FIPS.md",
-        # When this is updated to a revision newer than 2022-08-12,
-        # CertValidatorUtil::setIgnoreCertificateExpiration can be simplified.
         version = "fips-20190808",
         sha256 = "3b5fdf23274d4179c2077b5e8fa625d9debd7a390aac1d165b7e47234f648bb8",
         urls = ["https://commondatastorage.googleapis.com/chromium-boringssl-fips/boringssl-ae223d6138807a13006342edfeef32e813246b39.tar.xz"],
         use_category = ["controlplane", "dataplane_core"],
-        release_date = "2019-08-08",
-        cpe = "cpe:2.3:a:google:boringssl:*",
+        cpe = "N/A",
+        release_date = "2021-05-18",
     ),
     aspect_bazel_lib = dict(
         project_name = "Aspect Bazel helpers",
@@ -451,6 +443,19 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         license = "moonjit",
         license_url = "https://github.com/moonjit/moonjit/blob/{version}/COPYRIGHT",
     ),
+    com_github_luajit2_luajit2 = dict(
+        project_name = "Luajit2",
+        project_desc = "Openresty/luajit2 - OpenResty's maintained branch of LuaJIT",
+        project_url = "https://github.com/openresty/luajit2",
+        version = "1085a4d562b449e7be9e4508b52a19651bdf04a6",
+        sha256 = "2f6931ecac967e8fafffe934a8445593deff9f4c6ece1684fea1277edd0931ee",
+        strip_prefix = "luajit2-{version}",
+        urls = ["https://github.com/openresty/luajit2/archive/{version}.tar.gz"],
+        use_category = ["dataplane_ext"],
+        extensions = ["envoy.filters.http.lua"],
+        release_date = "2021-11-17",
+        cpe = "cpe:2.3:a:luajit2:luajit2:*",
+    ),
     com_github_nghttp2_nghttp2 = dict(
         project_name = "Nghttp2",
         project_desc = "Implementation of HTTP/2 and its header compression algorithm HPACK in C",
@@ -751,7 +756,7 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         version = "26c22c0ce1bc607eec8fa5dd26b707378adc7a88",
         sha256 = "8964c2b3a833dc5fc2600b2768ea1e73a0fcf8a1ed9d2cbc5fa3387c4cdd5caa",
         strip_prefix = "jwt_verify_lib-{version}",
-        urls = ["https://github.com/google/jwt_verify_lib/archive/{version}.tar.gz"],
+        urls = ["https://github.com/maistra/jwt_verify_lib/archive/{version}.tar.gz"],
         use_category = ["dataplane_ext"],
         extensions = ["envoy.filters.http.jwt_authn", "envoy.filters.http.gcp_authn"],
         release_date = "2022-09-22",
@@ -1226,7 +1231,7 @@ REPOSITORY_LOCATIONS_SPEC = dict(
         urls = ["https://github.com/edenhill/librdkafka/archive/v{version}.tar.gz"],
         use_category = ["dataplane_ext"],
         extensions = ["envoy.filters.network.kafka_mesh"],
-        release_date = "2021-10-18",
+        release_date = "2021-05-06",
         cpe = "N/A",
         license = "librdkafka",
         license_url = "https://github.com/edenhill/librdkafka/blob/v{version}/LICENSE",

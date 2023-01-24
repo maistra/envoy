@@ -21,6 +21,7 @@ envoy_cc_library(
     ],
     external_deps = [
         "ssl",
+        "bssl_wrapper_lib",
     ],
     deps = [
         "//envoy/buffer:buffer_interface",

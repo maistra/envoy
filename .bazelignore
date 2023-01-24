@@ -2,5 +2,6 @@
 api
 examples/grpc-bridge/script
 tools/clang_tools
+test/extensions/quic_listeners/quiche
 tools/dev/src
 .project

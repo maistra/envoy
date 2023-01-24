@@ -11,6 +11,9 @@ PYTHON_VERSION = "3.10.2"
 def envoy_dependencies_extra(python_version = PYTHON_VERSION):
     emsdk_deps()
     raze_fetch_remote_crates()
+
+    # This function defines the `@rules_jvm_external` repository, which is needed.
+    protobuf_deps()
     wasmtime_fetch_remote_crates()
 
     # Registers underscored Python minor version - eg `python3_10`

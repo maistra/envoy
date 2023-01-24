@@ -9,6 +9,7 @@
 #include "source/common/protobuf/utility.h"
 
 #include "absl/strings/str_join.h"
+#include "openssl/ssl.h"
 #include "openssl/x509v3.h"
 
 namespace Envoy {
@@ -141,7 +142,6 @@ std::string getRFC2253NameFromCertificate(X509& cert, CertName desired_name) {
     name = X509_get_subject_name(&cert);
     break;
   }
-
   // flags=XN_FLAG_RFC2253 is the documented parameter for single-line output in RFC 2253 format.
   // Example from the RFC:
   //   * Single value per Relative Distinguished Name (RDN): CN=Steve Kille,O=Isode Limited,C=GB
@@ -177,15 +177,14 @@ inline bssl::UniquePtr<ASN1_TIME> currentASN1_Time(TimeSource& time_source) {
 
 std::string Utility::getSerialNumberFromCertificate(X509& cert) {
   ASN1_INTEGER* serial_number = X509_get_serialNumber(&cert);
-  BIGNUM num_bn;
-  BN_init(&num_bn);
-  ASN1_INTEGER_to_BN(serial_number, &num_bn);
-  char* char_serial_number = BN_bn2hex(&num_bn);
-  BN_free(&num_bn);
+  BIGNUM* num_bn(BN_new());
+  ASN1_INTEGER_to_BN(serial_number, num_bn);
+  char* char_serial_number = BN_bn2hex(num_bn);
+  BN_free(num_bn);
   if (char_serial_number != nullptr) {
     std::string serial_number(char_serial_number);
     OPENSSL_free(char_serial_number);
-    return serial_number;
+    return absl::AsciiStrToLower(serial_number);
   }
   return "";
 }
@@ -270,7 +269,7 @@ absl::optional<uint32_t> Utility::getDaysUntilExpiration(const X509* cert,
   return absl::nullopt;
 }
 
-absl::string_view Utility::getCertificateExtensionValue(X509& cert,
+absl::string_view Utility::getCertificateExtensionValue(const X509& cert,
                                                         absl::string_view extension_name) {
   bssl::UniquePtr<ASN1_OBJECT> oid(
       OBJ_txt2obj(std::string(extension_name).c_str(), 1 /* don't search names */));
@@ -354,23 +353,23 @@ absl::string_view Utility::getErrorDescription(int err) {
     return SSL_ERROR_WANT_CONNECT_MESSAGE;
   case SSL_ERROR_WANT_ACCEPT:
     return SSL_ERROR_WANT_ACCEPT_MESSAGE;
-  case SSL_ERROR_WANT_CHANNEL_ID_LOOKUP:
+  case 9: // SSL_ERROR_WANT_CHANNEL_ID_LOOKUP not available in OpenSSL 1.1.x
     return SSL_ERROR_WANT_CHANNEL_ID_LOOKUP_MESSAGE;
-  case SSL_ERROR_PENDING_SESSION:
+  case 11: // SSL_ERROR_PENDING_SESSION not available in OpenSSL 1.1.x
     return SSL_ERROR_PENDING_SESSION_MESSAGE;
-  case SSL_ERROR_PENDING_CERTIFICATE:
+  case 12: // SSL_ERROR_PENDING_CERTIFICATE:
     return SSL_ERROR_PENDING_CERTIFICATE_MESSAGE;
-  case SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
+  case 13: // SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
     return SSL_ERROR_WANT_PRIVATE_KEY_OPERATION_MESSAGE;
-  case SSL_ERROR_PENDING_TICKET:
+  case 14: // SSL_ERROR_PENDING_TICKET:
     return SSL_ERROR_PENDING_TICKET_MESSAGE;
-  case SSL_ERROR_EARLY_DATA_REJECTED:
+  case 15: // SSL_ERROR_EARLY_DATA_REJECTED:
     return SSL_ERROR_EARLY_DATA_REJECTED_MESSAGE;
-  case SSL_ERROR_WANT_CERTIFICATE_VERIFY:
+  case 16: // SSL_ERROR_WANT_CERTIFICATE_VERIFY:
     return SSL_ERROR_WANT_CERTIFICATE_VERIFY_MESSAGE;
-  case SSL_ERROR_HANDOFF:
+  case 17: // SSL_ERROR_HANDOFF:
     return SSL_ERROR_HANDOFF_MESSAGE;
-  case SSL_ERROR_HANDBACK:
+  case 18: // SSL_ERROR_HANDBACK:
     return SSL_ERROR_HANDBACK_MESSAGE;
   }
 #else
