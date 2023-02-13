@@ -25,6 +25,7 @@ filegroup(
             "root/**/envoy-dynamic-lds-demo.yaml",
             "root/**/envoy-dynamic-filesystem-demo.yaml",
             # TODO(phlax/windows-dev): figure out how to get this working on windows
+            # TODO(dmitri-d): figure out how to get this working on rhel/fedora
             #      "Error: unable to read file: /etc/ssl/certs/ca-certificates.crt"
             "root/configuration/http/http_filters/_include/dns-cache-circuit-breaker.yaml",
             "root/configuration/other_features/_include/dlb.yaml",
@@ -32,10 +33,7 @@ filegroup(
         ],
     ) + select({
         "//bazel:windows_x86_64": [],
-        "//conditions:default": [
-            "root/configuration/http/http_filters/_include/dns-cache-circuit-breaker.yaml",
-            "root/intro/arch_overview/security/_include/ssl.yaml",
-        ],
+        "//conditions:default": [],
     }),
 )
 

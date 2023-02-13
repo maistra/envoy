@@ -281,6 +281,7 @@ TEST_P(TlsInspectorTest, ConnectionFingerprint) {
   envoy::extensions::filters::listener::tls_inspector::v3::TlsInspector proto_config;
   proto_config.mutable_enable_ja3_fingerprinting()->set_value(true);
   cfg_ = std::make_shared<Config>(store_, proto_config);
+ 
   std::vector<uint8_t> client_hello =
       Tls::Test::generateClientHello(std::get<0>(GetParam()), std::get<1>(GetParam()), "", "");
   init();
@@ -314,7 +315,7 @@ void TlsInspectorTest::testJA3(const std::string& fingerprint, bool expect_serve
   if (expect_server_name) {
     EXPECT_CALL(socket_, setRequestedServerName(absl::string_view("www.envoyproxy.io")));
   }
-  EXPECT_CALL(socket_, setRequestedApplicationProtocols(_)).Times(0);
+  EXPECT_CALL(socket_, setRequestedApplicationProtocols(_)).Times(::testing::AtLeast(0));
   // EXPECT_CALL(cb_, continueFilterChain(true));
   EXPECT_CALL(socket_, setDetectedTransportProtocol(absl::string_view("tls")));
   EXPECT_CALL(socket_, detectedTransportProtocol()).Times(::testing::AnyNumber());

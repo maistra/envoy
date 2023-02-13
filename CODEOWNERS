@@ -245,9 +245,9 @@ extensions/filters/http/oauth2 @derekargueta @snowp
 /*/extensions/tracers/common @wbpcode @Shikugawa @basvanbeek
 /*/extensions/tracers/common/ot @wbpcode @Shikugawa @basvanbeek
 # ext_authz
-/*/extensions/filters/common/ext_authz @esmet @pradeepcrao @ggreenway
-/*/extensions/filters/http/ext_authz @esmet @pradeepcrao @ggreenway
-/*/extensions/filters/network/ext_authz @esmet @pradeepcrao @ggreenway
+/*/extensions/filters/common/ext_authz @esmet @gsagula @pradeepcrao @ggreenway
+/*/extensions/filters/http/ext_authz @esmet @gsagula @pradeepcrao @ggreenway
+/*/extensions/filters/network/ext_authz @esmet @gsagula @pradeepcrao @ggreenway
 # original dst
 /*/extensions/filters/listener/original_dst @kyessenov @lizan
 # mongo proxy

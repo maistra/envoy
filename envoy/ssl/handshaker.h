@@ -8,6 +8,7 @@
 #include "envoy/server/options.h"
 #include "envoy/singleton/manager.h"
 
+#include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/ssl.h"
 
 namespace Envoy {
@@ -38,12 +39,6 @@ public:
    * unset.
    */
   virtual Network::TransportSocketCallbacks* transportSocketCallbacks() PURE;
-
-  /**
-   * A callback to be called upon certificate validation completion if the validation is
-   * asynchronous.
-   */
-  virtual void onAsynchronousCertValidationComplete() PURE;
 };
 
 /**

@@ -46,13 +46,6 @@ public:
       X509_STORE_CTX* store_ctx, Ssl::SslExtendedSocketInfo* ssl_extended_info, X509& leaf_cert,
       const Network::TransportSocketOptions* transport_socket_options) override;
 
-  ValidationResults
-  doVerifyCertChain(STACK_OF(X509)& cert_chain, Ssl::ValidateResultCallbackPtr callback,
-                    Ssl::SslExtendedSocketInfo* ssl_extended_info,
-                    const Network::TransportSocketOptionsConstSharedPtr& transport_socket_options,
-                    SSL_CTX& ssl, const CertValidator::ExtraValidationContext& validation_context,
-                    bool is_server, absl::string_view host_name) override;
-
   int initializeSslContexts(std::vector<SSL_CTX*> contexts, bool provides_certificates) override;
 
   void updateDigestForSessionId(bssl::ScopedEVP_MD_CTX& md, uint8_t hash_buffer[EVP_MAX_MD_SIZE],
@@ -65,8 +58,7 @@ public:
   // Utility functions.
   Envoy::Ssl::ClientValidationStatus
   verifyCertificate(X509* cert, const std::vector<std::string>& verify_san_list,
-                    const std::vector<SanMatcherPtr>& subject_alt_name_matchers,
-                    std::string* error_details, uint8_t* out_alert);
+                    const std::vector<SanMatcherPtr>& subject_alt_name_matchers);
 
   /**
    * Verifies certificate hash for pinning. The hash is a hex-encoded SHA-256 of the DER-encoded
@@ -98,6 +90,15 @@ public:
    */
   static bool verifySubjectAltName(X509* cert, const std::vector<std::string>& subject_alt_names);
 
+ /**
+   * Determines whether the given name matches 'pattern' which may optionally begin with a wildcard.
+   * NOTE:  public for testing
+   * @param dns_name the DNS name to match
+   * @param pattern the pattern to match against (*.example.com)
+   * @return true if the san matches pattern
+   */
+  static bool dnsNameMatch(const absl::string_view dns_name, const absl::string_view pattern);
+
   /**
    * Performs subjectAltName matching with the provided matchers.
    * @param ssl the certificate to verify
@@ -108,12 +109,6 @@ public:
                                   const std::vector<SanMatcherPtr>& subject_alt_name_matchers);
 
 private:
-  bool verifyCertAndUpdateStatus(Ssl::SslExtendedSocketInfo* ssl_extended_info, X509* leaf_cert,
-                                 const Network::TransportSocketOptions* transport_socket_options,
-                                 std::string* error_details, uint8_t* out_alert);
-
-  void onVerifyError(Ssl::SslExtendedSocketInfo* ssl_extended_info, absl::string_view error);
-
   const Envoy::Ssl::CertificateValidationContextConfig* config_;
   SslStats& stats_;
   TimeSource& time_source_;

@@ -2,7 +2,7 @@
 
 #include "source/common/crypto/utility.h"
 
-#include "openssl/bytestring.h"
+//#include "openssl/bytestring.h"
 #include "openssl/hmac.h"
 #include "openssl/sha.h"
 
@@ -12,6 +12,12 @@ namespace Crypto {
 
 class UtilityImpl : public Envoy::Common::Crypto::Utility {
 public:
+  // a typedef used by BoringSSL
+  typedef struct cbs_st {
+    const uint8_t* data;
+    size_t len;
+  } CBS;
+
   std::vector<uint8_t> getSha256Digest(const Buffer::Instance& buffer) override;
   std::vector<uint8_t> getSha256Hmac(const std::vector<uint8_t>& key,
                                      absl::string_view message) override;

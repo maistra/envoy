@@ -3,6 +3,8 @@
 #include "test/test_common/environment.h"
 
 #include "benchmark/benchmark.h"
+#include "bssl_wrapper/bssl_wrapper.h"
+#include "openssl/err.h"
 #include "openssl/ssl.h"
 #include "tools/cpp/runfiles/runfiles.h"
 

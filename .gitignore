@@ -43,6 +43,7 @@ clang-tidy-fixes.yaml
 clang.bazelrc
 user.bazelrc
 CMakeLists.txt
+/patches
 cmake-build-debug
 /linux
 bazel.output.txt

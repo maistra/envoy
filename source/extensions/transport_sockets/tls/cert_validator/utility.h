@@ -9,11 +9,8 @@ namespace Tls {
 
 class CertValidatorUtil {
 public:
-  // Configures `store_ctx` to ignore certificate expiration.
-  static void setIgnoreCertificateExpiration(X509_STORE_CTX* store_ctx);
-
-  // Configures `store` to ignore certificate expiration.
-  static void setIgnoreCertificateExpiration(X509_STORE* store);
+  // Callback for allow_expired_certificate option
+  static int ignoreCertificateExpirationCallback(int ok, X509_STORE_CTX* store_ctx);
 };
 
 } // namespace Tls

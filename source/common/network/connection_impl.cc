@@ -717,7 +717,7 @@ void ConnectionImpl::onWriteReady() {
     if (delayed_close_state_ == DelayedCloseState::CloseAfterFlushAndWait) {
       ASSERT(delayed_close_timer_ != nullptr && delayed_close_timer_->enabled());
       if (result.bytes_processed_ > 0) {
-        delayed_close_timer_->enableTimer(delayed_close_timeout_);
+        enableDelayedCloseTimer();
       }
     } else {
       ASSERT(bothSidesHalfClosed() || delayed_close_state_ == DelayedCloseState::CloseAfterFlush);
@@ -727,7 +727,7 @@ void ConnectionImpl::onWriteReady() {
     ASSERT(result.action_ == PostIoAction::KeepOpen);
     ASSERT(!delayed_close_timer_ || delayed_close_timer_->enabled());
     if (delayed_close_timer_ != nullptr && result.bytes_processed_ > 0) {
-      delayed_close_timer_->enableTimer(delayed_close_timeout_);
+      enableDelayedCloseTimer();
     }
     if (result.bytes_processed_ > 0) {
       auto it = bytes_sent_callbacks_.begin();

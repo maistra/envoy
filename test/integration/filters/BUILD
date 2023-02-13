@@ -3,6 +3,7 @@ load(
     "envoy_cc_test_library",
     "envoy_package",
     "envoy_proto_library",
+    "envoy_select_enable_http3",
 )
 
 licenses(["notice"])  # Apache 2
@@ -379,17 +380,17 @@ envoy_cc_test_library(
 
 envoy_cc_test_library(
     name = "pause_filter_for_quic_lib",
-    srcs = [
+    srcs = envoy_select_enable_http3([
         "pause_filter_for_quic.cc",
-    ],
+    ]),
     tags = ["nofips"],
-    deps = [
+    deps = envoy_select_enable_http3([
         "//envoy/http:filter_interface",
         "//envoy/registry",
         "//source/common/quic:quic_filter_manager_connection_lib",
         "//source/extensions/filters/http/common:pass_through_filter_lib",
         "//test/extensions/filters/http/common:empty_http_filter_config_lib",
-    ],
+    ]),
 )
 
 envoy_cc_test_library(
@@ -830,24 +831,5 @@ envoy_cc_test_library(
         "//source/common/router:string_accessor_lib",
         "//source/extensions/filters/http/common:factory_base_lib",
         "//source/extensions/filters/http/common:pass_through_filter_lib",
-    ],
-)
-
-envoy_proto_library(
-    name = "test_network_filter_proto",
-    srcs = [":test_network_filter.proto"],
-)
-
-envoy_cc_test_library(
-    name = "test_network_filter_lib",
-    srcs = [
-        "test_network_filter.cc",
-    ],
-    deps = [
-        ":test_network_filter_proto_cc_proto",
-        "//envoy/network:filter_interface",
-        "//envoy/registry",
-        "//envoy/server:filter_config_interface",
-        "//source/extensions/filters/network/common:factory_base_lib",
     ],
 )

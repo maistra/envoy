@@ -139,10 +139,16 @@ Network::IoResult SslSocket::doRead(Buffer::Instance& read_buffer) {
             break;
           }
           FALLTHRU;
+        case SSL_ERROR_SSL:
+          // If EAGAIN treat it as if it's SSL_ERROR_WANT_READ
+          if (errno == EAGAIN) {
+            break;
+          }
+          // fall through for other errors
         case SSL_ERROR_WANT_WRITE:
-          // Renegotiation has started. We don't handle renegotiation so just fall through.
+        // Renegotiation has started. We don't handle renegotiation so just fall through.
         default:
-          drainErrorQueue();
+          drainErrorQueue(true);
           action = PostIoAction::Close;
           break;
         }
@@ -165,9 +171,7 @@ Network::IoResult SslSocket::doRead(Buffer::Instance& read_buffer) {
   return {action, bytes_read, end_stream};
 }
 
-void SslSocket::onPrivateKeyMethodComplete() { resumeHandshake(); }
-
-void SslSocket::resumeHandshake() {
+void SslSocket::onPrivateKeyMethodComplete() {
   ASSERT(callbacks_ != nullptr && callbacks_->connection().dispatcher().isThreadSafe());
   ASSERT(info_->state() == Ssl::SocketState::HandshakeInProgress);
 
@@ -183,16 +187,19 @@ Network::Connection& SslSocket::connection() const { return callbacks_->connecti
 
 void SslSocket::onSuccess(SSL* ssl) {
   ctx_->logHandshake(ssl);
+
   if (callbacks_->connection().streamInfo().upstreamInfo()) {
     callbacks_->connection()
         .streamInfo()
         .upstreamInfo()
         ->upstreamTiming()
+     
         .onUpstreamHandshakeComplete(callbacks_->connection().dispatcher().timeSource());
   } else {
     callbacks_->connection().streamInfo().downstreamTiming().onDownstreamHandshakeComplete(
         callbacks_->connection().dispatcher().timeSource());
   }
+
   callbacks_->raiseEvent(Network::ConnectionEvent::Connected);
 }
 
@@ -200,7 +207,7 @@ void SslSocket::onFailure() { drainErrorQueue(); }
 
 PostIoAction SslSocket::doHandshake() { return info_->doHandshake(); }
 
-void SslSocket::drainErrorQueue() {
+void SslSocket::drainErrorQueue(const bool show_errno) {
   bool saw_error = false;
   bool saw_counted_error = false;
   while (uint64_t err = ERR_get_error()) {
@@ -279,10 +286,19 @@ Network::IoResult SslSocket::doWrite(Buffer::Instance& write_buffer, bool end_st
       case SSL_ERROR_WANT_WRITE:
         bytes_to_retry_ = bytes_to_write;
         break;
+      case SSL_ERROR_SSL:
+        // If EAGAIN treat it as if it's SSL_ERROR_WANT_WRITE
+        if (errno == EAGAIN) {
+          ENVOY_CONN_LOG(debug, "errno:{}:{}", callbacks_->connection(), errno,
+                         Envoy::errorDetails(errno));
+          bytes_to_retry_ = bytes_to_write;
+          break;
+        }
+      // fall through for other errors
       case SSL_ERROR_WANT_READ:
       // Renegotiation has started. We don't handle renegotiation so just fall through.
       default:
-        drainErrorQueue();
+        drainErrorQueue(err == SSL_ERROR_SYSCALL || err == SSL_ERROR_SSL);
         return {PostIoAction::Close, total_bytes_written, false};
       }
 
@@ -354,13 +370,6 @@ void SslSocket::closeSocket(Network::ConnectionEvent) {
 std::string SslSocket::protocol() const { return ssl()->alpn(); }
 
 absl::string_view SslSocket::failureReason() const { return failure_reason_; }
-
-void SslSocket::onAsynchronousCertValidationComplete() {
-  ENVOY_CONN_LOG(debug, "Async cert validation completed", callbacks_->connection());
-  if (info_->state() == Ssl::SocketState::HandshakeInProgress) {
-    resumeHandshake();
-  }
-}
 
 namespace {
 SslSocketFactoryStats generateStats(const std::string& prefix, Stats::Scope& store) {
