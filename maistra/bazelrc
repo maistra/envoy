@@ -22,6 +22,7 @@ build:aarch64 --linkopt=-fuse-ld=lld
 build:ci-config --local_ram_resources=12288
 build:ci-config --local_cpu_resources=6
 build:ci-config --jobs=3
+build:ci-config --action_env=CXXFLAGS="-include /usr/include/c++/8/limits"
 
 # Colored ouput messes with some of the logging systems in CI, so we disable that.
 build:ci-config --color=no
