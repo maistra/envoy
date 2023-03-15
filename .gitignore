@@ -1,5 +1,6 @@
 # Dot files, disallow by default, and enable explicitly
 \.*
+!\.gitleaks.toml
 !\.azure-pipelines
 !\.bazelci
 !\.bazelignore
