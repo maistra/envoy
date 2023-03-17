@@ -22,9 +22,11 @@ if [ -n "${CI}" ]; then
   # Throttle resources to work for our CI environemt
   LOCAL_CPU_RESOURCES="${LOCAL_CPU_RESOURCES:-6}"
   LOCAL_RAM_RESOURCES="${LOCAL_RAM_RESOURCES:-12288}"
+  LOCAL_JOBS="${LOCAL_JOBS:-3}"
 
   COMMON_FLAGS+=" --local_cpu_resources=${LOCAL_CPU_RESOURCES} "
   COMMON_FLAGS+=" --local_ram_resources=${LOCAL_RAM_RESOURCES} "
+  COMMON_FLAGS+=" --jobs=${LOCAL_JOBS} "
 fi
 
 if [ -n "${BAZEL_REMOTE_CACHE}" ]; then
