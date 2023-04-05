@@ -29,7 +29,6 @@ envoy_cc_library(
         "wasm.h",
         "wasm_vm.h",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//envoy/http:codes_interface",
         "//envoy/http:filter_interface",
