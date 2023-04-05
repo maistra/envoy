@@ -21,7 +21,7 @@ parameters:
 steps:
 - task: Cache@2
   inputs:
-    key: '"${{ parameters.ciTarget }}" | ./WORKSPACE | **/*.bzl'
+    key: '"${{ parameters.ciTarget }}" | "${{ parameters.artifactSuffix }}" | ./WORKSPACE | **/*.bzl'
     path: $(Build.StagingDirectory)/repository_cache
   continueOnError: true
 
@@ -55,7 +55,11 @@ steps:
       BAZEL_REMOTE_INSTANCE: projects/envoy-ci/instances/default_instance
     ${{ if eq(parameters.rbe, false) }}:
       BAZEL_BUILD_EXTRA_OPTIONS: "${{ parameters.bazelBuildExtraOptions }}"
-
+      BAZEL_REMOTE_CACHE: $(LocalBuildCache)
+      ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
+        BAZEL_REMOTE_INSTANCE: "instances/$(System.PullRequest.TargetBranch)"
+      ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
+        BAZEL_REMOTE_INSTANCE: "instances/$(Build.SourceBranchName)"
   displayName: "Run CI script ${{ parameters.ciTarget }}"
 
 - bash: |
