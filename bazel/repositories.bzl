@@ -182,7 +182,6 @@ def envoy_dependencies(skip_targets = []):
     _com_github_libevent_libevent()
     _com_github_luajit_luajit()
     _com_github_moonjit_moonjit()
-    _com_github_luajit2_luajit2()
     _com_github_nghttp2_nghttp2()
     _com_github_skyapm_cpp2sky()
     _com_github_nodejs_http_parser()
@@ -783,11 +782,7 @@ def _com_google_protobuf():
 
     external_http_archive(
         "com_google_protobuf",
-        patches = [
-            "@envoy//bazel:protobuf.patch",
-            # This patch adds the protobuf_version.bzl file to the protobuf tree, which is missing from the 3.18.0 tarball.
-            "@envoy//bazel:protobuf-add-version.patch",
-        ],
+        patches = ["@envoy//bazel:protobuf.patch"],
         patch_args = ["-p1"],
     )
 
@@ -902,8 +897,6 @@ def _com_github_google_quiche():
     external_http_archive(
         name = "com_github_google_quiche",
         build_file = "@envoy//bazel/external:quiche.BUILD",
-        patches = ["@envoy//bazel/external:quiche-s390x-support.patch"],
-        patch_args = ["-p1"],
     )
     native.bind(
         name = "quiche_common_platform",
@@ -1048,10 +1041,7 @@ def _com_github_luajit_luajit():
     external_http_archive(
         name = "com_github_luajit_luajit",
         build_file_content = BUILD_ALL_CONTENT,
-        patches = [
-            "@envoy//bazel/foreign_cc:luajit.patch",
-            "@envoy//bazel/foreign_cc:luajit-s390x.patch",
-        ],
+        patches = ["@envoy//bazel/foreign_cc:luajit.patch"],
         patch_args = ["-p1"],
         patch_cmds = ["chmod u+x build.py"],
     )
@@ -1073,20 +1063,6 @@ def _com_github_moonjit_moonjit():
     native.bind(
         name = "moonjit",
         actual = "@envoy//bazel/foreign_cc:moonjit",
-    )
-
-def _com_github_luajit2_luajit2():
-    external_http_archive(
-        name = "com_github_luajit2_luajit2",
-        build_file_content = BUILD_ALL_CONTENT,
-        patches = ["@envoy//bazel/foreign_cc:luajit2.patch"],
-        patch_args = ["-p1"],
-        patch_cmds = ["chmod u+x build.py"],
-    )
-
-    native.bind(
-        name = "luajit2",
-        actual = "@envoy//bazel/foreign_cc:luajit2",
     )
 
 def _com_github_google_tcmalloc():
