@@ -33,6 +33,8 @@ Bug Fixes
   ``:scheme``, and ``:path``; or pseudo-header fields after regular header fields; or undefined pseudo-headers.
 * lua: lua coroutine should not execute after local reply is sent.
 * oauth: fixed a bug where the oauth2 filter would crash if it received a redirect URL without a state query param set.
+* http: amend the fix for ``x-envoy-original-path`` so it removes the header only at edge.
+  Previously this would also remove the header at any Envoy instance upstream of an external request, including an Envoy instance that added the header.
 
 Removed Config or Runtime
 -------------------------
