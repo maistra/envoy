@@ -25,7 +25,31 @@ variables:
   value: $[or(eq(variables['isMain'], 'true'), eq(variables['isReleaseBranch'], 'true'))]
 
 stages:
+- stage: env
+  jobs:
+  - job: repo
+    pool:
+      vmImage: "ubuntu-20.04"
+    steps:
+    - checkout: self
+      fetchDepth: 0
+      fetchTags: true
+    - bash: |
+        VERSION_DEV="$(cat VERSION.txt | cut -d- -f2)"
+        if [[ $VERSION_DEV == "dev" ]]; then
+            echo "##vso[task.setvariable variable=isDev;isoutput=true]true"
+        else
+            echo "##vso[task.setvariable variable=isDev;isoutput=true]false"
+        fi
+      displayName: Set development/release env
+      name: state
+
+    - bash: |
+        echo "env.outputs['state.isDev]: $(state.isDev)"
+      displayName: "Print build environment"
+
 - stage: precheck
+  dependsOn: ["env"]
   jobs:
   - job: format
     dependsOn: []
@@ -141,6 +165,23 @@ stages:
         GITHUB_TOKEN: $(GitHubPublicRepoOnlyAccessToken)
       displayName: "Verify dependency information"
 
+  - job: docker_ci
+    displayName: Docker checks
+    dependsOn: []
+    pool:
+      vmImage: "ubuntu-20.04"
+    steps:
+    - script: |
+        DOCKER_CI_FIX_DIFF=$(Build.StagingDirectory)/fix_docker.diff DOCKER_CI_FIX=1 ci/test_docker_ci.sh
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: Docker build regression test
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathtoPublish: "$(Build.StagingDirectory)/fix_docker.diff"
+        artifactName: "docker_ci"
+        timeoutInMinutes: 10
+      condition: failed()
+
 - stage: sync
   condition: and(succeeded(), eq(variables['PostSubmit'], true), ne(variables['NoSync'], true))
   dependsOn: []
@@ -238,74 +279,6 @@ stages:
         artifactSuffix: ".arm64"
         bazelBuildExtraOptions: "--sandbox_base=/tmp/sandbox_base"
 
-- stage: distribution
-  dependsOn: ["linux_arm64", "linux_x64"]
-  jobs:
-  - job: package_x64
-    dependsOn: []
-    timeoutInMinutes: 120
-    pool:
-      vmImage: "ubuntu-20.04"
-    steps:
-    - template: bazel.yml
-      parameters:
-        ciTarget: bazel.distribution
-  - job: package_arm64
-    dependsOn: []
-    timeoutInMinutes: 120
-    pool: "arm-large"
-    steps:
-    - template: bazel.yml
-      parameters:
-        managedAgent: false
-        ciTarget: bazel.distribution
-        rbe: false
-        artifactSuffix: ".arm64"
-        bazelBuildExtraOptions: "--sandbox_base=/tmp/sandbox_base"
-  - job: verify_x64
-    dependsOn: ["package_x64"]
-    timeoutInMinutes: 120
-    pool:
-      vmImage: "ubuntu-20.04"
-    steps:
-    - task: DownloadBuildArtifacts@0
-      inputs:
-        buildType: current
-        artifactName: "bazel.distribution"
-        itemPattern: "bazel.distribution/packages.x64.tar.gz"
-        downloadType: single
-        targetPath: $(Build.StagingDirectory)
-    - script: ci/run_envoy_docker.sh 'ci/do_ci.sh verify_distro'
-      workingDirectory: $(Build.SourcesDirectory)
-      env:
-        AZP_BRANCH: $(Build.SourceBranch)
-        ENVOY_DOCKER_BUILD_DIR: $(Build.StagingDirectory)
-        BAZEL_REMOTE_CACHE: grpcs://remotebuildexecution.googleapis.com
-        BAZEL_REMOTE_INSTANCE: projects/envoy-ci/instances/default_instance
-        GCP_SERVICE_ACCOUNT_KEY: $(GcpServiceAccountKey)
-      displayName: "Verify packages"
-  - job: verify_arm64
-    dependsOn: ["package_arm64"]
-    timeoutInMinutes: 120
-    pool: "arm-large"
-    steps:
-    - task: DownloadBuildArtifacts@0
-      inputs:
-        buildType: current
-        artifactName: "bazel.distribution.arm64"
-        itemPattern: "bazel.distribution.arm64/packages.arm64.tar.gz"
-        downloadType: single
-        targetPath: $(Build.StagingDirectory)
-    - script: ci/run_envoy_docker.sh 'ci/do_ci.sh verify_distro'
-      workingDirectory: $(Build.SourcesDirectory)
-      env:
-        AZP_BRANCH: $(Build.SourceBranch)
-        ENVOY_DOCKER_BUILD_DIR: $(Build.StagingDirectory)
-        BAZEL_REMOTE_CACHE: grpcs://remotebuildexecution.googleapis.com
-        BAZEL_REMOTE_INSTANCE: projects/envoy-ci/instances/default_instance
-        GCP_SERVICE_ACCOUNT_KEY: $(GcpServiceAccountKey)
-      displayName: "Verify packages"
-
 - stage: check
   dependsOn: ["linux_x64"]
   jobs:
@@ -369,11 +342,11 @@ stages:
         GCS_ARTIFACT_BUCKET: $(GcsArtifactBucket)
       condition: always()
 
-- stage: docker
-  dependsOn: ["linux_x64", "linux_arm64"]
+- stage: publish
+  dependsOn: ["env", "linux_x64", "linux_arm64"]
   jobs:
   - job: docker
-    displayName: "linux multiarch"
+    displayName: "Docker (linux multi arch)"
     timeoutInMinutes: 120
     pool:
       vmImage: "ubuntu-20.04"
@@ -443,11 +416,32 @@ stages:
       timeoutInMinutes: 10
       condition: always()
 
-- stage: publish
-  dependsOn: ["docker"]
-  condition: and(succeeded(), eq(variables['PostSubmit'], true), ne(variables['NoSync'], true))
-  jobs:
+  - job: package_x64
+    dependsOn: []
+    timeoutInMinutes: 120
+    pool:
+      vmImage: "ubuntu-20.04"
+    steps:
+    - template: bazel.yml
+      parameters:
+        ciTarget: bazel.distribution
+  - job: package_arm64
+    dependsOn: []
+    timeoutInMinutes: 120
+    pool: "arm-large"
+    steps:
+    - template: bazel.yml
+      parameters:
+        managedAgent: false
+        ciTarget: bazel.distribution
+        rbe: false
+        artifactSuffix: ".arm64"
+        bazelBuildExtraOptions: "--sandbox_base=/tmp/sandbox_base"
+
   - job: docs
+    displayName: Publish docs to netlify
+    dependsOn: ["docker", "package_x64", "package_arm64"]
+    condition: and(succeeded(), eq(variables['PostSubmit'], true), ne(variables['NoSync'], true))
     pool:
       vmImage: "ubuntu-20.04"
     steps:
@@ -493,31 +487,13 @@ stages:
         NETLIFY_TRIGGER_URL: $(NetlifyTriggerURL)
 
   - job: github
+    displayName: Publish release tag
     dependsOn: ["docs"]
-    condition: eq(variables['isStableBranch'], 'true')
+    condition: and(succeeded(), eq(variables['PostSubmit'], true), ne(variables['NoSync'], true), eq(variables['isStableBranch'], 'true'), eq(stageDependencies.env.repo.outputs['state.isDev'], 'false'))
     pool:
       vmImage: "ubuntu-20.04"
     steps:
-    - bash: |
-        VERSION_DEV="$(cat VERSION.txt | cut -d- -f2)"
-        if [[ $VERSION_DEV != "dev" ]]; then
-            echo "##vso[task.setvariable variable=isDev]false"
-        fi
-      displayName: Set development/release env
 
-    - script: ./ci/run_envoy_docker.sh './ci/do_ci.sh publish'
-      displayName: "Publish release to Github"
-      workingDirectory: $(Build.SourcesDirectory)
-      condition: eq(variables['isDev'], 'false')
-      env:
-        GITHUB_TOKEN: $(GitHubPublicRepoOnlyAccessToken)
-
-  - job: assets
-    dependsOn: []
-    condition: eq(variables['isTaggedRelease'], 'true')
-    pool:
-      vmImage: "ubuntu-20.04"
-    steps:
     - task: DownloadBuildArtifacts@0
       inputs:
         buildType: current
@@ -551,8 +527,17 @@ stages:
       name: MaintainerGPGKey
       displayName: 'Download maintainer GPG key'
       inputs:
-        secureFile: 'maintainer.gpg.key'
+        # NB: This is the path to the key and **must** be set on a per-pipeline basis
+        secureFile: '$(maintainerGPGKey)'
 
+    - script: ./ci/run_envoy_docker.sh './ci/do_ci.sh publish'
+      displayName: "Publish release to Github"
+      workingDirectory: $(Build.SourcesDirectory)
+      env:
+        AZP_BRANCH: $(Build.SourceBranch)
+        GITHUB_TOKEN: $(GitHubPublicRepoOnlyAccessToken)
+
+    # TODO(phlax): combine this with publish step
     - bash: |
         set -e
 
@@ -581,9 +566,10 @@ stages:
         MAINTAINER_GPG_KEY_PASSPHRASE: $(MaintainerGPGKeyPassphrase)
 
 - stage: verify
-  dependsOn: ["docker"]
+  dependsOn: ["publish"]
   jobs:
   - job: examples
+    displayName: Verify (Docker/x64) examples
     pool:
       vmImage: "ubuntu-20.04"
     steps:
@@ -597,6 +583,51 @@ stages:
       env:
         ENVOY_DOCKER_BUILD_DIR: $(Build.StagingDirectory)
         NO_BUILD_SETUP: 1
+
+  - job: verify_x64
+    displayName: Verify debs (x64)
+    dependsOn: []
+    timeoutInMinutes: 120
+    pool:
+      vmImage: "ubuntu-20.04"
+    steps:
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: current
+        artifactName: "bazel.distribution"
+        itemPattern: "bazel.distribution/packages.x64.tar.gz"
+        downloadType: single
+        targetPath: $(Build.StagingDirectory)
+    - script: ci/run_envoy_docker.sh 'ci/do_ci.sh verify_distro'
+      workingDirectory: $(Build.SourcesDirectory)
+      env:
+        AZP_BRANCH: $(Build.SourceBranch)
+        ENVOY_DOCKER_BUILD_DIR: $(Build.StagingDirectory)
+        BAZEL_REMOTE_CACHE: grpcs://remotebuildexecution.googleapis.com
+        BAZEL_REMOTE_INSTANCE: projects/envoy-ci/instances/default_instance
+        GCP_SERVICE_ACCOUNT_KEY: $(GcpServiceAccountKey)
+
+  - job: verify_arm64
+    displayName: Verify debs (arm64)
+    dependsOn: []
+    timeoutInMinutes: 120
+    pool: "arm-large"
+    steps:
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: current
+        artifactName: "bazel.distribution.arm64"
+        itemPattern: "bazel.distribution.arm64/packages.arm64.tar.gz"
+        downloadType: single
+        targetPath: $(Build.StagingDirectory)
+    - script: ci/run_envoy_docker.sh 'ci/do_ci.sh verify_distro'
+      workingDirectory: $(Build.SourcesDirectory)
+      env:
+        AZP_BRANCH: $(Build.SourceBranch)
+        ENVOY_DOCKER_BUILD_DIR: $(Build.StagingDirectory)
+        BAZEL_REMOTE_CACHE: grpcs://remotebuildexecution.googleapis.com
+        BAZEL_REMOTE_INSTANCE: projects/envoy-ci/instances/default_instance
+        GCP_SERVICE_ACCOUNT_KEY: $(GcpServiceAccountKey)
 
 - stage: macos
   dependsOn: ["precheck"]

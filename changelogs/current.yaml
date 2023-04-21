@@ -2,6 +2,9 @@ date: Pending
 
 behavior_changes:
 # *Changes that are expected to cause an incompatibility if applicable; deployment changes are likely required*
+- area: http
+  change: |
+    Validate upstream request header names and values. The new runtime flag ``envoy.reloadable_features.validate_upstream_headers`` can be used for revert this behavior.
 
 minor_behavior_changes:
 # *Changes that may cause incompatibilities for some users, but should not for most*
@@ -35,27 +38,31 @@ bug_fixes:
   change: |
     fixed a bug where custom transport socket hashes might not be respected by wrapper passthrough sockets. This change can be temporarily reverted by setting runtime guard ``envoy.reloadable_features.fix_hash_key`` to false.
 # *Changes expected to improve the state of the world and are unlikely to have negative effects*
-- area: grpc_json_transcoder
-  change: |
-    fix a bug when using http2, request body has google.api.HttpBody and the size is < 16KB, it will cause EOF from the backend grpc server.
-- area: router
-  change: |
-    fixed a bug that incorrectly rewrote the path when using ``regex_rewrite`` for redirects matched on prefix.
 - area: oauth2
   change: |
-    fixed a bug when passthrough header was matched, envoy would always remove the authorization header. This behavioral change can be temporarily reverted by setting runtime guard ``envoy.reloadable_features.oauth_header_passthrough_fix`` to false.
-- area: generic_proxy
+    fixed a bug where the oauth2 filter would crash if it received a redirect URL without a state query param set.
+- area: lua
   change: |
-    fixed a bug that encoder filters and decoder filters of generic proxy will be executed in the same order. The encoder filters' execuate order should be the reverse of decoder filters' in the generic proxy.
-- area: quic
+    lua coroutine should not execute after local reply is sent.
+- area: grpc
   change: |
-    reject configs that specify require_client_certificate with QUIC since clients certificates are currently unsupported in QUIC. This behavioral change can be temporarily reverted by setting runtime guard ``envoy.reloadable_features.reject_require_client_certificate_with_quic`` to false.
+    When Envoy was configured to use ext_authz, ext_proc, tap, ratelimit filters, and grpc access log service and an http header with non-UTF-8 data was received,
+    Envoy would generate an invalid protobuf message and send it to the configured service. The receiving service would typically generate an error when decoding
+    the protobuf message. For ext_authz that was configured with ``failure_mode_allow: true``, the request would have been allowed in this case. For the other services, this
+    could have resulted in other unforseen errors such as a lack of visibility into requests (eg request not logged). Envoy will now by default sanitize the values sent
+    in gRPC service calls to be valid UTF-8, replacing data that is not valid UTF-8 with a '!' character. This behavioral change can be temporarily reverted by
+    setting runtime guard ``envoy.reloadable_features.service_sanitize_non_utf8_strings`` to false.
 - area: http
   change: |
-    fixed a bug where Utility::PercentEncoding::encode() encodes some characters incorrectly because it was treating the value as negative.
-- area: validation
+    stop forwarding ``:method`` value which is not a valid token defined in https://www.rfc-editor.org/rfc/rfc9110#section-5.6.2.
+    Also, reject ``:method`` and ``:scheme`` headers with multiple values.
+- area: http3
   change: |
-    fixed a crash which could happen when optional ``engine_type`` is not provided in regex.
+    reject pseudo headers violating RFC 9114. Specifically, pseudo-header fields with more than one value for the ``:method`` (non-``CONNECT``),
+    ``:scheme``, and ``:path``; or pseudo-header fields after regular header fields; or undefined pseudo-headers.
+- area: http
+  change: |
+    fixed a bug where ``x-envoy-original-path`` was not being sanitized when sent from untrusted users. This behavioral change can be temporarily reverted by setting ``envoy.reloadable_features.sanitize_original_path`` to false.
 
 removed_config_or_runtime:
 # *Normally occurs at the end of the* :ref:`deprecation period <deprecated>`
