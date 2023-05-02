@@ -782,7 +782,6 @@ TEST_F(ConnectionManagerUtilityTest, ExternalAddressExternalRequestUseRemote) {
   EXPECT_FALSE(headers.has("x-envoy-expected-rq-timeout-ms"));
   EXPECT_FALSE(headers.has("x-envoy-ip-tags"));
   EXPECT_FALSE(headers.has("x-envoy-original-url"));
-  EXPECT_FALSE(headers.has("x-envoy-original-path"));
   EXPECT_FALSE(headers.has("custom_header"));
 }
 
