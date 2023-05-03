@@ -3,6 +3,7 @@ load(
     "envoy_basic_cc_library",
     "envoy_cc_library",
     "envoy_package",
+    "envoy_select_boringssl",
 )
 
 licenses(["notice"])  # Apache 2
