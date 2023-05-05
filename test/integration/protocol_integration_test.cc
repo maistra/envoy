@@ -3679,6 +3679,55 @@ TEST_P(DownstreamProtocolIntegrationTest, ValidateUpstreamHeaders) {
   }
 }
 
+TEST_P(ProtocolIntegrationTest, ValidateUpstreamMixedCaseHeaders) {
+#ifdef ENVOY_ENABLE_UHV
+  // UHV does not support this case so far.
+  return;
+#endif
+  if (upstreamProtocol() != Http::CodecType::HTTP1) {
+    autonomous_allow_incomplete_streams_ = true;
+    autonomous_upstream_ = true;
+  }
+  if (upstreamProtocol() == Http::CodecType::HTTP3) {
+    testing_upstream_intentionally_ = true;
+  }
+  config_helper_.prependFilter("{ name: invalid-header-filter, typed_config: { \"@type\": "
+                               "type.googleapis.com/google.protobuf.Empty } }");
+
+  initialize();
+
+  codec_client_ = makeHttpConnection(makeClientConnection((lookupPort("http"))));
+
+  // Tell the invalid-header-filter to add a header with mixed case name.
+  auto response = codec_client_->makeHeaderOnlyRequest(
+      Http::TestRequestHeaderMapImpl{{":method", "GET"},
+                                     {":path", "/test/long/url"},
+                                     {":scheme", "http"},
+                                     {":authority", "host"},
+                                     {"x-add-mixed-case-header-key", "true"}});
+
+  // HTTP/1 upstream codec allows mixed case headers
+  if (upstreamProtocol() == Http::CodecType::HTTP1) {
+    waitForNextUpstreamRequest();
+
+    // Note that the fake upstream will change the header name to lowercase
+    EXPECT_EQ("some value here", upstream_request_->headers()
+                                     .get(Http::LowerCaseString("x-mixed-case"))[0]
+                                     ->value()
+                                     .getStringView());
+
+    upstream_request_->encodeHeaders(Http::TestResponseHeaderMapImpl{{":status", "200"}}, true);
+
+    ASSERT_TRUE(response->waitForEndStream());
+    EXPECT_TRUE(response->complete());
+    EXPECT_EQ("200", response->headers().getStatusValue());
+  } else {
+    ASSERT_TRUE(response->waitForEndStream());
+    EXPECT_TRUE(response->complete());
+    EXPECT_EQ("503", response->headers().getStatusValue());
+  }
+}
+
 TEST_P(ProtocolIntegrationTest, ValidateUpstreamHeadersWithOverride) {
   if (skipForH2Uhv()) {
     // TODO(#23288) - UHV upstream response support
