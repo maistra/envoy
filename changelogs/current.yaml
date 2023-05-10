@@ -1,10 +1,17 @@
-date: April 4, 2024
+date: September 4, 2024
 
 behavior_changes:
 # *Changes that are expected to cause an incompatibility if applicable; deployment changes are likely required*
 
 minor_behavior_changes:
 # *Changes that may cause incompatibilities for some users, but should not for most*
+  - area: http cookies
+    change: |
+      Changed internal format of http cookie to protobuf and added expiry timestamp. Processing expired cookie
+      results in selection of a new upstream host and sending a new cookie to the client. Previous format of
+      the cookie is still accepted, but is planned to be obsoleted in the future.
+      This behavior change can be reverted by setting
+      ``envoy.reloadable_features.stateful_session_encode_ttl_in_cookie`` to ``false``.
 
 new_features:
 - area: tls
