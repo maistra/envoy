@@ -1,14 +1,5 @@
-1.20.4 (Pending)
-1.22.1 (Pending)
-================
-1.22.4 (Pending)
-======================
-1.22.7 (Pending)
-================
-1.22.10 (Pending)
-=================
-1.22.11 (April 11, 2023)
-========================
+July 18, 2023
+=============
 
 Incompatible Behavior Changes
 -----------------------------
@@ -38,6 +29,7 @@ Bug Fixes
 * dependency: update Curl -> 8.0.1 to resolve CVE-2023-27535, CVE-2023-27536, CVE-2023-27538.
 * http: amend the fix for ``x-envoy-original-path`` so it removes the header only at edge.
   Previously this would also remove the header at any Envoy instance upstream of an external request, including an Envoy instance that added the header.
+* cors: Fix a use-after-free bug that occurs in the CORS filter if the ``origin`` header is removed between request header decoding and response header encoding.
 
 Removed Config or Runtime
 -------------------------
