@@ -34,6 +34,9 @@ Bug Fixes
 * ci: fix disk space issue that have prevented publication.
 * oauth: fixed a bug where the oauth2 filter would crash if it received a redirect URL without a state query param set.
 
+28-July-2023
+* Fix memory leak in nghttp2 when scheduled requests are cancelled due to the ``GOAWAY`` frame being received from the upstream service.
+
 Removed Config or Runtime
 -------------------------
 
