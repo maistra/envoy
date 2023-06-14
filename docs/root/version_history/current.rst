@@ -32,6 +32,9 @@ Bug Fixes
 * cors: Fix a use-after-free bug that occurs in the CORS filter if the ``origin`` header is removed between request header decoding and response header encoding.
 * Fix memory leak in nghttp2 when scheduled requests are cancelled due to the ``GOAWAY`` frame being received from the upstream service.
 * Fixed a cookie validator bug that meant the HMAC calculation could be the same for different payloads. This prevents malicious clients from constructing credentials with permanent validity in some specific scenarios.
+* Switched Envoy internal scheme checks from case sensitive to case insensitive. This behaviorial change can be temporarily
+  reverted by setting runtime guard ``envoy.reloadable_features.handle_uppercase_scheme`` to ``false``.
+
 
 
 
@@ -41,6 +44,9 @@ Removed Config or Runtime
 
 New Features
 ------------
+Envoy will now lower case scheme values by default. This behaviorial change can be temporarily reverted
+by setting runtime guard ``envoy.reloadable_features.lowercase_scheme`` to ``false``.
+
 
 Deprecated
 ----------
