@@ -30,6 +30,8 @@ Bug Fixes
 * http: amend the fix for ``x-envoy-original-path`` so it removes the header only at edge.
   Previously this would also remove the header at any Envoy instance upstream of an external request, including an Envoy instance that added the header.
 * cors: Fix a use-after-free bug that occurs in the CORS filter if the ``origin`` header is removed between request header decoding and response header encoding.
+* Fix memory leak in nghttp2 when scheduled requests are cancelled due to the ``GOAWAY`` frame being received from the upstream service.
+
 
 Removed Config or Runtime
 -------------------------
