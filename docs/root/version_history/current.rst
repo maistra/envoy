@@ -34,8 +34,8 @@ Bug Fixes
 * Fixed a cookie validator bug that meant the HMAC calculation could be the same for different payloads. This prevents malicious clients from constructing credentials with permanent validity in some specific scenarios.
 * Switched Envoy internal scheme checks from case sensitive to case insensitive. This behaviorial change can be temporarily
   reverted by setting runtime guard ``envoy.reloadable_features.handle_uppercase_scheme`` to ``false``.
-
-
+* Fixed a bug in the open telemetry access logger. This logger now uses the server scope for stats instead of the listener's global scope. 
+  This fixes a use-after-free that can occur if the listener is drained but the cached gRPC access logger uses the listener's global scope for stats.
 
 
 Removed Config or Runtime
