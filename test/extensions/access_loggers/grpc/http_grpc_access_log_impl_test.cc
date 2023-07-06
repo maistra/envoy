@@ -762,7 +762,7 @@ TEST_F(HttpGrpcAccessLogTest, SanitizeUTF8) {
 
   {
     NiceMock<StreamInfo::MockStreamInfo> stream_info;
-    stream_info.upstreamInfo()->setUpstreamHost(nullptr);
+    // stream_info.upstreamInfo()->setUpstreamHost(nullptr);
     stream_info.start_time_ = SystemTime(1h);
     std::string non_utf8("prefix");
     non_utf8.append(1, char(0xc3));
@@ -798,18 +798,19 @@ common_properties:
     socket_address:
       address: "127.0.0.1"
       port_value: 0
+  upstream_cluster: "fake_cluster"
   downstream_direct_remote_address:
     socket_address:
-      address: "127.0.0.3"
-      port_value: 63443
+      address: "127.0.0.1"
+      port_value: 0
   downstream_local_address:
     socket_address:
       address: "127.0.0.2"
       port_value: 0
-  upstream_local_address:
+  upstream_remote_address:
     socket_address:
-      address: "127.1.2.3"
-      port_value: 58443
+      address: "10.0.0.1"
+      port_value: 443
   start_time:
     seconds: 3600
 request:
