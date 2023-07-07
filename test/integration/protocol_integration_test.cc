@@ -3484,11 +3484,9 @@ TEST_P(DownstreamProtocolIntegrationTest, UnknownPseudoHeader) {
                                      {":scheme", "http"},
                                      {":authority", "host"}});
   ASSERT_TRUE(response->waitForReset());
-  EXPECT_THAT(waitForAccessLog(access_log_name_),
-              HasSubstr((downstreamProtocol() == Http::CodecType::HTTP2 &&
-                         GetParam().http2_implementation == Http2Impl::Oghttp2)
-                            ? "violation"
-                            : "invalid"));
+  /* dcillera: simplified after backporting "http3: reject invalid pseudo header" */
+  EXPECT_THAT(waitForAccessLog(access_log_name_), HasSubstr("invalid"));
 }
 
 } // namespace Envoy
+
