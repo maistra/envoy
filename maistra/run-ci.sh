@@ -38,5 +38,4 @@ time bazel test \
   -- \
   //test/... \
   -//test/server:listener_manager_impl_quic_only_test \
-  -//test/extensions/common/async_files:async_file_handle_thread_pool_test \
   -//test/common/signal:signals_test 
