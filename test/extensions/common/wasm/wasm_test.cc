@@ -17,7 +17,6 @@
 #include "absl/types/optional.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "openssl/bytestring.h"
 #include "openssl/hmac.h"
 #include "openssl/sha.h"
 #include "zlib.h"
@@ -359,7 +358,13 @@ TEST_P(WasmCommonTest, IntrinsicGlobals) {
   plugin_config.mutable_vm_config()->mutable_configuration()->set_value(vm_configuration);
 
   std::string code;
-  if (std::get<0>(GetParam()) != "null") {
+  // TODO (twghu) (dmitri-d) can we use VMs other than v8 under gcc?
+  // if (GetParam() != "null") {
+  if (std::get<0>(GetParam()) == "v8") {
+#if defined(__aarch64__)
+    // TODO(PiotrSikora): There are no Emscripten releases for arm64.
+    return;
+#endif
     code = TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(
         absl::StrCat("{{ test_rundir }}/test/extensions/common/wasm/test_data/test_cpp.wasm")));
   } else {
@@ -470,7 +475,12 @@ TEST_P(WasmCommonTest, Stats) {
   plugin_config.mutable_vm_config()->mutable_configuration()->set_value(vm_configuration);
 
   std::string code;
-  if (std::get<0>(GetParam()) != "null") {
+  // TODO (dmitri-d) same as above
+  if (std::get<0>(GetParam()) == "v8") {
+#if defined(__aarch64__)
+    // TODO(PiotrSikora): There are no Emscripten releases for arm64.
+    return;
+#endif
     code = TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(
         absl::StrCat("{{ test_rundir }}/test/extensions/common/wasm/test_data/test_cpp.wasm")));
   } else {
