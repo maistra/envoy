@@ -1,5 +1,6 @@
 load("//bazel:envoy_build_system.bzl", "envoy_package")
 load("//tools/base:envoy_python.bzl", "envoy_py_namespace")
+load("//bazel:envoy_library.bzl", "envoy_cc_library")
 
 licenses(["notice"])  # Apache 2
 
@@ -72,5 +73,19 @@ package_group(
     name = "mobile_library",
     packages = [
         "//mobile/...",
+    ],
+)
+
+envoy_cc_library(
+    name = "openssl_impl_lib",
+    srcs = [
+        "openssl_impl.cc",
+    ],
+    hdrs = [
+        "openssl_impl.h",
+    ],
+    external_deps = [
+        "ssl",
+        "bssl_wrapper_lib",
     ],
 )

@@ -25,6 +25,7 @@ envoy_cc_library(
     ],
     external_deps = [
         "ssl",
+        "bssl_wrapper_lib",
         "abseil_base",
         "abseil_hash",
     ],

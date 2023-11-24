@@ -31,7 +31,7 @@ envoy_cc_library(
         "//source/extensions/filters/http/common:pass_through_filter_lib",
         "@envoy_api//contrib/envoy/extensions/filters/http/sxg/v3alpha:pkg_cc_proto",
         # use boringssl alias to select fips vs non-fips version.
-        "//bazel:boringssl",
+        "@openssl//:openssl-lib",
     ],
 )
 

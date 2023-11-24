@@ -128,14 +128,22 @@ public:
   const std::string& serverNameIndication() const override { return server_name_indication_; }
   bool allowRenegotiation() const override { return allow_renegotiation_; }
   size_t maxSessionKeys() const override { return max_session_keys_; }
+  const std::string& signingAlgorithmsForTest() const override { return sigalgs_; }
 
 private:
   static const unsigned DEFAULT_MIN_VERSION;
   static const unsigned DEFAULT_MAX_VERSION;
+  // FIPS Configuration
+  static const std::string DEFAULT_FIPS_CIPHER_SUITES;
+  static const std::string DEFAULT_FIPS_CURVES;
+  // Non FIPS Configuration
+  static const std::string DEFAULT_NON_FIPS_CIPHER_SUITES;
+  static const std::string DEFAULT_NON_FIPS_CURVES;
 
   const std::string server_name_indication_;
   const bool allow_renegotiation_;
   const size_t max_session_keys_;
+  const std::string sigalgs_;
 };
 
 class ServerContextConfigImpl : public ContextConfigImpl, public Envoy::Ssl::ServerContextConfig {
@@ -168,7 +176,14 @@ public:
 
 private:
   static const unsigned DEFAULT_MIN_VERSION;
-  static const unsigned DEFAULT_MAX_VERSION;
+  // FIPS Configuration
+  static const unsigned DEFAULT_FIPS_MAX_VERSION;
+  static const std::string DEFAULT_FIPS_CIPHER_SUITES;
+  static const std::string DEFAULT_FIPS_CURVES;
+  // Non FIPS Configuration
+  static const unsigned DEFAULT_NON_FIPS_MAX_VERSION;
+  static const std::string DEFAULT_NON_FIPS_CIPHER_SUITES;
+  static const std::string DEFAULT_NON_FIPS_CURVES;
   static const std::string DEFAULT_CIPHER_SUITES;
   static const std::string DEFAULT_CURVES;
 

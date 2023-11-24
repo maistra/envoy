@@ -83,7 +83,10 @@ envoy_cc_library(
     name = "tls_utility_lib",
     srcs = ["tls_utility.cc"],
     hdrs = ["tls_utility.h"],
-    external_deps = ["ssl"],
+    external_deps = [
+        "ssl",
+        "bssl_wrapper_lib",
+    ],
     deps = [
         "//source/common/common:assert_lib",
     ],

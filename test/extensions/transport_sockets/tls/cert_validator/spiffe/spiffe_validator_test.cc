@@ -36,12 +36,9 @@ using X509StoreContextPtr = CSmartPtr<X509_STORE_CTX, X509_STORE_CTX_free>;
 using X509Ptr = CSmartPtr<X509, X509_free>;
 using SSLContextPtr = CSmartPtr<SSL_CTX, SSL_CTX_free>;
 
-class TestSPIFFEValidator : public ::testing::Test, public testing::WithParamInterface<bool> {
+class TestSPIFFEValidator : public ::testing::Test {
 public:
-  TestSPIFFEValidator() : stats_(generateSslStats(*store_.rootScope())) {
-    Runtime::maybeSetRuntimeGuard("envoy.reloadable_features.tls_async_cert_validation",
-                                  GetParam());
-  }
+  TestSPIFFEValidator() : stats_(generateSslStats(*store_.rootScope())) {}
   void initialize(std::string yaml, TimeSource& time_source) {
     envoy::config::core::v3::TypedExtensionConfig typed_conf;
     TestUtility::loadFromYaml(yaml, typed_conf);
@@ -102,9 +99,7 @@ private:
   SPIFFEValidatorPtr validator_;
 };
 
-INSTANTIATE_TEST_SUITE_P(TestSPIFFEValidators, TestSPIFFEValidator, testing::Bool());
-
-TEST_P(TestSPIFFEValidator, InvalidCA) {
+TEST_F(TestSPIFFEValidator, InvalidCA) {
   // Invalid trust bundle.
   EXPECT_THROW_WITH_MESSAGE(initialize(TestEnvironment::substitute(R"EOF(
 name: envoy.tls.cert_validator.spiffe
@@ -119,7 +114,7 @@ typed_config:
 }
 
 // Multiple trust bundles are given for the same trust domain.
-TEST_P(TestSPIFFEValidator, Constructor) {
+TEST_F(TestSPIFFEValidator, Constructor) {
   EXPECT_THROW_WITH_MESSAGE(initialize(TestEnvironment::substitute(R"EOF(
 name: envoy.tls.cert_validator.spiffe
 typed_config:
@@ -204,13 +199,13 @@ TEST(SPIFFEValidator, TestCertificatePrecheck) {
   EXPECT_TRUE(SPIFFEValidator::certificatePrecheck(cert.get()));
 }
 
-TEST_P(TestSPIFFEValidator, TestInitializeSslContexts) {
+TEST_F(TestSPIFFEValidator, TestInitializeSslContexts) {
   initialize();
   EXPECT_EQ(SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
             validator().initializeSslContexts({}, false));
 }
 
-TEST_P(TestSPIFFEValidator, TestGetTrustBundleStore) {
+TEST_F(TestSPIFFEValidator, TestGetTrustBundleStore) {
   initialize();
 
   // No SAN
@@ -236,43 +231,20 @@ TEST_P(TestSPIFFEValidator, TestGetTrustBundleStore) {
   EXPECT_TRUE(validator().getTrustBundleStore(cert.get()));
 }
 
-TEST_P(TestSPIFFEValidator, TestDoVerifyCertChainWithEmptyChain) {
+TEST_F(TestSPIFFEValidator, TestDoVerifyCertChainPrecheckFailure) {
   initialize();
-  TestSslExtendedSocketInfo info;
-  SSLContextPtr ssl_ctx = SSL_CTX_new(TLS_method());
-  bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-  ValidationResults results =
-      validator().doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                    /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "");
-  EXPECT_EQ(ValidationResults::ValidationStatus::Failed, results.status);
-  EXPECT_EQ(Envoy::Ssl::ClientValidationStatus::NotValidated, results.detailed_status);
-  EXPECT_EQ(1, stats().fail_verify_error_.value());
-}
-
-TEST_P(TestSPIFFEValidator, TestDoVerifyCertChainPrecheckFailure) {
-  initialize();
+  X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
   bssl::UniquePtr<X509> cert = readCertFromFile(TestEnvironment::substitute(
       // basicConstraints: CA:True
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/ca_cert.pem"));
+
   TestSslExtendedSocketInfo info;
-  if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    SSLContextPtr ssl_ctx = SSL_CTX_new(TLS_method());
-    bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-    sk_X509_push(cert_chain.get(), cert.release());
-    ValidationResults results = validator().doVerifyCertChain(
-        *cert_chain, info.createValidateResultCallback(),
-        /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "");
-    EXPECT_EQ(ValidationResults::ValidationStatus::Failed, results.status);
-    EXPECT_EQ(Envoy::Ssl::ClientValidationStatus::Failed, results.detailed_status);
-  } else {
-    X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
-    EXPECT_FALSE(validator().doSynchronousVerifyCertChain(store_ctx.get(), &info, *cert, nullptr));
-    EXPECT_EQ(info.certificateValidationStatus(), Envoy::Ssl::ClientValidationStatus::Failed);
-  }
+  EXPECT_FALSE(validator().doSynchronousVerifyCertChain(store_ctx.get(), &info, *cert, nullptr));
   EXPECT_EQ(1, stats().fail_verify_error_.value());
+  EXPECT_EQ(info.certificateValidationStatus(), Envoy::Ssl::ClientValidationStatus::Failed);
 }
 
-TEST_P(TestSPIFFEValidator, TestDoVerifyCertChainSingleTrustDomain) {
+TEST_F(TestSPIFFEValidator, TestDoVerifyCertChainSingleTrustDomain) {
   initialize(TestEnvironment::substitute(R"EOF(
 name: envoy.tls.cert_validator.spiffe
 typed_config:
@@ -283,66 +255,36 @@ typed_config:
         filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/ca_cert.pem"
   )EOF"));
 
-  X509StorePtr store = X509_STORE_new();
-  SSLContextPtr ssl_ctx = SSL_CTX_new(TLS_method());
-  TestSslExtendedSocketInfo info;
+  X509StorePtr ssl_ctx = X509_STORE_new();
+
   // Trust domain matches so should be accepted.
   auto cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_uri_cert.pem"));
-  if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-    sk_X509_push(cert_chain.get(), cert.release());
-    EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
-              validator()
-                  .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
-                  .status);
-  } else {
-    X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
-    EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), store.get(), cert.get(), nullptr));
-    EXPECT_TRUE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
-  }
+  X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
+  EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), nullptr));
+  EXPECT_TRUE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
 
   // Different trust domain so should be rejected.
   cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/spiffe_san_cert.pem"));
-  if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-    sk_X509_push(cert_chain.get(), cert.release());
-    EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
-              validator()
-                  .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
-                  .status);
-  } else {
-    X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
-    EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), store.get(), cert.get(), nullptr));
-    EXPECT_FALSE(
-        validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
-  }
+
+  store_ctx = X509_STORE_CTX_new();
+  EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), nullptr));
+  EXPECT_FALSE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
 
   // Does not have san.
   cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/extensions_cert.pem"));
-  if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-    sk_X509_push(cert_chain.get(), cert.release());
-    EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
-              validator()
-                  .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
-                  .status);
-  } else {
-    X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
-    EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), store.get(), cert.get(), nullptr));
-    EXPECT_FALSE(
-        validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
-  }
+
+  store_ctx = X509_STORE_CTX_new();
+  EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), nullptr));
+  EXPECT_FALSE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
 
   EXPECT_EQ(2, stats().fail_verify_error_.value());
 }
 
-TEST_P(TestSPIFFEValidator, TestDoVerifyCertChainMultipleTrustDomain) {
+
+TEST_F(TestSPIFFEValidator, TestDoVerifyCertChainMultipleTrustDomain) {
   initialize(TestEnvironment::substitute(R"EOF(
 name: envoy.tls.cert_validator.spiffe
 typed_config:
@@ -356,84 +298,41 @@ typed_config:
         filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/ca_cert.pem"
   )EOF"));
 
-  X509StorePtr store = X509_STORE_new();
-  SSLContextPtr ssl_ctx = SSL_CTX_new(TLS_method());
-  TestSslExtendedSocketInfo info;
+  X509StorePtr ssl_ctx = X509_STORE_new();
 
   // Trust domain matches so should be accepted.
   auto cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_uri_cert.pem"));
-  if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-    sk_X509_push(cert_chain.get(), cert.release());
-    EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
-              validator()
-                  .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
-                  .status);
-  } else {
-    X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
-    EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), store.get(), cert.get(), nullptr));
-    EXPECT_TRUE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
-  }
+  X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
+  EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), nullptr));
+  EXPECT_TRUE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
 
   cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/spiffe_san_cert.pem"));
-  if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-    sk_X509_push(cert_chain.get(), cert.release());
-    EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
-              validator()
-                  .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
-                  .status);
-  } else {
-    X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
-    EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), store.get(), cert.get(), nullptr));
-    EXPECT_TRUE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
-  }
+  store_ctx = X509_STORE_CTX_new();
+  EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), nullptr));
+  EXPECT_TRUE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
 
   // Trust domain matches but it has expired.
   cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir "
       "}}/test/extensions/transport_sockets/tls/test_data/expired_spiffe_san_cert.pem"));
-  if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-    sk_X509_push(cert_chain.get(), cert.release());
-    EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
-              validator()
-                  .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
-                  .status);
-  } else {
-    X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
-    EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), store.get(), cert.get(), nullptr));
-    EXPECT_FALSE(
-        validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
-  }
+  store_ctx = X509_STORE_CTX_new();
+  EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), nullptr));
+  EXPECT_FALSE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
 
   // Does not have san.
   cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/extensions_cert.pem"));
-  if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-    sk_X509_push(cert_chain.get(), cert.release());
-    EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
-              validator()
-                  .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
-                  .status);
-  } else {
-    X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
-    EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), store.get(), cert.get(), nullptr));
-    EXPECT_FALSE(
-        validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
-  }
+
+  store_ctx = X509_STORE_CTX_new();
+  EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), nullptr));
+  EXPECT_FALSE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
 
   EXPECT_EQ(2, stats().fail_verify_error_.value());
 }
 
-TEST_P(TestSPIFFEValidator, TestDoVerifyCertChainMultipleTrustDomainAllowExpired) {
+TEST_F(TestSPIFFEValidator, TestDoVerifyCertChainMultipleTrustDomainAllowExpired) {
   setAllowExpiredCertificate(true);
   initialize(TestEnvironment::substitute(R"EOF(
 name: envoy.tls.cert_validator.spiffe
@@ -445,32 +344,21 @@ typed_config:
         filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/ca_cert.pem"
   )EOF"));
 
-  X509StorePtr store = X509_STORE_new();
-  SSLContextPtr ssl_ctx = SSL_CTX_new(TLS_method());
-  TestSslExtendedSocketInfo info;
+  X509StorePtr ssl_ctx = X509_STORE_new();
+
   // Trust domain matches and it has expired but allow_expired_certificate is true, so this
   // should be accepted.
   auto cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir "
       "}}/test/extensions/transport_sockets/tls/test_data/expired_spiffe_san_cert.pem"));
-  if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-    sk_X509_push(cert_chain.get(), cert.release());
-    EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
-              validator()
-                  .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
-                  .status);
-  } else {
-    X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
-    EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), store.get(), cert.get(), nullptr));
-    EXPECT_TRUE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
-  }
+  X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
+  EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), nullptr));
+  EXPECT_TRUE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
 
   EXPECT_EQ(0, stats().fail_verify_error_.value());
 }
 
-TEST_P(TestSPIFFEValidator, TestDoVerifyCertChainSANMatching) {
+TEST_F(TestSPIFFEValidator, TestDoVerifyCertChainSANMatching) {
   const auto config = TestEnvironment::substitute(R"EOF(
 name: envoy.tls.cert_validator.spiffe
 typed_config:
@@ -481,17 +369,13 @@ typed_config:
         filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/ca_cert.pem"
   )EOF");
 
-  X509StorePtr store = X509_STORE_new();
-  SSLContextPtr ssl_ctx = SSL_CTX_new(TLS_method());
+  X509StorePtr ssl_ctx = X509_STORE_new();
+
   // URI SAN = spiffe://lyft.com/test-team
-  auto cert = readCertFromFile(TestEnvironment::substitute(
+  const auto cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_uri_cert.pem"));
   X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
-  EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), store.get(), cert.get(), nullptr));
-  bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-  if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    sk_X509_push(cert_chain.get(), cert.release());
-  }
+  EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), nullptr));
   TestSslExtendedSocketInfo info;
   info.setCertificateValidationStatus(Envoy::Ssl::ClientValidationStatus::NotValidated);
   {
@@ -499,39 +383,22 @@ typed_config:
     matcher.set_prefix("spiffe://lyft.com/");
     setSanMatchers({matcher});
     initialize(config);
-    if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-      ValidationResults results = validator().doVerifyCertChain(
-          *cert_chain, info.createValidateResultCallback(),
-          /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "");
-      EXPECT_EQ(ValidationResults::ValidationStatus::Successful, results.status);
-      EXPECT_EQ(Envoy::Ssl::ClientValidationStatus::Validated, results.detailed_status);
-    } else {
-      EXPECT_TRUE(validator().doSynchronousVerifyCertChain(store_ctx.get(), &info, *cert, nullptr));
-      EXPECT_EQ(info.certificateValidationStatus(), Envoy::Ssl::ClientValidationStatus::Validated);
-    }
+    EXPECT_TRUE(validator().doSynchronousVerifyCertChain(store_ctx.get(), &info, *cert, nullptr));
+    EXPECT_EQ(info.certificateValidationStatus(), Envoy::Ssl::ClientValidationStatus::Validated);
   }
   {
     envoy::type::matcher::v3::StringMatcher matcher;
     matcher.set_prefix("spiffe://example.com/");
     setSanMatchers({matcher});
     initialize(config);
-    if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-      ValidationResults results = validator().doVerifyCertChain(
-          *cert_chain, info.createValidateResultCallback(),
-          /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "");
-      EXPECT_EQ(ValidationResults::ValidationStatus::Failed, results.status);
-      EXPECT_EQ(Envoy::Ssl::ClientValidationStatus::Failed, results.detailed_status);
-    } else {
-      EXPECT_FALSE(
-          validator().doSynchronousVerifyCertChain(store_ctx.get(), &info, *cert, nullptr));
-      EXPECT_EQ(info.certificateValidationStatus(), Envoy::Ssl::ClientValidationStatus::Failed);
-    }
-    EXPECT_EQ(1, stats().fail_verify_san_.value());
-    stats().fail_verify_san_.reset();
+    EXPECT_FALSE(validator().doSynchronousVerifyCertChain(store_ctx.get(), &info, *cert, nullptr));
+    EXPECT_EQ(1, stats().fail_verify_error_.value());
+    EXPECT_EQ(info.certificateValidationStatus(), Envoy::Ssl::ClientValidationStatus::Failed);
+    stats().fail_verify_error_.reset();
   }
 }
 
-TEST_P(TestSPIFFEValidator, TestDoVerifyCertChainIntermediateCerts) {
+TEST_F(TestSPIFFEValidator, TestDoVerifyCertChainIntermediateCerts) {
   initialize(TestEnvironment::substitute(R"EOF(
 name: envoy.tls.cert_validator.spiffe
 typed_config:
@@ -542,7 +409,8 @@ typed_config:
         filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/ca_cert.pem"
   )EOF"));
 
-  TestSslExtendedSocketInfo info;
+  X509StorePtr ssl_ctx = X509_STORE_new();
+
   // Chain contains workload, intermediate, and ca cert, so it should be accepted.
   auto cert = readCertFromFile(TestEnvironment::substitute(
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/"
@@ -551,25 +419,14 @@ typed_config:
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/"
       "intermediate_ca_cert.pem"));
 
-  if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    SSLContextPtr ssl_ctx = SSL_CTX_new(TLS_method());
-    bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-    sk_X509_push(cert_chain.get(), cert.release());
-    sk_X509_push(cert_chain.get(), intermediate_ca_cert.release());
-    EXPECT_EQ(ValidationResults::ValidationStatus::Successful,
-              validator()
-                  .doVerifyCertChain(*cert_chain, info.createValidateResultCallback(),
-                                     /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
-                  .status);
-  } else {
-    X509StorePtr store = X509_STORE_new();
-    STACK_OF(X509)* intermediates = sk_X509_new_null();
-    sk_X509_push(intermediates, intermediate_ca_cert.release());
-    X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
-    EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), store.get(), cert.get(), intermediates));
-    EXPECT_TRUE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
-    sk_X509_pop_free(intermediates, X509_free);
-  }
+  STACK_OF(X509)* intermediates = sk_X509_new_null();
+  sk_X509_push(intermediates, intermediate_ca_cert.release());
+
+  X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
+  EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), intermediates));
+  EXPECT_TRUE(validator().doSynchronousVerifyCertChain(store_ctx.get(), nullptr, *cert, nullptr));
+
+  sk_X509_pop_free(intermediates, X509_free);
 }
 
 void addIA5StringGenNameExt(X509* cert, int type, const std::string name) {
@@ -582,7 +439,7 @@ void addIA5StringGenNameExt(X509* cert, int type, const std::string name) {
   EXPECT_TRUE(X509_add1_ext_i2d(cert, NID_subject_alt_name, gens.get(), 0, X509V3_ADD_DEFAULT));
 }
 
-TEST_P(TestSPIFFEValidator, TestMatchSubjectAltNameWithURISan) {
+TEST_F(TestSPIFFEValidator, TestMatchSubjectAltNameWithURISan) {
   envoy::type::matcher::v3::StringMatcher exact_matcher, prefix_matcher, regex_matcher;
   exact_matcher.set_exact("spiffe://example.com/workload");
   prefix_matcher.set_prefix("spiffe://envoy.com");
@@ -627,7 +484,7 @@ typed_config:
 }
 
 // SPIFFE validator ignores any SANs other than URI.
-TEST_P(TestSPIFFEValidator, TestMatchSubjectAltNameWithoutURISan) {
+TEST_F(TestSPIFFEValidator, TestMatchSubjectAltNameWithoutURISan) {
   envoy::type::matcher::v3::StringMatcher exact_matcher, prefix_matcher;
   exact_matcher.set_exact("spiffe://example.com/workload");
   prefix_matcher.set_prefix("envoy");
@@ -659,7 +516,7 @@ typed_config:
   }
 }
 
-TEST_P(TestSPIFFEValidator, TestGetCaCertInformation) {
+TEST_F(TestSPIFFEValidator, TestGetCaCertInformation) {
   initialize();
 
   // No cert is set so this should be nullptr.
@@ -682,7 +539,7 @@ typed_config:
   EXPECT_TRUE(actual);
 }
 
-TEST_P(TestSPIFFEValidator, TestDaysUntilFirstCertExpires) {
+TEST_F(TestSPIFFEValidator, TestDaysUntilFirstCertExpires) {
   initialize();
   EXPECT_EQ(std::numeric_limits<uint32_t>::max(), validator().daysUntilFirstCertExpires().value());
 
@@ -707,7 +564,7 @@ typed_config:
   EXPECT_EQ(19946, validator().daysUntilFirstCertExpires().value());
 }
 
-TEST_P(TestSPIFFEValidator, TestDaysUntilFirstCertExpiresExpired) {
+TEST_F(TestSPIFFEValidator, TestDaysUntilFirstCertExpiresExpired) {
   Event::SimulatedTimeSystem time_system;
   // 2033-05-18 03:33:20 UTC
   const time_t known_date_time = 2000000000;
@@ -727,7 +584,7 @@ typed_config:
   EXPECT_EQ(absl::nullopt, validator().daysUntilFirstCertExpires());
 }
 
-TEST_P(TestSPIFFEValidator, TestAddClientValidationContext) {
+TEST_F(TestSPIFFEValidator, TestAddClientValidationContext) {
   Event::TestRealTimeSystem time_system;
   initialize(TestEnvironment::substitute(R"EOF(
 name: envoy.tls.cert_validator.spiffe
@@ -770,7 +627,7 @@ typed_config:
   EXPECT_TRUE(foundTestCA);
 }
 
-TEST_P(TestSPIFFEValidator, TestUpdateDigestForSessionId) {
+TEST_F(TestSPIFFEValidator, TestUpdateDigestForSessionId) {
   Event::TestRealTimeSystem time_system;
   initialize(TestEnvironment::substitute(R"EOF(
 name: envoy.tls.cert_validator.spiffe

@@ -50,6 +50,7 @@ INSTANTIATE_TEST_SUITE_P(
                         envoy::extensions::transport_sockets::tls::v3::TlsParameters::TLSv1_3)),
     SslCertValidatorIntegrationTest::ipClientVersionTestParamsToString);
 
+#if 1 // TODO: b130ee6 in 1.26 doesn't work in OpenSSL
 // Test Config:
 //   peer certificate chain: leaf cert -> level 2 intermediate -> level 1 intermediate -> root
 //   trust ca certificate chain: level-2 intermediate -> level-1 intermediate
@@ -67,6 +68,8 @@ TEST_P(SslCertValidatorIntegrationTest, CertValidated) {
   EXPECT_EQ(test_server_->counter(listenerStatPrefix("ssl.fail_verify_error"))->value(), 0);
   codec->close();
 }
+
+
 
 // Test Config:
 //   peer certificate chain: leaf cert -> level-2 intermediate -> level-1 intermediate -> root
@@ -86,6 +89,8 @@ TEST_P(SslCertValidatorIntegrationTest, CertValidatedWithVerifyDepth) {
   EXPECT_EQ(test_server_->counter(listenerStatPrefix("ssl.fail_verify_error"))->value(), 0);
   codec->close();
 }
+#endif
+
 
 // Test Config:
 //   peer certificate chain: leaf cert -> level-2 intermediate -> level-1 intermediate -> root
@@ -128,6 +133,7 @@ TEST_P(SslCertValidatorIntegrationTest, CertValidationSucceedDepthWithTrustRootO
   codec->close();
 }
 
+#if 1 // TODO: b130ee6 in 1.26 doesn't work in OpenSSL
 // Test Config:
 //   peer certificate chain: leaf cert -> level-2 intermediate -> level-1 intermediate -> root
 //   trust ca certificate chain: root
@@ -146,6 +152,8 @@ TEST_P(SslCertValidatorIntegrationTest, CertValidationFailedDepthWithTrustRootOn
   test_server_->waitForCounterGe(listenerStatPrefix("ssl.fail_verify_error"), 1);
   ASSERT_TRUE(codec->waitForDisconnect());
 }
+
+#endif
 
 // Test Config:
 //   peer certificate chain: leaf cert -> level-2 intermediate -> level-1 intermediate -> root

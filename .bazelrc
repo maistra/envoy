@@ -22,7 +22,7 @@ build --tool_java_runtime_version=remotejdk_11
 build --platform_mappings=bazel/platform_mappings
 # silence absl logspam.
 build --copt=-DABSL_MIN_LOG_LEVEL=4
-build --define envoy_mobile_listener=enabled
+build --define envoy_mobile_listener=disabled
 build --experimental_repository_downloader_retries=2
 
 # Pass PATH, CC, CXX and LLVM_CONFIG variables from the environment.
@@ -80,8 +80,6 @@ build:sanitizer --linkopt -ldl
 
 # Common flags for Clang
 build:clang --action_env=BAZEL_COMPILER=clang
-build:clang --action_env=CC=clang --action_env=CXX=clang++
-build:clang --linkopt=-fuse-ld=lld
 
 # Flags for Clang + PCH
 build:clang-pch --spawn_strategy=local
@@ -339,7 +337,7 @@ build:compile-time-options --@envoy//source/extensions/filters/http/kill_request
 
 # Docker sandbox
 # NOTE: Update this from https://github.com/envoyproxy/envoy-build-tools/blob/main/toolchains/rbe_toolchains_config.bzl#L8
-build:docker-sandbox --experimental_docker_image=envoyproxy/envoy-build-ubuntu:cmake-fdd65c6270a8507a18d5acd6cf19a18cb695e4fa@sha256:06d3d10a99cce5bf4036be65190f192a30503fa93b9df3c119fd1260d3ed7024
+build:docker-sandbox --experimental_docker_image=envoyproxy/envoy-build-ubuntu:7304f974de2724617b7492ccb4c9c58cd420353a
 build:docker-sandbox --spawn_strategy=docker
 build:docker-sandbox --strategy=Javac=docker
 build:docker-sandbox --strategy=Closure=docker
@@ -526,3 +524,5 @@ common:debug --config=debug-tests
 try-import %workspace%/clang.bazelrc
 try-import %workspace%/user.bazelrc
 try-import %workspace%/local_tsan.bazelrc
+
+import %workspace%/maistra/bazelrc

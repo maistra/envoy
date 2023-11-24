@@ -1590,7 +1590,8 @@ envoy_cc_test(
         "//source/extensions/transport_sockets/tls:context_lib",
         "//test/common/grpc:grpc_client_integration_lib",
         "//test/config/integration/certs:certs_info",
-        "//test/extensions/transport_sockets/tls:test_private_key_method_provider_test_lib",
+        # TODO (dmitri-d) private key providers are not available under OpenSSL atm
+        #"//test/extensions/transport_sockets/tls:test_private_key_method_provider_test_lib",
         "//test/mocks/runtime:runtime_mocks",
         "//test/mocks/secret:secret_mocks",
         "//test/test_common:resources_lib",
@@ -2230,8 +2231,6 @@ envoy_cc_test(
     ],
     deps = envoy_select_enable_http3([
         "//source/extensions/quic/server_preferred_address:fixed_server_preferred_address_config_factory_config",
-        "//test/common/config:dummy_config_proto_cc_proto",
-        "//test/extensions/transport_sockets/tls/cert_validator:timed_cert_validator",
         ":http_integration_lib",
         "//source/common/quic:client_connection_factory_lib",
         "//source/common/quic:envoy_quic_client_connection_lib",

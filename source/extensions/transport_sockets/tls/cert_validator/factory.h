@@ -19,6 +19,8 @@ std::string getCertValidatorName(const Envoy::Ssl::CertificateValidationContextC
 
 class CertValidatorFactory : public Config::UntypedFactory {
 public:
+  ~CertValidatorFactory() override = default;
+
   virtual CertValidatorPtr
   createCertValidator(const Envoy::Ssl::CertificateValidationContextConfig* config, SslStats& stats,
                       TimeSource& time_source) PURE;
