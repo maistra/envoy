@@ -50,7 +50,6 @@ INSTANTIATE_TEST_SUITE_P(
                         envoy::extensions::transport_sockets::tls::v3::TlsParameters::TLSv1_3)),
     SslCertValidatorIntegrationTest::ipClientVersionTestParamsToString);
 
-#if 1 // TODO: b130ee6 in 1.26 doesn't work in OpenSSL
 // Test Config:
 //   peer certificate chain: leaf cert -> level 2 intermediate -> level 1 intermediate -> root
 //   trust ca certificate chain: level-2 intermediate -> level-1 intermediate
@@ -68,8 +67,6 @@ TEST_P(SslCertValidatorIntegrationTest, CertValidated) {
   EXPECT_EQ(test_server_->counter(listenerStatPrefix("ssl.fail_verify_error"))->value(), 0);
   codec->close();
 }
-
-
 
 // Test Config:
 //   peer certificate chain: leaf cert -> level-2 intermediate -> level-1 intermediate -> root
@@ -89,8 +86,6 @@ TEST_P(SslCertValidatorIntegrationTest, CertValidatedWithVerifyDepth) {
   EXPECT_EQ(test_server_->counter(listenerStatPrefix("ssl.fail_verify_error"))->value(), 0);
   codec->close();
 }
-#endif
-
 
 // Test Config:
 //   peer certificate chain: leaf cert -> level-2 intermediate -> level-1 intermediate -> root
@@ -133,27 +128,32 @@ TEST_P(SslCertValidatorIntegrationTest, CertValidationSucceedDepthWithTrustRootO
   codec->close();
 }
 
-#if 1 // TODO: b130ee6 in 1.26 doesn't work in OpenSSL
 // Test Config:
 //   peer certificate chain: leaf cert -> level-2 intermediate -> level-1 intermediate -> root
 //   trust ca certificate chain: root
 // With only root ca trusted, certificate validation is expected to fail because root ca is in depth
 // 3 while max depth is 2
+//
+// NOTE: OpenSSL interprets the verify depth differently to BoringSSL. BoringSSL excludes the leaf
+//       cert from the verify depth calculation, whereas OpenSSL excludes the leaf AND root cert
+//       from the verify depth calculation. Therefore, in maistra we have to set the verify depth to
+//       one less than the upstream case i.e. 1 instead of 2 in the case of this test.
+//       See the following 2 links for relevant documentation:
+// https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_verify_depth.html
+// https://github.com/google/boringssl/blob/ca1690e221677cea3fb946f324eb89d846ec53f2/include/openssl/ssl.h#L2493-L2496
 TEST_P(SslCertValidatorIntegrationTest, CertValidationFailedDepthWithTrustRootOnly) {
   config_helper_.addSslConfig(ConfigHelper::ServerSslOptions()
                                   .setRsaCert(true)
                                   .setTlsV13(true)
                                   .setClientWithIntermediateCert(true)
                                   .setTrustRootOnly(true)
-                                  .setVerifyDepth(2));
+                                  .setVerifyDepth(1));
   initialize();
   auto conn = makeSslClientConnection({});
   IntegrationCodecClientPtr codec = makeRawHttpConnection(std::move(conn), absl::nullopt);
   test_server_->waitForCounterGe(listenerStatPrefix("ssl.fail_verify_error"), 1);
   ASSERT_TRUE(codec->waitForDisconnect());
 }
-
-#endif
 
 // Test Config:
 //   peer certificate chain: leaf cert -> level-2 intermediate -> level-1 intermediate -> root
