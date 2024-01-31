@@ -519,7 +519,7 @@ alias(
     name = "boringssl",
     actual = select({
         "//bazel:boringssl_fips": "@boringssl_fips//:ssl",
-        "//conditions:default": "@boringssl//:ssl",
+        "//conditions:default": "@openssl//:openssl-lib",
     }),
 )
 
