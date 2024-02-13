@@ -17,8 +17,6 @@
 #include "source/extensions/transport_sockets/tls/ssl_handshaker.h"
 #include "source/extensions/transport_sockets/tls/ssl_socket.h"
 
-#include "test/common/config/dummy_config.pb.h"
-#include "test/extensions/transport_sockets/tls/cert_validator/timed_cert_validator.h"
 #include "test/integration/autonomous_upstream.h"
 #include "test/integration/integration.h"
 #include "test/integration/ssl_utility.h"
@@ -205,32 +203,35 @@ INSTANTIATE_TEST_SUITE_P(IpVersions, SslIntegrationTest,
 // Test that Envoy behaves correctly when receiving an SSLAlert for an unspecified code. The codes
 // are defined in the standard, and assigned codes have a string associated with them in BoringSSL,
 // which is included in logs. For an unknown code, verify that no crash occurs.
-TEST_P(SslIntegrationTest, UnknownSslAlert) {
-  initialize();
-  Network::ClientConnectionPtr connection = makeSslClientConnection({});
-  ConnectionStatusCallbacks callbacks;
-  connection->addConnectionCallbacks(callbacks);
-  connection->connect();
-  while (!callbacks.connected()) {
-    dispatcher_->run(Event::Dispatcher::RunType::NonBlock);
-  }
-
-  Ssl::ConnectionInfoConstSharedPtr ssl_info = connection->ssl();
-  SSL* ssl =
-      dynamic_cast<const Extensions::TransportSockets::Tls::SslHandshakerImpl*>(ssl_info.get())
-          ->ssl();
-  ASSERT_EQ(connection->state(), Network::Connection::State::Open);
-  ASSERT_NE(ssl, nullptr);
-  SSL_send_fatal_alert(ssl, 255);
-  while (!callbacks.closed()) {
-    dispatcher_->run(Event::Dispatcher::RunType::NonBlock);
-  }
-
-  const std::string counter_name = listenerStatPrefix("ssl.connection_error");
-  Stats::CounterSharedPtr counter = test_server_->counter(counter_name);
-  test_server_->waitForCounterGe(counter_name, 1);
-  connection->close(Network::ConnectionCloseType::NoFlush);
-}
+//
+// TODO (dmitri-d) OpenSSL has public interface for ssl3_send_alert()
+//
+// TEST_P(SslIntegrationTest, UnknownSslAlert) {
+//  initialize();
+//  Network::ClientConnectionPtr connection = makeSslClientConnection({});
+//  ConnectionStatusCallbacks callbacks;
+//  connection->addConnectionCallbacks(callbacks);
+//  connection->connect();
+//  while (!callbacks.connected()) {
+//    dispatcher_->run(Event::Dispatcher::RunType::NonBlock);
+//  }
+//
+//  Ssl::ConnectionInfoConstSharedPtr ssl_info = connection->ssl();
+//  SSL* ssl =
+//      dynamic_cast<const Extensions::TransportSockets::Tls::SslHandshakerImpl*>(ssl_info.get())
+//          ->ssl();
+//  ASSERT_EQ(connection->state(), Network::Connection::State::Open);
+//  ASSERT_NE(ssl, nullptr);
+//  SSL_send_fatal_alert(ssl, 255);
+//  while (!callbacks.closed()) {
+//    dispatcher_->run(Event::Dispatcher::RunType::NonBlock);
+//  }
+//
+//  const std::string counter_name = listenerStatPrefix("ssl.connection_error");
+//  Stats::CounterSharedPtr counter = test_server_->counter(counter_name);
+//  test_server_->waitForCounterGe(counter_name, 1);
+//  connection->close(Network::ConnectionCloseType::NoFlush);
+//}
 
 TEST_P(SslIntegrationTest, RouterRequestAndResponseWithGiantBodyBuffer) {
   ConnectionCreationFunction creator = [&]() -> Network::ClientConnectionPtr {
@@ -379,146 +380,6 @@ TEST_P(SslIntegrationTest, RouterHeaderOnlyRequestAndResponseWithSni) {
   RELEASE_ASSERT(response->waitForEndStream(), "unexpected timeout");
 
   checkStats();
-}
-
-TEST_P(SslIntegrationTest, AsyncCertValidationSucceeds) {
-  if (!Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    return;
-  }
-
-  // Config client to use an async cert validator which defer the actual validation by 5ms.
-  envoy::config::core::v3::TypedExtensionConfig* custom_validator_config =
-      new envoy::config::core::v3::TypedExtensionConfig();
-  TestUtility::loadFromYaml(TestEnvironment::substitute(R"EOF(
-name: "envoy.tls.cert_validator.timed_cert_validator"
-typed_config:
-  "@type": type.googleapis.com/test.common.config.DummyConfig
-  )EOF"),
-                            *custom_validator_config);
-  initialize();
-
-  Network::ClientConnectionPtr connection = makeSslClientConnection(
-      ClientSslTransportOptions().setCustomCertValidatorConfig(custom_validator_config));
-  ConnectionStatusCallbacks callbacks;
-  connection->addConnectionCallbacks(callbacks);
-  connection->connect();
-  const auto* socket = dynamic_cast<const Extensions::TransportSockets::Tls::SslHandshakerImpl*>(
-      connection->ssl().get());
-  ASSERT(socket);
-  while (socket->state() == Ssl::SocketState::PreHandshake) {
-    dispatcher_->run(Event::Dispatcher::RunType::NonBlock);
-  }
-  ASSERT_EQ(connection->state(), Network::Connection::State::Open);
-  while (!callbacks.connected()) {
-    dispatcher_->run(Event::Dispatcher::RunType::NonBlock);
-  }
-  connection->close(Network::ConnectionCloseType::NoFlush);
-}
-
-TEST_P(SslIntegrationTest, AsyncCertValidationAfterTearDown) {
-  if (!Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    return;
-  }
-
-  envoy::config::core::v3::TypedExtensionConfig* custom_validator_config =
-      new envoy::config::core::v3::TypedExtensionConfig();
-  TestUtility::loadFromYaml(TestEnvironment::substitute(R"EOF(
-name: "envoy.tls.cert_validator.timed_cert_validator"
-typed_config:
-  "@type": type.googleapis.com/test.common.config.DummyConfig
-  )EOF"),
-                            *custom_validator_config);
-  auto* cert_validator_factory =
-      Registry::FactoryRegistry<Extensions::TransportSockets::Tls::CertValidatorFactory>::
-          getFactory("envoy.tls.cert_validator.timed_cert_validator");
-  static_cast<Extensions::TransportSockets::Tls::TimedCertValidatorFactory*>(cert_validator_factory)
-      ->resetForTest();
-  static_cast<Extensions::TransportSockets::Tls::TimedCertValidatorFactory*>(cert_validator_factory)
-      ->setValidationTimeOutMs(std::chrono::milliseconds(1000));
-  initialize();
-  Network::Address::InstanceConstSharedPtr address = getSslAddress(version_, lookupPort("http"));
-  auto client_transport_socket_factory_ptr = createClientSslTransportSocketFactory(
-      ClientSslTransportOptions().setCustomCertValidatorConfig(custom_validator_config),
-      *context_manager_, *api_);
-  Network::ClientConnectionPtr connection = dispatcher_->createClientConnection(
-      address, Network::Address::InstanceConstSharedPtr(),
-      client_transport_socket_factory_ptr->createTransportSocket({}, nullptr), nullptr, nullptr);
-  ConnectionStatusCallbacks callbacks;
-  connection->addConnectionCallbacks(callbacks);
-  connection->connect();
-  const auto* socket = dynamic_cast<const Extensions::TransportSockets::Tls::SslHandshakerImpl*>(
-      connection->ssl().get());
-  ASSERT(socket);
-  while (socket->state() == Ssl::SocketState::PreHandshake) {
-    dispatcher_->run(Event::Dispatcher::RunType::NonBlock);
-  }
-  Envoy::Ssl::ClientContextSharedPtr client_ssl_ctx =
-      static_cast<Extensions::TransportSockets::Tls::ClientSslSocketFactory&>(
-          *client_transport_socket_factory_ptr)
-          .sslCtx();
-  auto& cert_validator = static_cast<const Extensions::TransportSockets::Tls::TimedCertValidator&>(
-      ContextImplPeer::getCertValidator(
-          static_cast<Extensions::TransportSockets::Tls::ClientContextImpl&>(*client_ssl_ctx)));
-  EXPECT_TRUE(cert_validator.validationPending());
-  ASSERT_EQ(connection->state(), Network::Connection::State::Open);
-  connection->close(Network::ConnectionCloseType::NoFlush);
-  connection.reset();
-  while (cert_validator.validationPending()) {
-    dispatcher_->run(Event::Dispatcher::RunType::NonBlock);
-  }
-}
-
-TEST_P(SslIntegrationTest, AsyncCertValidationAfterSslShutdown) {
-  if (!Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-    return;
-  }
-
-  envoy::config::core::v3::TypedExtensionConfig* custom_validator_config =
-      new envoy::config::core::v3::TypedExtensionConfig();
-  TestUtility::loadFromYaml(TestEnvironment::substitute(R"EOF(
-name: "envoy.tls.cert_validator.timed_cert_validator"
-typed_config:
-  "@type": type.googleapis.com/test.common.config.DummyConfig
-  )EOF"),
-                            *custom_validator_config);
-  auto* cert_validator_factory =
-      Registry::FactoryRegistry<Extensions::TransportSockets::Tls::CertValidatorFactory>::
-          getFactory("envoy.tls.cert_validator.timed_cert_validator");
-  static_cast<Extensions::TransportSockets::Tls::TimedCertValidatorFactory*>(cert_validator_factory)
-      ->resetForTest();
-  static_cast<Extensions::TransportSockets::Tls::TimedCertValidatorFactory*>(cert_validator_factory)
-      ->setValidationTimeOutMs(std::chrono::milliseconds(1000));
-  initialize();
-  Network::Address::InstanceConstSharedPtr address = getSslAddress(version_, lookupPort("http"));
-  auto client_transport_socket_factory_ptr = createClientSslTransportSocketFactory(
-      ClientSslTransportOptions().setCustomCertValidatorConfig(custom_validator_config),
-      *context_manager_, *api_);
-  Network::ClientConnectionPtr connection = dispatcher_->createClientConnection(
-      address, Network::Address::InstanceConstSharedPtr(),
-      client_transport_socket_factory_ptr->createTransportSocket({}, nullptr), nullptr, nullptr);
-  ConnectionStatusCallbacks callbacks;
-  connection->addConnectionCallbacks(callbacks);
-  connection->connect();
-  const auto* socket = dynamic_cast<const Extensions::TransportSockets::Tls::SslHandshakerImpl*>(
-      connection->ssl().get());
-  ASSERT(socket);
-  while (socket->state() == Ssl::SocketState::PreHandshake) {
-    dispatcher_->run(Event::Dispatcher::RunType::NonBlock);
-  }
-  Envoy::Ssl::ClientContextSharedPtr client_ssl_ctx =
-      static_cast<Extensions::TransportSockets::Tls::ClientSslSocketFactory&>(
-          *client_transport_socket_factory_ptr)
-          .sslCtx();
-  auto& cert_validator = static_cast<const Extensions::TransportSockets::Tls::TimedCertValidator&>(
-      ContextImplPeer::getCertValidator(
-          static_cast<Extensions::TransportSockets::Tls::ClientContextImpl&>(*client_ssl_ctx)));
-  EXPECT_TRUE(cert_validator.validationPending());
-  ASSERT_EQ(connection->state(), Network::Connection::State::Open);
-  connection->close(Network::ConnectionCloseType::NoFlush);
-  while (cert_validator.validationPending()) {
-    dispatcher_->run(Event::Dispatcher::RunType::NonBlock);
-  }
-  connection.reset();
 }
 
 class RawWriteSslIntegrationTest : public SslIntegrationTest {
@@ -752,11 +613,11 @@ TEST_P(SslCertficateIntegrationTest, ServerEcdsaClientRsaOnlyWithAccessLog) {
   auto log_result = waitForAccessLog(listener_access_log_name_);
   if (tls_version_ == envoy::extensions::transport_sockets::tls::v3::TlsParameters::TLSv1_3) {
     EXPECT_THAT(log_result,
-                StartsWith("DOWNSTREAM_TRANSPORT_FAILURE_REASON=TLS_error:_268435709:SSL_routines:"
-                           "OPENSSL_internal:NO_COMMON_SIGNATURE_ALGORITHMS"));
+                StartsWith("DOWNSTREAM_TRANSPORT_FAILURE_REASON=TLS_error:_337645686:SSL_routines:"
+                           "tls_choose_sigalg:no_suitable_signature_algorithm FILTER_CHAIN_NAME=-"));
   } else {
-    EXPECT_THAT(log_result, StartsWith("DOWNSTREAM_TRANSPORT_FAILURE_REASON=TLS_error:_268435640:"
-                                       "SSL_routines:OPENSSL_internal:NO_SHARED_CIPHER"));
+    EXPECT_THAT(log_result, StartsWith("DOWNSTREAM_TRANSPORT_FAILURE_REASON=TLS_error:_337092801:"
+                                       "SSL_routines:tls_post_process_client_hello:no_shared_cipher FILTER_CHAIN_NAME=-"));
   }
 }
 
@@ -875,7 +736,7 @@ TEST_P(SslCertficateIntegrationTest, BothEcdsaAndRsaOnlyEcdsaOcspResponse) {
     auto client = makeSslClientConnection(ecdsaOnlyClientOptions());
     const auto* socket = dynamic_cast<const Extensions::TransportSockets::Tls::SslHandshakerImpl*>(
         client->ssl().get());
-    SSL_enable_ocsp_stapling(socket->ssl());
+    SSL_set_tlsext_status_type(socket->ssl(), TLSEXT_STATUSTYPE_ocsp);
     return client;
   };
   testRouterRequestAndResponseWithBody(1024, 512, false, false, &creator);
@@ -884,8 +745,7 @@ TEST_P(SslCertficateIntegrationTest, BothEcdsaAndRsaOnlyEcdsaOcspResponse) {
   const auto* socket = dynamic_cast<const Extensions::TransportSockets::Tls::SslHandshakerImpl*>(
       codec_client_->connection()->ssl().get());
   const uint8_t* resp;
-  size_t resp_len;
-  SSL_get0_ocsp_response(socket->ssl(), &resp, &resp_len);
+  long resp_len = SSL_get_tlsext_status_ocsp_resp(socket->ssl(), &resp);
   EXPECT_NE(0, resp_len);
 }
 

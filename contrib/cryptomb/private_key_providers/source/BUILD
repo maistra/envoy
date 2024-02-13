@@ -29,7 +29,7 @@ envoy_cmake(
     visibility = ["//visibility:private"],
     working_directory = "sources/ippcp/crypto_mb",
     # Use boringssl alias to select fips vs non-fips version.
-    deps = ["//bazel:boringssl"],
+    deps = ["@openssl//:openssl-lib"],
 )
 
 envoy_cc_library(

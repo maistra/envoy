@@ -45,7 +45,6 @@ public:
   MOCK_METHOD(void, onSuccess, (SSL*), (override));
   MOCK_METHOD(void, onFailure, (), (override));
   MOCK_METHOD(Network::TransportSocketCallbacks*, transportSocketCallbacks, (), (override));
-  MOCK_METHOD(void, onAsynchronousCertValidationComplete, (), (override));
 };
 
 class HandshakerTest : public SslCertsTest {
@@ -60,13 +59,19 @@ protected:
     // handshaking.
     auto key = makeKey();
     auto cert = makeCert();
-    auto chain = std::vector<CRYPTO_BUFFER*>{cert.get()};
 
     server_ssl_ = bssl::UniquePtr<SSL>(SSL_new(server_ctx_.get()));
     SSL_set_accept_state(server_ssl_.get());
     ASSERT_NE(key, nullptr);
-    ASSERT_EQ(1, SSL_set_chain_and_key(server_ssl_.get(), chain.data(), chain.size(), key.get(),
-                                       nullptr));
+    // In TLS1.3 OpenSSL server will send session ticket after an ssl handshake.
+    // While technically not part of the handshake, it's part of the server state-machine,
+    // and SSL_do_handshake will return errors (SSL_ERROR_WANT_WRITE) on the server-side if
+    // the session tickets (2 by default) have not been read by the client.
+    // To avoid this altogether, we disable session tickets by setting the number of tickets
+    // to generate for a new session to zero.
+    SSL_set_num_tickets(server_ssl_.get(), 0);
+
+    ASSERT_EQ(1, SSL_use_cert_and_key(server_ssl_.get(), cert.get(), key.get(), nullptr, 1));
 
     client_ssl_ = bssl::UniquePtr<SSL>(SSL_new(client_ctx_.get()));
     SSL_set_connect_state(client_ssl_.get());
@@ -97,18 +102,12 @@ protected:
   }
 
   // Read in cert.pem and return a certificate.
-  bssl::UniquePtr<CRYPTO_BUFFER> makeCert() {
+  bssl::UniquePtr<X509> makeCert() {
     std::string file = TestEnvironment::readFileToStringForTest(TestEnvironment::substitute(
         "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem"));
     bssl::UniquePtr<BIO> bio(BIO_new_mem_buf(file.data(), file.size()));
 
-    uint8_t* data = nullptr;
-    long len = 0;
-    RELEASE_ASSERT(
-        PEM_bytes_read_bio(&data, &len, nullptr, PEM_STRING_X509, bio.get(), nullptr, nullptr),
-        "PEM_bytes_read_bio failed");
-    bssl::UniquePtr<uint8_t> tmp(data); // Prevents memory leak.
-    return bssl::UniquePtr<CRYPTO_BUFFER>(CRYPTO_BUFFER_new(data, len, nullptr));
+    return bssl::UniquePtr<X509>(PEM_read_bio_X509_AUX(bio.get(), nullptr, nullptr, nullptr));
   }
 
   const size_t kBufferLength{100};

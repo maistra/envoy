@@ -173,17 +173,8 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
     for (auto ctx : ssl_contexts) {
       if (verify_mode != SSL_VERIFY_NONE) {
         if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation")) {
-          // TODO(danzh) Envoy's use of SSL_VERIFY_NONE does not quite match the actual semantics as
-          // a client. As a client, SSL_VERIFY_NONE means to verify the certificate (which will fail
-          // without trust anchors), save the result in the session ticket, but otherwise continue
-          // with the handshake. But Envoy actually wants it to accept all certificates. The
-          // disadvantage of using SSL_VERIFY_NONE is that it records the verify_result, which Envoy
-          // never queries but gets saved in session tickets, and tries to find an anchor that isn't
-          // there. And also it differs from server side behavior of SSL_VERIFY_NONE which won't
-          // even request client certs. So, instead, we should configure a callback to skip
-          // validation and always supply the callback to boring SSL.
-          SSL_CTX_set_custom_verify(ctx, verify_mode, customVerifyCallback);
-          SSL_CTX_set_reverify_on_resume(ctx, /*reverify_on_resume_enabled)=*/1);
+          throw EnvoyException(
+            "envoy.reloadable_features.tls_async_cert_validation=true is not supported");
         } else {
           SSL_CTX_set_verify(ctx, verify_mode, nullptr);
           SSL_CTX_set_cert_verify_callback(ctx, verifyCallback, this);
@@ -273,21 +264,7 @@ ContextImpl::ContextImpl(Stats::Scope& scope, const Envoy::Ssl::ContextConfig& c
           tls_certificate.privateKeyMethod();
       // We either have a private key or a BoringSSL private key method provider.
       if (private_key_method_provider) {
-        ctx.private_key_method_provider_ = private_key_method_provider;
-        // The provider has a reference to the private key method for the context lifetime.
-        Ssl::BoringSslPrivateKeyMethodSharedPtr private_key_method =
-            private_key_method_provider->getBoringSslPrivateKeyMethod();
-        if (private_key_method == nullptr) {
-          throw EnvoyException(
-              fmt::format("Failed to get BoringSSL private key method from provider"));
-        }
-#ifdef BORINGSSL_FIPS
-        if (!ctx.private_key_method_provider_->checkFips()) {
-          throw EnvoyException(
-              fmt::format("Private key method doesn't support FIPS mode with current parameters"));
-        }
-#endif
-        SSL_CTX_set_private_key_method(ctx.ssl_ctx_.get(), private_key_method.get());
+          throw EnvoyException(fmt::format("Private key provider configured, but not supported"));
       } else if (!tls_certificate.privateKey().empty()) {
         // Load private key.
         ctx.loadPrivateKey(tls_certificate.privateKey(), tls_certificate.privateKeyPath(),
@@ -452,7 +429,13 @@ int ContextImpl::verifyCallback(X509_STORE_CTX* store_ctx, void* arg) {
   ContextImpl* impl = reinterpret_cast<ContextImpl*>(arg);
   SSL* ssl = reinterpret_cast<SSL*>(
       X509_STORE_CTX_get_ex_data(store_ctx, SSL_get_ex_data_X509_STORE_CTX_idx()));
-  auto cert = bssl::UniquePtr<X509>(SSL_get_peer_certificate(ssl));
+  X509* cert = X509_STORE_CTX_get_current_cert(store_ctx);
+  if (cert == nullptr) {
+    cert = X509_STORE_CTX_get0_cert(store_ctx);
+  }
+  if ( cert == nullptr ) {
+      return 0;
+  }
   auto transport_socket_options_shared_ptr_ptr =
       static_cast<const Network::TransportSocketOptionsConstSharedPtr*>(SSL_get_app_data(ssl));
   ASSERT(transport_socket_options_shared_ptr_ptr);
@@ -465,69 +448,6 @@ int ContextImpl::verifyCallback(X509_STORE_CTX* store_ctx, void* arg) {
       *cert, transport_socket_options);
 }
 
-enum ssl_verify_result_t ContextImpl::customVerifyCallback(SSL* ssl, uint8_t* out_alert) {
-  auto* extended_socket_info = reinterpret_cast<Envoy::Ssl::SslExtendedSocketInfo*>(
-      SSL_get_ex_data(ssl, ContextImpl::sslExtendedSocketInfoIndex()));
-  if (extended_socket_info->certificateValidationResult() != Ssl::ValidateStatus::NotStarted) {
-    if (extended_socket_info->certificateValidationResult() == Ssl::ValidateStatus::Pending) {
-      return ssl_verify_retry;
-    }
-    ENVOY_LOG(trace, "Already has a result: {}",
-              static_cast<int>(extended_socket_info->certificateValidationStatus()));
-    // Already has a binary result, return immediately.
-    *out_alert = extended_socket_info->certificateValidationAlert();
-    return extended_socket_info->certificateValidationResult() == Ssl::ValidateStatus::Successful
-               ? ssl_verify_ok
-               : ssl_verify_invalid;
-  }
-  // Hasn't kicked off any validation for this connection yet.
-  SSL_CTX* ssl_ctx = SSL_get_SSL_CTX(ssl);
-  ContextImpl* context_impl = static_cast<ContextImpl*>(SSL_CTX_get_app_data(ssl_ctx));
-  auto transport_socket_options_shared_ptr_ptr =
-      static_cast<const Network::TransportSocketOptionsConstSharedPtr*>(SSL_get_app_data(ssl));
-  ASSERT(transport_socket_options_shared_ptr_ptr);
-  ValidationResults result = context_impl->customVerifyCertChain(
-      extended_socket_info, *transport_socket_options_shared_ptr_ptr, ssl);
-  switch (result.status) {
-  case ValidationResults::ValidationStatus::Successful:
-    return ssl_verify_ok;
-  case ValidationResults::ValidationStatus::Pending:
-    return ssl_verify_retry;
-  case ValidationResults::ValidationStatus::Failed: {
-    if (result.tls_alert.has_value() && out_alert) {
-      *out_alert = result.tls_alert.value();
-    }
-    return ssl_verify_invalid;
-  }
-  }
-  PANIC("not reached");
-}
-
-ValidationResults ContextImpl::customVerifyCertChain(
-    Envoy::Ssl::SslExtendedSocketInfo* extended_socket_info,
-    const Network::TransportSocketOptionsConstSharedPtr& transport_socket_options, SSL* ssl) {
-  ASSERT(Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation"));
-  ASSERT(extended_socket_info);
-  STACK_OF(X509)* cert_chain = SSL_get_peer_full_cert_chain(ssl);
-  if (cert_chain == nullptr) {
-    extended_socket_info->setCertificateValidationStatus(Ssl::ClientValidationStatus::NotValidated);
-    stats_.fail_verify_error_.inc();
-    ENVOY_LOG(debug, "verify cert failed: no cert chain");
-    return {ValidationResults::ValidationStatus::Failed, Ssl::ClientValidationStatus::NotValidated,
-            SSL_AD_INTERNAL_ERROR, absl::nullopt};
-  }
-  ASSERT(cert_validator_);
-  const char* host_name = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
-  ValidationResults result = cert_validator_->doVerifyCertChain(
-      *cert_chain, extended_socket_info->createValidateResultCallback(), transport_socket_options,
-      *SSL_get_SSL_CTX(ssl), {}, SSL_is_server(ssl), absl::NullSafeStringView(host_name));
-  if (result.status != ValidationResults::ValidationStatus::Pending) {
-    extended_socket_info->setCertificateValidationStatus(result.detailed_status);
-    extended_socket_info->onCertificateValidationCompleted(
-        result.status == ValidationResults::ValidationStatus::Successful, false);
-  }
-  return result;
-}
 
 void ContextImpl::incCounter(const Stats::StatName name, absl::string_view value,
                              const Stats::StatName fallback) const {
@@ -547,16 +467,33 @@ void ContextImpl::logHandshake(SSL* ssl) const {
   incCounter(ssl_ciphers_, SSL_get_cipher_name(ssl), unknown_ssl_cipher_);
   incCounter(ssl_versions_, SSL_get_version(ssl), unknown_ssl_version_);
 
-  const uint16_t curve_id = SSL_get_curve_id(ssl);
-  if (curve_id) {
-    incCounter(ssl_curves_, SSL_get_curve_name(curve_id), unknown_ssl_curve_);
-  }
-
-  const uint16_t sigalg_id = SSL_get_peer_signature_algorithm(ssl);
-  if (sigalg_id) {
-    const char* sigalg = SSL_get_signature_algorithm_name(sigalg_id, 1 /* include curve */);
-    incCounter(ssl_sigalgs_, sigalg, unknown_ssl_algorithm_);
-  }
+//  const uint16_t curve_id = SSL_get_curve_id(ssl);
+//  if (curve_id) {
+//    incCounter(ssl_curves_, SSL_get_curve_name(curve_id), unknown_ssl_curve_);
+//  }
+//
+//  const uint16_t sigalg_id = SSL_get_peer_signature_algorithm(ssl);
+//  if (sigalg_id) {
+//    const char* sigalg = SSL_get_signature_algorithm_name(sigalg_id, 1 /* include curve */);
+//    incCounter(ssl_sigalgs_, sigalg, unknown_ssl_algorithm_);
+//  }
+//
+    int group = SSL_get_shared_group(ssl, NULL);
+    if (group > 0) {
+        switch (group) {
+            case NID_X25519:
+                incCounter(ssl_curves_, "X25519", unknown_ssl_curve_);
+                break;
+            case NID_X9_62_prime256v1:
+                incCounter(ssl_curves_, "P-256", unknown_ssl_curve_);
+                break;
+            default:
+                incCounter(ssl_curves_, "", unknown_ssl_curve_);
+                // case NID_secp384r1: {
+                //	scope_.counter(fmt::format("ssl.curves.{}", "P-384")).inc();
+                //} break;
+        }
+    }
 
   bssl::UniquePtr<X509> cert(SSL_get_peer_certificate(ssl));
   if (!cert.get()) {
@@ -710,7 +647,7 @@ ClientContextImpl::newSsl(const Network::TransportSocketOptionsConstSharedPtr& o
   }
 
   if (allow_renegotiation_) {
-    SSL_set_renegotiate_mode(ssl_con.get(), ssl_renegotiate_freely);
+      Envoy::Extensions::TransportSockets::Tls::allowRenegotiation(ssl_con.get());
   }
 
   if (max_session_keys_ > 0) {
@@ -723,7 +660,7 @@ ClientContextImpl::newSsl(const Network::TransportSocketOptionsConstSharedPtr& o
         SSL_SESSION* session = session_keys_.front().get();
         SSL_set_session(ssl_con.get(), session);
         // Remove single-use session key (TLS 1.3) after first use.
-        if (SSL_SESSION_should_be_single_use(session)) {
+        if (should_be_single_use(session)) {
           session_keys_.pop_front();
         }
       }
@@ -745,7 +682,7 @@ ClientContextImpl::newSsl(const Network::TransportSocketOptionsConstSharedPtr& o
 int ClientContextImpl::newSessionKey(SSL_SESSION* session) {
   // In case we ever store single-use session key (TLS 1.3),
   // we need to switch to using write/write locks.
-  if (SSL_SESSION_should_be_single_use(session)) {
+  if (should_be_single_use(session)) {
     session_keys_single_use_ = true;
   }
   absl::WriterMutexLock l(&session_keys_mu_);
@@ -790,12 +727,20 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
   // TODO(htuch): replace with SSL_IDENTITY when we have this as a means to do multi-cert in
   // BoringSSL.
   if (!config.capabilities().provides_certificates) {
-    SSL_CTX_set_select_certificate_cb(
+    SSL_CTX_set_client_hello_cb(
         tls_contexts_[0].ssl_ctx_.get(),
-        [](const SSL_CLIENT_HELLO* client_hello) -> ssl_select_cert_result_t {
+        [](SSL* ssl, int *al, void *ar) -> int {
           return static_cast<ServerContextImpl*>(
-                     SSL_CTX_get_app_data(SSL_get_SSL_CTX(client_hello->ssl)))
-              ->selectTlsContext(client_hello);
+                     SSL_CTX_get_app_data(SSL_get_SSL_CTX(ssl)))
+              ->selectTlsContext(ssl);
+        },
+        nullptr);
+    SSL_CTX_set_tlsext_status_cb(
+        tls_contexts_[0].ssl_ctx_.get(),
+        +[](SSL* ssl, void *ar) -> int {
+          return static_cast<ServerContextImpl*>(
+                     SSL_CTX_get_app_data(SSL_get_SSL_CTX(ssl)))
+              ->setupOcspResponse(ssl);
         });
   }
 
@@ -823,9 +768,11 @@ ServerContextImpl::ServerContextImpl(Stats::Scope& scope,
     if (config.disableStatelessSessionResumption()) {
       SSL_CTX_set_options(ctx.ssl_ctx_.get(), SSL_OP_NO_TICKET);
     } else if (!session_ticket_keys_.empty() && !config.capabilities().handles_session_resumption) {
+      // https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_tlsext_ticket_key_cb.html
+      // The openssl 1.1.1 call uses array[] not array ptr. We use +[] to coerce the function call.
       SSL_CTX_set_tlsext_ticket_key_cb(
           ctx.ssl_ctx_.get(),
-          [](SSL* ssl, uint8_t* key_name, uint8_t* iv, EVP_CIPHER_CTX* ctx, HMAC_CTX* hmac_ctx,
+          +[](SSL* ssl, uint8_t* key_name, uint8_t* iv, EVP_CIPHER_CTX* ctx, HMAC_CTX* hmac_ctx,
              int encrypt) -> int {
             ContextImpl* context_impl =
                 static_cast<ContextImpl*>(SSL_CTX_get_app_data(SSL_get_SSL_CTX(ssl)));
@@ -1084,23 +1031,20 @@ int ServerContextImpl::sessionTicketProcess(SSL*, uint8_t* key_name, uint8_t* iv
   }
 }
 
-bool ServerContextImpl::isClientEcdsaCapable(const SSL_CLIENT_HELLO* ssl_client_hello) {
-  CBS client_hello;
-  CBS_init(&client_hello, ssl_client_hello->client_hello, ssl_client_hello->client_hello_len);
-
+bool ServerContextImpl::isClientEcdsaCapable(const SSL* ssl) {
   // This is the TLSv1.3 case (TLSv1.2 on the wire and the supported_versions extensions present).
   // We just need to look at signature algorithms.
-  const uint16_t client_version = ssl_client_hello->version;
+  const uint16_t client_version = SSL_client_hello_get0_legacy_version(const_cast<SSL*>(ssl));
   if (client_version == TLS1_2_VERSION && tls_max_version_ == TLS1_3_VERSION) {
     // If the supported_versions extension is found then we assume that the client is competent
     // enough that just checking the signature_algorithms is sufficient.
     const uint8_t* supported_versions_data;
     size_t supported_versions_len;
-    if (SSL_early_callback_ctx_extension_get(ssl_client_hello, TLSEXT_TYPE_supported_versions,
+    if (SSL_client_hello_get0_ext(const_cast<SSL*>(ssl), TLSEXT_TYPE_supported_versions,
                                              &supported_versions_data, &supported_versions_len)) {
       const uint8_t* signature_algorithms_data;
       size_t signature_algorithms_len;
-      if (SSL_early_callback_ctx_extension_get(ssl_client_hello, TLSEXT_TYPE_signature_algorithms,
+      if (SSL_client_hello_get0_ext(const_cast<SSL*>(ssl), TLSEXT_TYPE_signature_algorithms,
                                                &signature_algorithms_data,
                                                &signature_algorithms_len)) {
         CBS signature_algorithms_ext, signature_algorithms;
@@ -1109,7 +1053,7 @@ bool ServerContextImpl::isClientEcdsaCapable(const SSL_CLIENT_HELLO* ssl_client_
             CBS_len(&signature_algorithms_ext) != 0) {
           return false;
         }
-        if (cbsContainsU16(signature_algorithms, SSL_SIGN_ECDSA_SECP256R1_SHA256)) {
+        if (cbsContainsU16(signature_algorithms, 0x0403/*SSL_SIGN_ECDSA_SECP256R1_SHA256*/)) {
           return true;
         }
       }
@@ -1122,7 +1066,7 @@ bool ServerContextImpl::isClientEcdsaCapable(const SSL_CLIENT_HELLO* ssl_client_
   // ECDSA and also for a compatible cipher suite. https://tools.ietf.org/html/rfc4492#section-5.1.1
   const uint8_t* curvelist_data;
   size_t curvelist_len;
-  if (!SSL_early_callback_ctx_extension_get(ssl_client_hello, TLSEXT_TYPE_supported_groups,
+  if (!SSL_client_hello_get0_ext(const_cast<SSL*>(ssl), TLSEXT_TYPE_supported_groups,
                                             &curvelist_data, &curvelist_len)) {
     return false;
   }
@@ -1131,13 +1075,16 @@ bool ServerContextImpl::isClientEcdsaCapable(const SSL_CLIENT_HELLO* ssl_client_
   CBS_init(&curvelist, curvelist_data, curvelist_len);
 
   // We only support P256 ECDSA curves today.
-  if (!cbsContainsU16(curvelist, SSL_CURVE_SECP256R1)) {
+  if (!cbsContainsU16(curvelist, 23/*SSL_CURVE_SECP256R1*/)) {
     return false;
   }
 
   // The client must have offered an ECDSA ciphersuite that we like.
+    const uint8_t *cipher_suites_bytes {nullptr};
+    size_t cipher_suites_len {SSL_client_hello_get0_ciphers(const_cast<SSL*>(ssl), &cipher_suites_bytes)};
+
   CBS cipher_suites;
-  CBS_init(&cipher_suites, ssl_client_hello->cipher_suites, ssl_client_hello->cipher_suites_len);
+  CBS_init(&cipher_suites, cipher_suites_bytes, cipher_suites_len);
 
   while (CBS_len(&cipher_suites) > 0) {
     uint16_t cipher_id;
@@ -1154,10 +1101,10 @@ bool ServerContextImpl::isClientEcdsaCapable(const SSL_CLIENT_HELLO* ssl_client_
   return false;
 }
 
-bool ServerContextImpl::isClientOcspCapable(const SSL_CLIENT_HELLO* ssl_client_hello) {
+bool ServerContextImpl::isClientOcspCapable(const SSL* ssl) {
   const uint8_t* status_request_data;
   size_t status_request_len;
-  if (SSL_early_callback_ctx_extension_get(ssl_client_hello, TLSEXT_TYPE_status_request,
+  if (SSL_client_hello_get0_ext(const_cast<SSL*>(ssl), TLSEXT_TYPE_status_request,
                                            &status_request_data, &status_request_len)) {
     return true;
   }
@@ -1207,12 +1154,57 @@ OcspStapleAction ServerContextImpl::ocspStapleAction(const TlsContext& ctx,
   PANIC_DUE_TO_CORRUPT_ENUM;
 }
 
+/*
+ * This function returns an index used by selectTlsContext() and handlsOcspStapling() to
+ * communicate with each other by setting and getting "ex data" on SSL objects respectively.
+ */
+static int getOcspResponseIndex() {
+  CONSTRUCT_ON_FIRST_USE(int, []() -> int {
+    int index = SSL_get_ex_new_index(0, nullptr, nullptr, nullptr, nullptr);
+    RELEASE_ASSERT(index >= 0, "");
+    return index;
+  }());
+}
+
+/*
+ * This callback method works in, partnership with the selectTlsContext() callback, to send an OCSP
+ * response to the client if required. The selectTlsContext() callback is invoked first and works
+ * out whether or not an OCSP response is required, according to whether the client asked for an
+ * OCSP response, and whether the selected server certificate has got an associated OCSP response
+ * available. If it decides that an OCSP sponse should be sent to the cliet, it puts the relevant
+ * TlsContext containing the OCSP response into the SSL object's "ex data" using the index returned
+ * by getOcspResponseIndex().
+ *
+ * When this callback is invoked (after selectTlsContext()) we check for a TlsContex and if these is
+ * one we get it's OCSP response bytes and send them back to the client via SSL_set_ocsp_response().
+ */
+int ServerContextImpl::setupOcspResponse(SSL *ssl) {
+  if (void *data = SSL_get_ex_data(ssl, getOcspResponseIndex())) {
+    auto *selected_ctx = reinterpret_cast<TlsContext*>(data);
+
+    // Before we go any further, remove the TlsContext* from the SSL's "ex data"
+    // so that it doesn't get picked up by subsequent callback invocations.
+    SSL_set_ex_data(ssl, getOcspResponseIndex(), nullptr);
+
+    // We avoid setting the OCSP response if the client didn't request it, but doing so is safe.
+    RELEASE_ASSERT(selected_ctx->ocsp_response_,
+                    "OCSP response must be present under OcspStapleAction::Staple");
+    auto& resp_bytes = selected_ctx->ocsp_response_->rawBytes();
+    int rc = SSL_set_ocsp_response(ssl, resp_bytes.data(), resp_bytes.size());
+    RELEASE_ASSERT(rc != 0, "");
+    stats_.ocsp_staple_responses_.inc();
+
+    return SSL_TLSEXT_ERR_OK; // Send OCSP response
+  }
+
+  return SSL_TLSEXT_ERR_NOACK; // No OCSP response
+}
+
 enum ssl_select_cert_result_t
-ServerContextImpl::selectTlsContext(const SSL_CLIENT_HELLO* ssl_client_hello) {
-  const bool client_ecdsa_capable = isClientEcdsaCapable(ssl_client_hello);
-  const bool client_ocsp_capable = isClientOcspCapable(ssl_client_hello);
-  absl::string_view sni = absl::NullSafeStringView(
-      SSL_get_servername(ssl_client_hello->ssl, TLSEXT_NAMETYPE_host_name));
+ServerContextImpl::selectTlsContext(const SSL* ssl) {
+  const bool client_ecdsa_capable = isClientEcdsaCapable(ssl);
+  const bool client_ocsp_capable = isClientOcspCapable(ssl);
+  absl::string_view sni = SSL_extract_client_hello_sni_host_name(ssl);
 
   // selected_ctx represents the final selected certificate, it should meet all requirements or pick
   // a candidate
@@ -1304,7 +1296,7 @@ ServerContextImpl::selectTlsContext(const SSL_CLIENT_HELLO* ssl_client_hello) {
   // Apply the selected context. This must be done before OCSP stapling below
   // since applying the context can remove the previously-set OCSP response.
   // This will only return NULL if memory allocation fails.
-  RELEASE_ASSERT(SSL_set_SSL_CTX(ssl_client_hello->ssl, selected_ctx->ssl_ctx_.get()) != nullptr,
+  RELEASE_ASSERT(SSL_set_SSL_CTX(const_cast<SSL*>(ssl), selected_ctx->ssl_ctx_.get()) != nullptr,
                  "");
 
   if (client_ocsp_capable) {
@@ -1313,13 +1305,12 @@ ServerContextImpl::selectTlsContext(const SSL_CLIENT_HELLO* ssl_client_hello) {
 
   switch (ocsp_staple_action) {
   case OcspStapleAction::Staple: {
-    // We avoid setting the OCSP response if the client didn't request it, but doing so is safe.
-    RELEASE_ASSERT(selected_ctx->ocsp_response_,
-                   "OCSP response must be present under OcspStapleAction::Staple");
-    auto& resp_bytes = selected_ctx->ocsp_response_->rawBytes();
-    int rc = SSL_set_ocsp_response(ssl_client_hello->ssl, resp_bytes.data(), resp_bytes.size());
-    RELEASE_ASSERT(rc != 0, "");
-    stats_.ocsp_staple_responses_.inc();
+    // We can't call SSL_set_ocsp_response() from this callback because it is too early in the
+    // handshake process so it gets ignored. Instead, we squirel it away in the SSL objects'
+    // "ex data", which then gets picked up by the subsequent setupOcspResponse() callback which
+    // calls SSL_set_ocsp_response() at the correct point later on in the handshake.
+    SSL_set_ex_data(const_cast<SSL*>(ssl), getOcspResponseIndex(),
+                    const_cast<void*>(static_cast<const void*>(selected_ctx)));
   } break;
   case OcspStapleAction::NoStaple:
     stats_.ocsp_staple_omitted_.inc();
@@ -1383,26 +1374,6 @@ bool ContextImpl::verifyCertChain(X509& leaf_cert, STACK_OF(X509)& intermediates
     return false;
   }
   return true;
-}
-
-ValidationResults ContextImpl::customVerifyCertChainForQuic(
-    STACK_OF(X509)& cert_chain, Ssl::ValidateResultCallbackPtr callback, bool is_server,
-    const Network::TransportSocketOptionsConstSharedPtr& transport_socket_options,
-    const CertValidator::ExtraValidationContext& validation_context, const std::string& host_name) {
-  ASSERT(Runtime::runtimeFeatureEnabled("envoy.reloadable_features.tls_async_cert_validation"));
-  ASSERT(!tls_contexts_.empty());
-  // It doesn't matter which SSL context is used, because they share the same cert validation
-  // config.
-  SSL_CTX* ssl_ctx = tls_contexts_[0].ssl_ctx_.get();
-  if (SSL_CTX_get_verify_mode(ssl_ctx) == SSL_VERIFY_NONE) {
-    // Skip validation if the TLS is configured SSL_VERIFY_NONE.
-    return {ValidationResults::ValidationStatus::Successful,
-            Envoy::Ssl::ClientValidationStatus::NotValidated, absl::nullopt, absl::nullopt};
-  }
-  ValidationResults result =
-      cert_validator_->doVerifyCertChain(cert_chain, std::move(callback), transport_socket_options,
-                                         *ssl_ctx, validation_context, is_server, host_name);
-  return result;
 }
 
 void TlsContext::loadCertificateChain(const std::string& data, const std::string& data_path) {

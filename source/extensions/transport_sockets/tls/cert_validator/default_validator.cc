@@ -1,7 +1,6 @@
 #include "source/extensions/transport_sockets/tls/cert_validator/default_validator.h"
 
 #include <array>
-#include <cstdint>
 #include <deque>
 #include <functional>
 #include <string>
@@ -32,6 +31,7 @@
 #include "source/extensions/transport_sockets/tls/utility.h"
 
 #include "absl/synchronization/mutex.h"
+#include "openssl/err.h"
 #include "openssl/ssl.h"
 #include "openssl/x509v3.h"
 
@@ -83,8 +83,10 @@ int DefaultCertValidator::initializeSslContexts(std::vector<SSL_CTX*> contexts,
 
     for (auto& ctx : contexts) {
       X509_STORE* store = SSL_CTX_get_cert_store(ctx);
+      bool crl_ckeck_flag=false, crl_check_all_flag=false, partial_chain_flag=false;
       if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.enable_intermediate_ca")) {
         X509_STORE_set_flags(store, X509_V_FLAG_PARTIAL_CHAIN);
+        partial_chain_flag = true;
       }
       bool has_crl = false;
       for (const X509_INFO* item : list.get()) {
@@ -108,6 +110,18 @@ int DefaultCertValidator::initializeSslContexts(std::vector<SSL_CTX*> contexts,
         X509_STORE_set_flags(store, config_->onlyVerifyLeafCertificateCrl()
                                         ? X509_V_FLAG_CRL_CHECK
                                         : X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
+        if(config_->onlyVerifyLeafCertificateCrl()) {
+          crl_ckeck_flag = true;
+        }
+        else {
+          crl_ckeck_flag = true;
+          crl_check_all_flag = true;
+        }
+        if(crl_ckeck_flag && crl_check_all_flag && partial_chain_flag)
+        {
+           ENVOY_LOG(warn, "Unsupported: intermediate certification authority feature "
+                                "has been enabled along with crl checks");
+        }
       }
       verify_mode = SSL_VERIFY_PEER;
       verify_trusted_ca_ = true;
@@ -134,17 +148,35 @@ int DefaultCertValidator::initializeSslContexts(std::vector<SSL_CTX*> contexts,
 
     for (auto& ctx : contexts) {
       X509_STORE* store = SSL_CTX_get_cert_store(ctx);
-      if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.enable_intermediate_ca")) {
-        X509_STORE_set_flags(store, X509_V_FLAG_PARTIAL_CHAIN);
-      }
+      bool crl_ckeck_flag=false, crl_check_all_flag=false, partial_chain_flag=false;
+       if (Runtime::runtimeFeatureEnabled("envoy.reloadable_features.enable_intermediate_ca")) {
+         X509_STORE_set_flags(store, X509_V_FLAG_PARTIAL_CHAIN);
+         partial_chain_flag = true;
+       }
+      bool has_crl = false;
       for (const X509_INFO* item : list.get()) {
         if (item->crl) {
           X509_STORE_add_crl(store, item->crl);
+          has_crl = true;
         }
       }
       X509_STORE_set_flags(store, config_->onlyVerifyLeafCertificateCrl()
                                       ? X509_V_FLAG_CRL_CHECK
                                       : X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
+      if(config_->onlyVerifyLeafCertificateCrl()) {
+        crl_ckeck_flag = true;
+      }
+      else {
+        crl_ckeck_flag = true;
+        crl_check_all_flag = true;
+      }
+      if (has_crl) {
+        if(crl_ckeck_flag && crl_check_all_flag && partial_chain_flag)
+        {
+           ENVOY_LOG(warn, "Unsupported: intermediate certification authority feature "
+                                "has been enabled along with crl checks");
+        }
+      }
     }
   }
 
@@ -193,6 +225,7 @@ int DefaultCertValidator::initializeSslContexts(std::vector<SSL_CTX*> contexts,
 
   return verify_mode;
 }
+
 
 int DefaultCertValidator::doSynchronousVerifyCertChain(
     X509_STORE_CTX* store_ctx, Ssl::SslExtendedSocketInfo* ssl_extended_info, X509& leaf_cert,
@@ -308,69 +341,6 @@ DefaultCertValidator::verifyCertificate(X509* cert, const std::vector<std::strin
   }
 
   return validated;
-}
-
-ValidationResults DefaultCertValidator::doVerifyCertChain(
-    STACK_OF(X509)& cert_chain, Ssl::ValidateResultCallbackPtr /*callback*/,
-    const Network::TransportSocketOptionsConstSharedPtr& transport_socket_options, SSL_CTX& ssl_ctx,
-    const CertValidator::ExtraValidationContext& /*validation_context*/, bool is_server,
-    absl::string_view /*host_name*/) {
-  if (sk_X509_num(&cert_chain) == 0) {
-    stats_.fail_verify_error_.inc();
-    const char* error = "verify cert failed: empty cert chain";
-    ENVOY_LOG(debug, error);
-    return {ValidationResults::ValidationStatus::Failed,
-            Envoy::Ssl::ClientValidationStatus::NotValidated, absl::nullopt, error};
-  }
-  Envoy::Ssl::ClientValidationStatus detailed_status =
-      Envoy::Ssl::ClientValidationStatus::NotValidated;
-  X509* leaf_cert = sk_X509_value(&cert_chain, 0);
-  ASSERT(leaf_cert);
-  if (verify_trusted_ca_) {
-    X509_STORE* verify_store = SSL_CTX_get_cert_store(&ssl_ctx);
-    ASSERT(verify_store);
-    bssl::UniquePtr<X509_STORE_CTX> ctx(X509_STORE_CTX_new());
-    if (!ctx || !X509_STORE_CTX_init(ctx.get(), verify_store, leaf_cert, &cert_chain) ||
-        // We need to inherit the verify parameters. These can be determined by
-        // the context: if it's a server it will verify SSL client certificates or
-        // vice versa.
-        !X509_STORE_CTX_set_default(ctx.get(), is_server ? "ssl_client" : "ssl_server") ||
-        // Anything non-default in "param" should overwrite anything in the ctx.
-        !X509_VERIFY_PARAM_set1(X509_STORE_CTX_get0_param(ctx.get()),
-                                SSL_CTX_get0_param(&ssl_ctx))) {
-      OPENSSL_PUT_ERROR(SSL, ERR_R_X509_LIB);
-      const char* error = "verify cert failed: init and setup X509_STORE_CTX";
-      stats_.fail_verify_error_.inc();
-      ENVOY_LOG(debug, error);
-      return {ValidationResults::ValidationStatus::Failed,
-              Envoy::Ssl::ClientValidationStatus::Failed, absl::nullopt, error};
-    }
-    const bool verify_succeeded = (X509_verify_cert(ctx.get()) == 1);
-
-    if (!verify_succeeded) {
-      const std::string error =
-          absl::StrCat("verify cert failed: ", Utility::getX509VerificationErrorInfo(ctx.get()));
-      stats_.fail_verify_error_.inc();
-      ENVOY_LOG(debug, error);
-      if (allow_untrusted_certificate_) {
-        return ValidationResults{ValidationResults::ValidationStatus::Successful,
-                                 Envoy::Ssl::ClientValidationStatus::Failed, absl::nullopt,
-                                 absl::nullopt};
-      }
-      return {ValidationResults::ValidationStatus::Failed,
-              Envoy::Ssl::ClientValidationStatus::Failed,
-              SSL_alert_from_verify_result(X509_STORE_CTX_get_error(ctx.get())), error};
-    }
-    detailed_status = Envoy::Ssl::ClientValidationStatus::Validated;
-  }
-  std::string error_details;
-  uint8_t tls_alert = SSL_AD_CERTIFICATE_UNKNOWN;
-  const bool succeeded = verifyCertAndUpdateStatus(leaf_cert, transport_socket_options.get(),
-                                                   detailed_status, &error_details, &tls_alert);
-  return succeeded ? ValidationResults{ValidationResults::ValidationStatus::Successful,
-                                       detailed_status, absl::nullopt, absl::nullopt}
-                   : ValidationResults{ValidationResults::ValidationStatus::Failed, detailed_status,
-                                       tls_alert, error_details};
 }
 
 bool DefaultCertValidator::verifySubjectAltName(X509* cert,
@@ -505,9 +475,11 @@ void DefaultCertValidator::updateDigestForSessionId(bssl::ScopedEVP_MD_CTX& md,
     rc = EVP_DigestUpdate(md.get(), &trust_chain_verification, sizeof(trust_chain_verification));
     RELEASE_ASSERT(rc == 1, Utility::getLastCryptoError().value_or(""));
 
-    auto only_leaf_crl = config_->onlyVerifyLeafCertificateCrl();
-    rc = EVP_DigestUpdate(md.get(), &only_leaf_crl, sizeof(only_leaf_crl));
-    RELEASE_ASSERT(rc == 1, Utility::getLastCryptoError().value_or(""));
+    // Back porting note: onlyVerifyLeafCertificateCrl isn't implemented.
+    // Hence we comment these lines here to disable them.
+    // auto only_leaf_crl = config_->onlyVerifyLeafCertificateCrl();
+    // rc = EVP_DigestUpdate(md.get(), &only_leaf_crl, sizeof(only_leaf_crl));
+    // RELEASE_ASSERT(rc == 1, Utility::getLastCryptoError().value_or(""));
   }
 }
 
@@ -536,7 +508,9 @@ void DefaultCertValidator::addClientValidationContext(SSL_CTX* ctx, bool require
                                         config_->caCertPath()));
     }
     // Check for duplicates.
-    if (sk_X509_NAME_find(list.get(), nullptr, name)) {
+    // Note that BoringSSL call only returns 0 or 1.
+    // OpenSSL can also return -1, for example on sk_find calls in an empty list
+    if (sk_X509_NAME_find(list.get(), nullptr, name) == 1) {
       continue;
     }
     bssl::UniquePtr<X509_NAME> name_dup(X509_NAME_dup(name));

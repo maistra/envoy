@@ -72,7 +72,6 @@ RUNTIME_GUARD(envoy_reloadable_features_tcp_pool_idle_timeout);
 RUNTIME_GUARD(envoy_reloadable_features_test_feature_true);
 RUNTIME_GUARD(envoy_reloadable_features_thrift_allow_negative_field_ids);
 RUNTIME_GUARD(envoy_reloadable_features_thrift_connection_draining);
-RUNTIME_GUARD(envoy_reloadable_features_tls_async_cert_validation);
 RUNTIME_GUARD(envoy_reloadable_features_udp_proxy_connect);
 RUNTIME_GUARD(envoy_reloadable_features_uhv_translate_backslash_to_slash);
 RUNTIME_GUARD(envoy_reloadable_features_unified_header_formatter);
@@ -89,6 +88,7 @@ RUNTIME_GUARD(envoy_restart_features_use_apple_api_for_dns_lookups);
 
 // Begin false flags. These should come with a TODO to flip true.
 // Sentinel and test flag.
+FALSE_RUNTIME_GUARD(envoy_reloadable_features_tls_async_cert_validation);
 FALSE_RUNTIME_GUARD(envoy_reloadable_features_test_feature_false);
 // TODO(paul-r-gall) Make this enabled by default after additional soak time.
 FALSE_RUNTIME_GUARD(envoy_reloadable_features_streaming_shadow);

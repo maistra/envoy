@@ -721,7 +721,7 @@ void ConnectionImpl::onWriteReady() {
     if (delayed_close_state_ == DelayedCloseState::CloseAfterFlushAndWait) {
       ASSERT(delayed_close_timer_ != nullptr && delayed_close_timer_->enabled());
       if (result.bytes_processed_ > 0) {
-        delayed_close_timer_->enableTimer(delayed_close_timeout_);
+        enableDelayedCloseTimer();
       }
     } else {
       ASSERT(bothSidesHalfClosed() || delayed_close_state_ == DelayedCloseState::CloseAfterFlush);
@@ -731,7 +731,7 @@ void ConnectionImpl::onWriteReady() {
     ASSERT(result.action_ == PostIoAction::KeepOpen);
     ASSERT(!delayed_close_timer_ || delayed_close_timer_->enabled());
     if (delayed_close_timer_ != nullptr && result.bytes_processed_ > 0) {
-      delayed_close_timer_->enableTimer(delayed_close_timeout_);
+      enableDelayedCloseTimer();
     }
     if (result.bytes_processed_ > 0) {
       auto it = bytes_sent_callbacks_.begin();
@@ -780,8 +780,12 @@ bool ConnectionImpl::bothSidesHalfClosed() {
 
 absl::string_view ConnectionImpl::transportFailureReason() const {
   if (!failure_reason_.empty()) {
+//    printf("ConnectionImpl::transportFailureReason 1 = %s\n", failure_reason_.c_str());
     return failure_reason_;
   }
+//  absl::string_view tsfr = transport_socket_->failureReason();
+//  printf("ConnectionImpl::transportFailureReason 2 = %s\n", std::string(tsfr).c_str());
+//  return tsfr;
   return transport_socket_->failureReason();
 }
 

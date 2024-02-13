@@ -5657,7 +5657,7 @@ TEST_P(ListenerManagerImplWithRealFiltersTest, TlsCertificateInvalidPrivateKey) 
 
   EXPECT_THROW_WITH_MESSAGE(addOrUpdateListener(parseListenerFromV3Yaml(yaml)), EnvoyException,
                             "Failed to load private key from <inline>, "
-                            "Cause: error:0900006e:PEM routines:OPENSSL_internal:NO_START_LINE");
+                            "Cause: error:0909006C:PEM routines:get_name:no start line");
 }
 
 TEST_P(ListenerManagerImplWithRealFiltersTest, TlsCertificateInvalidTrustedCA) {
@@ -5703,7 +5703,7 @@ TEST_P(ListenerManagerImplWithRealFiltersTest, TlsCertificateCertPrivateKeyMisma
   EXPECT_THROW_WITH_REGEX(
       addOrUpdateListener(parseListenerFromV3Yaml(yaml)), EnvoyException,
       "Failed to load private key from .*, "
-      "Cause: error:0b000074:X.509 certificate routines:OPENSSL_internal:KEY_VALUES_MISMATCH");
+      "Cause: error:0B080074:x509 certificate routines:X509_check_private_key:key values mismatch");
 }
 
 TEST_P(ListenerManagerImplWithRealFiltersTest, Metadata) {

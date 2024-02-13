@@ -186,33 +186,6 @@ TEST(DefaultCertValidatorTest, TestCertificateVerificationWithNoValidationContex
                                                             /*leaf_cert=*/*cert,
                                                             /*transport_socket_options=*/nullptr),
             0);
-  SSLContextPtr ssl_ctx = SSL_CTX_new(TLS_method());
-  bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-  ASSERT_TRUE(bssl::PushToStack(cert_chain.get(), std::move(cert)));
-  EXPECT_EQ(ValidationResults::ValidationStatus::Failed,
-            default_validator
-                ->doVerifyCertChain(*cert_chain, /*callback=*/nullptr,
-                                    /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "")
-                .status);
-}
-
-TEST(DefaultCertValidatorTest, TestCertificateVerificationWithEmptyCertChain) {
-  Stats::TestUtil::TestStore test_store;
-  SslStats stats = generateSslStats(*test_store.rootScope());
-  // Create the default validator object.
-  auto default_validator =
-      std::make_unique<Extensions::TransportSockets::Tls::DefaultCertValidator>(
-          /*CertificateValidationContextConfig=*/nullptr, stats,
-          Event::GlobalTimeSystem().timeSystem());
-
-  SSLContextPtr ssl_ctx = SSL_CTX_new(TLS_method());
-  bssl::UniquePtr<STACK_OF(X509)> cert_chain(sk_X509_new_null());
-  TestSslExtendedSocketInfo extended_socket_info;
-  ValidationResults results = default_validator->doVerifyCertChain(
-      *cert_chain, /*callback=*/nullptr,
-      /*transport_socket_options=*/nullptr, *ssl_ctx, {}, false, "");
-  EXPECT_EQ(ValidationResults::ValidationStatus::Failed, results.status);
-  EXPECT_EQ(Ssl::ClientValidationStatus::NotValidated, results.detailed_status);
 }
 
 TEST(DefaultCertValidatorTest, NoSanInCert) {

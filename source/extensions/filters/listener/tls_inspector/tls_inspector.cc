@@ -22,6 +22,47 @@
 #include "openssl/md5.h"
 #include "openssl/ssl.h"
 
+
+//#define DISABLE_FINGERPRINTING 1
+
+// [dcillera] TODO: move the following functions to bssl_wrapper
+inline bool ssl_client_hello_get_extension(const SSL_CLIENT_HELLO *client_hello,
+                                    CBS *out, uint16_t extension_type) {
+  CBS extensions;
+  CBS_init(&extensions, client_hello->extensions.curr, client_hello->extensions.remaining);
+  while (CBS_len(&extensions) != 0) {
+    // Decode the next extension.
+    uint16_t type;
+    CBS extension;
+    if (!CBS_get_u16(&extensions, &type) ||
+        !CBS_get_u16_length_prefixed(&extensions, &extension)) {
+      return false;
+    }
+
+    if (type == extension_type) {
+      *out = extension;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+inline int SSL_early_callback_ctx_extension_get(const SSL_CLIENT_HELLO *client_hello,
+                                         uint16_t extension_type,
+                                         const uint8_t **out_data,
+                                         size_t *out_len) {
+  CBS cbs;
+  if (!ssl_client_hello_get_extension(client_hello, &cbs, extension_type)) {
+    return 0;
+  }
+
+  *out_data = CBS_data(&cbs);
+  *out_len = CBS_len(&cbs);
+  return 1;
+}
+
+
 namespace Envoy {
 namespace Extensions {
 namespace ListenerFilters {
@@ -36,7 +77,7 @@ Config::Config(
     const envoy::extensions::filters::listener::tls_inspector::v3::TlsInspector& proto_config,
     uint32_t max_client_hello_size)
     : stats_{ALL_TLS_INSPECTOR_STATS(POOL_COUNTER_PREFIX(scope, "tls_inspector."))},
-      ssl_ctx_(SSL_CTX_new(TLS_with_buffers_method())),
+      ssl_ctx_(SSL_CTX_new(TLS_method())),
       enable_ja3_fingerprinting_(
           PROTOBUF_GET_WRAPPED_OR_DEFAULT(proto_config, enable_ja3_fingerprinting, false)),
       max_client_hello_size_(max_client_hello_size) {
@@ -50,29 +91,45 @@ Config::Config(
   SSL_CTX_set_max_proto_version(ssl_ctx_.get(), TLS_MAX_SUPPORTED_VERSION);
   SSL_CTX_set_options(ssl_ctx_.get(), SSL_OP_NO_TICKET);
   SSL_CTX_set_session_cache_mode(ssl_ctx_.get(), SSL_SESS_CACHE_OFF);
-  SSL_CTX_set_select_certificate_cb(
-      ssl_ctx_.get(), [](const SSL_CLIENT_HELLO* client_hello) -> ssl_select_cert_result_t {
-        Filter* filter = static_cast<Filter*>(SSL_get_app_data(client_hello->ssl));
-        filter->createJA3Hash(client_hello);
+
+#ifndef DISABLE_FINGERPRINTING
+
+  SSL_CTX_set_client_hello_cb(
+      ssl_ctx_.get(), [](SSL* ssl, int *al, void *arg) -> int {
+        Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
+        filter->createJA3Hash(ssl->clienthello);
 
         const uint8_t* data;
         size_t len;
         if (SSL_early_callback_ctx_extension_get(
-                client_hello, TLSEXT_TYPE_application_layer_protocol_negotiation, &data, &len)) {
+              ssl->clienthello, TLSEXT_TYPE_application_layer_protocol_negotiation, &data, &len)) {
           filter->onALPN(data, len);
         }
-        return ssl_select_cert_success;
-      });
+        return SSL_CLIENT_HELLO_SUCCESS;
+      },
+      nullptr);
+
+#endif  // DISABLE_FINGERPRINTING
+
   SSL_CTX_set_tlsext_servername_callback(
-      ssl_ctx_.get(), [](SSL* ssl, int* out_alert, void*) -> int {
+      ssl_ctx_.get(), +[](SSL* ssl, int* out_alert, void*) -> int {
         Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
         filter->onServername(
             absl::NullSafeStringView(SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)));
 
-        // Return an error to stop the handshake; we have what we wanted already.
         *out_alert = SSL_AD_USER_CANCELLED;
-        return SSL_TLSEXT_ERR_ALERT_FATAL;
+        return SSL_TLSEXT_ERR_OK;
       });
+
+  auto cert_cb = [](SSL* ssl, void*) -> int {
+    Filter* filter = static_cast<Filter*>(SSL_get_app_data(ssl));
+    // TODO (dmitri-d) move access to SSL internals into bssl_wrapper
+    filter->onALPN(ssl->s3->alpn_proposed, ssl->s3->alpn_proposed_len);
+
+    // Return an error to stop the handshake; we have what we wanted already.
+    return 0;
+  };
+  SSL_CTX_set_cert_cb(ssl_ctx_.get(), cert_cb, nullptr);
 }
 
 bssl::UniquePtr<SSL> Config::newSsl() { return bssl::UniquePtr<SSL>{SSL_new(ssl_ctx_.get())}; }
@@ -190,6 +247,40 @@ ParseState Filter::parseClientHello(const void* data, size_t len) {
   }
 }
 
+std::vector<absl::string_view> Filter::getAlpnProtocols(const unsigned char* data,
+                                                        unsigned int len) {
+  std::vector<absl::string_view> protocols;
+  if (len == 0) {
+    return protocols;
+  }
+
+  // The data buffer contains a sequence of non-terminated strings, where each
+  // string is preceded by 1 byte that gives it's length (excluding the length
+  // byte itself). No string can be zero length, and the last string must not
+  // overrun or underrun the buffer.
+  unsigned int i = 0;
+  do {
+    uint8_t protocol_length = data[i++];
+
+    if (protocol_length == 0) {
+      ENVOY_LOG_PERIODIC(warn, std::chrono::minutes(1), "tls inspector: ALPN protocol length is zero");
+      break;
+    }
+
+    if (protocol_length > (len - i)) {
+      ENVOY_LOG_PERIODIC(warn, std::chrono::minutes(1), "tls inspector: ALPN protocol length is too long");
+      break;
+    }
+
+    protocols.emplace_back(reinterpret_cast<const char*>(data + i), protocol_length);
+    i += protocol_length;
+  } while (i < len);
+
+  return protocols;
+}
+
+#ifndef DISABLE_FINGERPRINTING
+
 // Google GREASE values (https://datatracker.ietf.org/doc/html/rfc8701)
 static constexpr std::array<uint16_t, 16> GREASE = {
     0x0a0a, 0x1a1a, 0x2a2a, 0x3a3a, 0x4a4a, 0x5a5a, 0x6a6a, 0x7a7a,
@@ -202,7 +293,7 @@ bool isNotGrease(uint16_t id) {
 
 void writeCipherSuites(const SSL_CLIENT_HELLO* ssl_client_hello, std::string& fingerprint) {
   CBS cipher_suites;
-  CBS_init(&cipher_suites, ssl_client_hello->cipher_suites, ssl_client_hello->cipher_suites_len);
+  CBS_init(&cipher_suites, ssl_client_hello->ciphersuites.curr, ssl_client_hello->ciphersuites.remaining);
 
   bool write_cipher = true;
   bool first = true;
@@ -221,7 +312,7 @@ void writeCipherSuites(const SSL_CLIENT_HELLO* ssl_client_hello, std::string& fi
 
 void writeExtensions(const SSL_CLIENT_HELLO* ssl_client_hello, std::string& fingerprint) {
   CBS extensions;
-  CBS_init(&extensions, ssl_client_hello->extensions, ssl_client_hello->extensions_len);
+  CBS_init(&extensions, ssl_client_hello->extensions.curr, ssl_client_hello->extensions.remaining);
 
   bool write_extension = true;
   bool first = true;
@@ -297,7 +388,7 @@ void writeEllipticCurvePointFormats(const SSL_CLIENT_HELLO* ssl_client_hello,
 void Filter::createJA3Hash(const SSL_CLIENT_HELLO* ssl_client_hello) {
   if (config_->enableJA3Fingerprinting()) {
     std::string fingerprint;
-    const uint16_t client_version = ssl_client_hello->version;
+    const uint16_t client_version = ssl_client_hello->legacy_version;
     absl::StrAppendFormat(&fingerprint, "%d,", client_version);
     writeCipherSuites(ssl_client_hello, fingerprint);
     absl::StrAppend(&fingerprint, ",");
@@ -317,6 +408,8 @@ void Filter::createJA3Hash(const SSL_CLIENT_HELLO* ssl_client_hello) {
     cb_->socket().setJA3Hash(md5);
   }
 }
+
+#endif // #ifdef DISABLE_FINGERPRINTING
 
 } // namespace TlsInspector
 } // namespace ListenerFilters

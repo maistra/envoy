@@ -14,6 +14,7 @@
 
 #include "absl/time/time.h"
 #include "gtest/gtest.h"
+#include "openssl/err.h"
 #include "openssl/ssl.h"
 #include "openssl/x509v3.h"
 
@@ -163,7 +164,7 @@ TEST(UtilityTest, GetLastCryptoError) {
 
   ERR_put_error(ERR_LIB_SSL, 0, ERR_R_MALLOC_FAILURE, __FILE__, __LINE__);
   EXPECT_EQ(Utility::getLastCryptoError().value(),
-            "error:10000041:SSL routines:OPENSSL_internal:malloc failure");
+            "error:14000041:SSL routines:SSL routines:malloc failure");
 
   // We consumed the last error, so back to not having an error to get.
   EXPECT_FALSE(Utility::getLastCryptoError().has_value());
@@ -182,11 +183,9 @@ TEST(UtilityTest, TestGetCertificationExtensionValue) {
 
 TEST(UtilityTest, SslErrorDescriptionTest) {
   const std::vector<std::pair<int, std::string>> test_set = {
-      {SSL_ERROR_NONE, "NONE"},
-      {SSL_ERROR_SSL, "SSL"},
-      {SSL_ERROR_WANT_READ, "WANT_READ"},
-      {SSL_ERROR_WANT_WRITE, "WANT_WRITE"},
-      {SSL_ERROR_WANT_PRIVATE_KEY_OPERATION, "WANT_PRIVATE_KEY_OPERATION"},
+      {SSL_ERROR_NONE, "NONE"},           {SSL_ERROR_SSL, "SSL"},
+      {SSL_ERROR_WANT_READ, "WANT_READ"}, {SSL_ERROR_WANT_WRITE, "WANT_WRITE"},
+      {13, "WANT_PRIVATE_KEY_OPERATION"}, // SSL_ERROR_WANT_PRIVATE_KEY_OPERATION
   };
 
   for (const auto& test_data : test_set) {
@@ -202,11 +201,11 @@ TEST(UtilityTest, TestGetX509ErrorInfo) {
       "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/san_dns_cert.pem"));
   X509StoreContextPtr store_ctx = X509_STORE_CTX_new();
   X509StorePtr ssl_ctx = X509_STORE_new();
-  EXPECT_TRUE(X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), nullptr));
-  X509_STORE_CTX_set_error(store_ctx.get(), X509_V_ERR_UNSPECIFIED);
+  X509_STORE_CTX_init(store_ctx.get(), ssl_ctx.get(), cert.get(), nullptr);
+  // expecting verify to fail with an error code of 20
+  EXPECT_FALSE(X509_verify_cert(store_ctx.get()));
   EXPECT_EQ(Utility::getX509VerificationErrorInfo(store_ctx.get()),
-            "X509_verify_cert: certificate verification error at depth 0: unknown certificate "
-            "verification error");
+            "X509_verify_cert: certificate verification error at depth 0: unable to get local issuer certificate");
 }
 
 } // namespace

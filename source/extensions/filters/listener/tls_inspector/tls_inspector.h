@@ -9,7 +9,11 @@
 
 #include "source/common/common/logger.h"
 
+#include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/ssl.h"
+#include "ssl/ssl_local.h"
+
+#define SSL_CLIENT_HELLO  CLIENTHELLO_MSG
 
 namespace Envoy {
 namespace Extensions {
@@ -55,16 +59,15 @@ public:
   const TlsInspectorStats& stats() const { return stats_; }
   bssl::UniquePtr<SSL> newSsl();
   bool enableJA3Fingerprinting() const { return enable_ja3_fingerprinting_; }
+  void setEnableJA3Fingerprinting(bool enable) { enable_ja3_fingerprinting_ = enable; }
   uint32_t maxClientHelloSize() const { return max_client_hello_size_; }
-
   static constexpr size_t TLS_MAX_CLIENT_HELLO = 64 * 1024;
   static const unsigned TLS_MIN_SUPPORTED_VERSION;
   static const unsigned TLS_MAX_SUPPORTED_VERSION;
-
 private:
   TlsInspectorStats stats_;
   bssl::UniquePtr<SSL_CTX> ssl_ctx_;
-  const bool enable_ja3_fingerprinting_;
+  bool enable_ja3_fingerprinting_;
   const uint32_t max_client_hello_size_;
 };
 
@@ -83,10 +86,12 @@ public:
   size_t maxReadBytes() const override { return config_->maxClientHelloSize(); }
 
 private:
+  std::vector<absl::string_view> getAlpnProtocols(const unsigned char* data, unsigned int len);
   ParseState parseClientHello(const void* data, size_t len);
   ParseState onRead();
   void onALPN(const unsigned char* data, unsigned int len);
   void onServername(absl::string_view name);
+  // JA3 fingerprinting
   void createJA3Hash(const SSL_CLIENT_HELLO* ssl_client_hello);
 
   ConfigSharedPtr config_;

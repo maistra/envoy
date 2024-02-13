@@ -1,12 +1,10 @@
 #pragma once
 
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "envoy/common/pure.h"
-#include "envoy/event/dispatcher.h"
 
 namespace Envoy {
 namespace Ssl {
@@ -58,30 +56,6 @@ public:
    * @return ClientValidationStatus The peer certificate validation status.
    **/
   virtual ClientValidationStatus certificateValidationStatus() const PURE;
-
-  /**
-   * @return ValidateResultCallbackPtr a callback used to return the validation result.
-   */
-  virtual ValidateResultCallbackPtr createValidateResultCallback() PURE;
-
-  /**
-   * Called after the cert validation completes either synchronously or asynchronously.
-   * @param succeeded true if the validation succeeded.
-   * @param async true if the validation is completed asynchronously.
-   */
-  virtual void onCertificateValidationCompleted(bool succeeded, bool async) PURE;
-
-  /**
-   * @return ValidateStatus the validation status.
-   */
-  virtual ValidateStatus certificateValidationResult() const PURE;
-
-  /**
-   * Called when doing asynchronous cert validation.
-   * @return uint8_t represents the TLS alert populated by cert validator in
-   * case of failure.
-   */
-  virtual uint8_t certificateValidationAlert() const PURE;
 };
 
 } // namespace Ssl

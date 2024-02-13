@@ -25,13 +25,14 @@
 #include "source/extensions/transport_sockets/tls/stats.h"
 
 #include "absl/synchronization/mutex.h"
+
+#include "bssl_wrapper/bssl_wrapper.h"
+#include "source/extensions/transport_sockets/tls/openssl_impl.h"
+
 #include "openssl/ssl.h"
 #include "openssl/x509v3.h"
 
 namespace Envoy {
-#ifndef OPENSSL_IS_BORINGSSL
-#error Envoy requires BoringSSL
-#endif
 
 namespace Extensions {
 namespace TransportSockets {
@@ -94,13 +95,6 @@ public:
   // TODO(danzh) remove when deprecate envoy.reloadable_features.tls_async_cert_validation
   bool verifyCertChain(X509& leaf_cert, STACK_OF(X509)& intermediates, std::string& error_details);
 
-  // Validate cert asynchronously for a QUIC connection.
-  ValidationResults customVerifyCertChainForQuic(
-      STACK_OF(X509)& cert_chain, Ssl::ValidateResultCallbackPtr callback, bool is_server,
-      const Network::TransportSocketOptionsConstSharedPtr& transport_socket_options,
-      const CertValidator::ExtraValidationContext& validation_context,
-      const std::string& host_name);
-
   static void keylogCallback(const SSL* ssl, const char* line);
 
 protected:
@@ -118,19 +112,11 @@ protected:
   // A SSL_CTX_set_cert_verify_callback for custom cert validation.
   static int verifyCallback(X509_STORE_CTX* store_ctx, void* arg);
 
-  // A SSL_CTX_set_custom_verify callback for asynchronous cert validation.
-  static enum ssl_verify_result_t customVerifyCallback(SSL* ssl, uint8_t* out_alert);
-
   bool parseAndSetAlpn(const std::vector<std::string>& alpn, SSL& ssl);
   std::vector<uint8_t> parseAlpnProtocols(const std::string& alpn_protocols);
 
   void incCounter(const Stats::StatName name, absl::string_view value,
                   const Stats::StatName fallback) const;
-
-  // Helper function to validate cert for TCP connections asynchronously.
-  ValidationResults customVerifyCertChain(
-      Envoy::Ssl::SslExtendedSocketInfo* extended_socket_info,
-      const Network::TransportSocketOptionsConstSharedPtr& transport_socket_options, SSL* ssl);
 
   void populateServerNamesMap(TlsContext& ctx, const int pkey_id);
 
@@ -193,7 +179,13 @@ public:
   // Select the TLS certificate context in SSL_CTX_set_select_certificate_cb() callback with
   // ClientHello details. This is made public for use by custom TLS extensions who want to
   // manually create and use this as a client hello callback.
-  enum ssl_select_cert_result_t selectTlsContext(const SSL_CLIENT_HELLO* ssl_client_hello);
+
+  // TODO: use SSL * like the 2.4 version of isOCSPblah method.
+  // TODO: https://github.com/envoyproxy/envoy-openssl/blob/main/bssl-compat/source/SSL_CTX_set_select_certificate_cb.c
+  // TODO: can createssl_select_cert_result_t  in the openssl_impl.h
+  // TODO: Change SSL_CLIENT_HELLO to SSL and use similar code to 2.4 as in SSL_get_tlsext_status_type in bool ServerContextImpl::isClientOcspCapable(SSL* ssl)
+  // TODO: TED SAYS! "it should be possible to get any extension from the SSL pointer used in client hello".
+  enum ssl_select_cert_result_t selectTlsContext(const SSL* ssl);
 
 private:
   // Currently, at most one certificate of a given key type may be specified for each exact
@@ -212,9 +204,10 @@ private:
                          unsigned int inlen);
   int sessionTicketProcess(SSL* ssl, uint8_t* key_name, uint8_t* iv, EVP_CIPHER_CTX* ctx,
                            HMAC_CTX* hmac_ctx, int encrypt);
-  bool isClientEcdsaCapable(const SSL_CLIENT_HELLO* ssl_client_hello);
-  bool isClientOcspCapable(const SSL_CLIENT_HELLO* ssl_client_hello);
+  bool isClientEcdsaCapable(const SSL* ssl);
+  bool isClientOcspCapable(const SSL* ssl);
   OcspStapleAction ocspStapleAction(const TlsContext& ctx, bool client_ocsp_capable);
+  int setupOcspResponse(SSL *ssl);
 
   SessionContextID generateHashForSessionContextId(const std::vector<std::string>& server_names);
 
