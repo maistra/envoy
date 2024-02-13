@@ -42,8 +42,6 @@ using testing::StartsWith;
 
 namespace Envoy {
 
-using Extensions::TransportSockets::Tls::ContextImplPeer;
-
 namespace Ssl {
 
 void SslIntegrationTestBase::initialize() {

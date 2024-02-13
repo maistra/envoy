@@ -13,8 +13,7 @@ export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
 # Build
 time bazel build \
   ${COMMON_FLAGS} \
-  //test/common/common:optref_test
-#  //source/exe:envoy-static
+  //source/exe:envoy-static
 
 echo "Build succeeded. Binary generated:"
 bazel-bin/source/exe/envoy-static --version
