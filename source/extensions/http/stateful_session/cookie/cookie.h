@@ -54,9 +54,38 @@ public:
 private:
   absl::optional<std::string> parseAddress(const Envoy::Http::RequestHeaderMap& headers) const {
     const std::string cookie_value = Envoy::Http::Utility::parseCookieValue(headers, name_);
-    std::string address = Envoy::Base64::decode(cookie_value);
+    if (cookie_value.empty()) {
+      return absl::nullopt;
+    }
+    const std::string decoded_value = Envoy::Base64::decode(cookie_value);
+    std::string address;
 
-    return !address.empty() ? absl::make_optional(std::move(address)) : absl::nullopt;
+    // Try to interpret the cookie as proto payload.
+    // Otherwise treat it as "old" style format, which is ip-address:port.
+    envoy::Cookie cookie;
+    if (cookie.ParseFromString(decoded_value)) {
+      address = cookie.address();
+      if (address.empty()) {
+        return absl::nullopt;
+      }
+
+      if (cookie.expires() != 0) {
+        const std::chrono::seconds expiry_time(cookie.expires());
+        const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+            (time_source_.monotonicTime()).time_since_epoch());
+        if (now > expiry_time) {
+          // Ignore the address extracted from the cookie. This will cause
+          // upstream cluster to select a new host and new cookie will be generated.
+          return absl::nullopt;
+        }
+      }
+    } else {
+      ENVOY_LOG_ONCE_MISC(
+          warn, "Non-proto cookie format detected. This format will be rejected in the future.");
+      address = decoded_value;
+    }
+
+    return address.empty() ? absl::nullopt : absl::make_optional(std::move(address));
   }
 
   std::string makeSetCookie(const std::string& address) const {
