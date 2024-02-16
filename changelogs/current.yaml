@@ -1,4 +1,4 @@
-date: September 4, 2024
+date: Pending
 
 behavior_changes:
 # *Changes that are expected to cause an incompatibility if applicable; deployment changes are likely required*
@@ -38,7 +38,10 @@ bug_fixes:
   change: |
     Only 101 is considered a successful response for websocket handshake, and Envoy as a proxy will proxy the response
     header code from upstream to downstream and then close the request if other status is received. This behavior can be
-    reverted by ``envoy_reloadable_features_check_switch_protocol_websocket_handshake``.    
+    reverted by ``envoy_reloadable_features_check_switch_protocol_websocket_handshake``.
+- area: stateful_session
+  change: |
+    Support 0 TTL for proto-encoded cookies, which disables cookie expiration by Envoy.
 
 removed_config_or_runtime:
 # *Normally occurs at the end of the* :ref:`deprecation period <deprecated>`
