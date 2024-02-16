@@ -21,6 +21,7 @@
 #include "source/common/common/utility.h"
 #include "source/common/network/address_impl.h"
 #include "source/common/network/utility.h"
+#include "source/common/protobuf/utility.h"
 #include "source/extensions/common/proxy_protocol/proxy_protocol_header.h"
 
 using Envoy::Extensions::Common::ProxyProtocol::PROXY_PROTO_V1_SIGNATURE;
@@ -366,11 +367,13 @@ bool Filter::parseTlvs(const std::vector<uint8_t>& tlvs) {
     }
 
     // Only save to dynamic metadata if this type of TLV is needed.
+    absl::string_view tlv_value(reinterpret_cast<char const*>(&tlvs[idx]), tlv_value_length);
     auto key_value_pair = config_->isTlvTypeNeeded(tlv_type);
     if (nullptr != key_value_pair) {
       ProtobufWkt::Value metadata_value;
-      metadata_value.set_string_value(reinterpret_cast<char const*>(tlvs.data() + idx),
-                                      tlv_value_length);
+      // Sanitize any non utf8 characters.
+      auto sanitised_tlv_value = MessageUtil::sanitizeUtf8String(tlv_value);
+      metadata_value.set_string_value(sanitised_tlv_value.data(), sanitised_tlv_value.size());
 
       std::string metadata_key = key_value_pair->metadata_namespace().empty()
                                      ? "envoy.filters.listener.proxy_protocol"
