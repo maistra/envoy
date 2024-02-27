@@ -23,6 +23,7 @@ bazel-bin/source/exe/envoy-static --version
 # The following build step helps reduce resources usage
 # by compiling tests first.
 # Build tests
+
 time bazel build \
   ${COMMON_FLAGS} \
   --build_tests_only \
@@ -30,46 +31,68 @@ time bazel build \
   //test/... \
   -//test/extensions/listener_managers/listener_manager:listener_manager_impl_quic_only_test
 
-# These tests can fail with TIME OUT if run as part of batch
-extra_tests=(
-    //test/exe:main_common_test \
-    //test/server:guarddog_impl_test \
-    //test/common/stream_info:filter_state_impl_test \
-    //test/common/common:assert_enabled_in_release_test \
-    //test/common/common:assert_test \
-    //test/common/upstream:conn_pool_map_impl_test \
-    //test/common/conn_pool:conn_pool_base_test \
-    //test/common/http/http2:codec_impl_test \
-    //test/extensions/filters/http/header_mutation:header_mutation_test \
-    //test/extensions/filters/http/gcp_authn:gcp_authn_filter_test \
-    //test/extensions/filters/http/ext_proc:filter_test \
-    //test/extensions/filters/http/custom_response:config_test \
-    //test/extensions/filters/http/ext_proc:streaming_integration_test \
-    //test/extensions/filters/network/http_connection_manager:config_test )
-
-EXCLUDE_BATCH_TESTS=""
-for test in "${extra_tests[@]}"
-do
-  EXCLUDE_BATCH_TESTS+=" -${test}"
-done
-
+function run_tests() {
 # Run tests without tests that timeout
 time bazel test \
   ${COMMON_FLAGS} \
   --build_tests_only \
+  --spawn_strategy=local \
   -- \
-  //test/... \
-  -//test/extensions/listener_managers/listener_manager:listener_manager_impl_quic_only_test \
-  $EXCLUDE_BATCH_TESTS
+  $1
+}
 
-# Run tests that where timing out in batch
-for test in "${extra_tests[@]}"
-do
-echo "Running Test " $test
-time bazel test \
-  ${COMMON_FLAGS} \
-  --build_tests_only \
-  -- \
-  $test 
-done
+# --cache_test_results=no \
+
+# Run the tests in smaller blocks rather than attempt to 
+# share resources to run //test/... 
+# This is a remedy for the tests that would time out.
+run_tests "//test/common/..."
+run_tests "//test/config_test/..."
+run_tests "//test/dependencies/..."
+run_tests "//test/exe/..."
+
+run_tests "//test/extensions/access_loggers/..."
+run_tests "//test/extensions/bootstrap/..."
+run_tests "//test/extensions/clusters/..."
+run_tests "//test/extensions/common/..."
+run_tests "//test/extensions/compression/..."
+run_tests "//test/extensions/config/..."
+run_tests "//test/extensions/config_subscription/..."
+run_tests "//test/extensions/filters/common/..."
+run_tests "//test/extensions/filters/http/... -//test/extensions/filters/http/kill_request:crash_integration_test"
+run_tests "//test/extensions/filters/http/kill_request:crash_integration_test"
+run_tests "//test/extensions/filters/listener/... -//test/extensions/filters/listener/original_dst:original_dst_integration_test"
+# The following test only fails locally, passes on CI.
+#run_tests "//test/extensions/filters/listener/original_dst:original_dst_integration_test"
+run_tests "//test/extensions/filters/network/..."
+run_tests "//test/extensions/filters/udp/..."
+run_tests "//test/extensions/formatter/..."
+run_tests "//test/extensions/grpc_credentials/..."
+run_tests "//test/extensions/health_checkers/..."
+run_tests "//test/extensions/http/..."
+run_tests "//test/extensions/internal_redirect/..."
+run_tests "//test/extensions/io_socket/..."
+run_tests "//test/extensions/key_value/..."
+run_tests "//test/extensions/listener_managers/... -//test/extensions/listener_managers/listener_manager:listener_manager_impl_quic_only_test"
+run_tests "//test/extensions/load_balancing_policies/..."
+run_tests "//test/extensions/matching/..."
+run_tests "//test/extensions/network/..."
+run_tests "//test/extensions/path/..."
+run_tests "//test/extensions/rate_limit_descriptors/..."
+run_tests "//test/extensions/request_id/..."
+run_tests "//test/extensions/resource_monitors/..."
+run_tests "//test/extensions/retry/..."
+run_tests "//test/extensions/stats_sinks/..."
+run_tests "//test/extensions/tracers/..."
+run_tests "//test/extensions/transport_sockets/..."
+run_tests "//test/extensions/udp_packet_writer/..."
+run_tests "//test/extensions/upstreams/..."
+run_tests "//test/extensions/watchdog/..."
+
+run_tests "//test/fuzz/..."
+run_tests "//test/integration/..."
+run_tests "//test/mocks/..."
+run_tests "//test/server/..."
+run_tests "//test/test_common/..."
+run_tests "//test/tools/..."
 
