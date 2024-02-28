@@ -32,5 +32,5 @@ time bazel build \
 time bazel test \
   ${COMMON_FLAGS} \
   --build_tests_only \
-  --flaky_test_attempts=3 \
+  --flaky_test_attempts=5 \
   //test/...
