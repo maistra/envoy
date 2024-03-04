@@ -22,6 +22,10 @@ bug_fixes:
     Fixed a bug where TLVs with non utf8 characters were inserted as protobuf values into filter metadata circumventing
     ext_authz checks when ``failure_mode_allow`` is set to ``true``.
 
+- area: http
+  change: |
+    Fixed crash when HTTP request idle and per try timeouts occurs within backoff interval.
+
 removed_config_or_runtime:
 # *Normally occurs at the end of the* :ref:`deprecation period <deprecated>`
 
