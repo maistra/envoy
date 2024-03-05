@@ -207,7 +207,11 @@ new_features:
 - area: dubbo_proxy
   change: |
     added :ref:`metadata_match <envoy_v3_api_field_extensions.filters.network.dubbo_proxy.v3.RouteAction.metadata_match>` support to the dubbo proxy.
-
+- area: proxy_protocol
+  change: |
+    Fix crash due to uncaught exception when the operating system does not support an address type (such as IPv6) that is
+    received in a proxy protocol header. Connections will instead be dropped/reset.
+    
 deprecated:
 - area: dubbo_proxy
   change: |
