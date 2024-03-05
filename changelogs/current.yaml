@@ -211,7 +211,10 @@ new_features:
   change: |
     Fix crash due to uncaught exception when the operating system does not support an address type (such as IPv6) that is
     received in a proxy protocol header. Connections will instead be dropped/reset.
-    
+- area: http
+  change: |
+    Fixed crash when HTTP request idle and per try timeouts occurs within backoff interval.
+
 deprecated:
 - area: dubbo_proxy
   change: |
