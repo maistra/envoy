@@ -214,7 +214,10 @@ new_features:
 - area: http
   change: |
     Fixed crash when HTTP request idle and per try timeouts occurs within backoff interval.
-
+- area: proxy protocol
+  change: |
+    fixed a crash when Envoy is configured for PROXY protocol on both a listener and cluster, and the listener receives
+    a PROXY protocol header with address type LOCAL (typically used for health checks).
 deprecated:
 - area: dubbo_proxy
   change: |
