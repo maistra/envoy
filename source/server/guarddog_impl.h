@@ -56,7 +56,7 @@ public:
      * condition. Called while the GuardDog mutex is held.
      * @param mutex The GuardDog's mutex for use by Thread::CondVar::wait.
      */
-    virtual void waitFromTest(Thread::MutexBasicLockable& /*mutex*/) {}
+    virtual void waitFromTest() {}
   };
 
   /**
@@ -85,9 +85,11 @@ public:
    * This is inlined so that it does not need to be present in the production binary.
    */
   void forceCheckForTest() {
-    Thread::LockGuard guard(mutex_);
+    // Thread::LockGuard guard(mutex_);
+    mutex_.lock();
     dispatcher_->post([this]() { loop_timer_->enableTimer(std::chrono::milliseconds(0)); });
-    test_interlock_hook_->waitFromTest(mutex_);
+    mutex_.unlock();
+    test_interlock_hook_->waitFromTest();
   }
 
   // Server::GuardDog

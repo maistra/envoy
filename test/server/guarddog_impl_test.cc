@@ -49,21 +49,25 @@ class DebugTestInterlock : public GuardDogImpl::TestInterlockHook {
 public:
   // GuardDogImpl::TestInterlockHook
   void signalFromImpl() override {
+    Thread::LockGuard guard(cv_mutex_);
     waiting_for_signal_ = false;
+    std::cout << "notify" << std::endl;
     impl_.notifyAll();
   }
 
-  void waitFromTest(Thread::MutexBasicLockable& mutex) override
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex) {
+  void waitFromTest() override {
+    Thread::LockGuard guard(cv_mutex_);
     ASSERT(!waiting_for_signal_);
     waiting_for_signal_ = true;
     while (waiting_for_signal_) {
-      impl_.wait(mutex);
+      std::cout << "wait" << std::endl;
+      impl_.wait(cv_mutex_);
     }
   }
 
 private:
   Thread::CondVar impl_;
+  Thread::MutexBasicLockable cv_mutex_;
   bool waiting_for_signal_ = false;
 };
 
