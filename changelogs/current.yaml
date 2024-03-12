@@ -218,6 +218,10 @@ new_features:
   change: |
     fixed a crash when Envoy is configured for PROXY protocol on both a listener and cluster, and the listener receives
     a PROXY protocol header with address type LOCAL (typically used for health checks).
+- area: proxy_protocol
+  change: |
+    Fixed a bug where TLVs with non utf8 characters were inserted as protobuf values into filter metadata circumventing
+    ext_authz checks when ``failure_mode_allow`` is set to ``true``.
 deprecated:
 - area: dubbo_proxy
   change: |
