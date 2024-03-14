@@ -215,7 +215,7 @@ stages:
         bazelBuildExtraOptions: "--sandbox_base=/tmp/sandbox_base"
 
 - stage: check
-  dependsOn: ["linux_x64"]
+  dependsOn: ["precheck"]
   jobs:
   - job: bazel
     displayName: "linux_x64"
@@ -224,7 +224,7 @@ stages:
       REPO_FETCH_DEPTH: 1
       REPO_FETCH_TAGS: false
     strategy:
-      maxParallel: 3
+      maxParallel: 10
       matrix:
         api:
           CI_TARGET: "bazel.api"
@@ -256,34 +256,21 @@ stages:
         repoFetchDepth: $(REPO_FETCH_DEPTH)
         repoFetchTags: $(REPO_FETCH_TAGS)
 
-  - job: coverage
+  - job: complete
     displayName: "linux_x64"
-    dependsOn: []
-    timeoutInMinutes: 180
-    pool: "envoy-x64-large"
-    strategy:
-      maxParallel: 2
-      matrix:
-        coverage:
-          CI_TARGET: "coverage"
-        fuzz_coverage:
-          CI_TARGET: "fuzz_coverage"
+    dependsOn: ["bazel"]
+    pool:
+      vmImage: "ubuntu-20.04"
+    # This condition ensures that this (required) check passes if all of
+    # the preceding checks either pass or are skipped
+    # adapted from:
+    #   https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions?view=azure-devops#job-to-job-dependencies-within-one-stage
+    condition: |
+      in(dependencies.bazel.result, 'Succeeded', 'SucceededWithIssues', 'Skipped')
     steps:
-    - template: bazel.yml
-      parameters:
-        managedAgent: false
-        ciTarget: bazel.$(CI_TARGET)
-        rbe: false
-        # /tmp/sandbox_base is a tmpfs in CI environment to optimize large I/O for coverage traces
-        bazelBuildExtraOptions: "--define=no_debug_info=1 --linkopt=-Wl,-s --test_env=ENVOY_IP_TEST_VERSIONS=v4only --sandbox_base=/tmp/sandbox_base"
-
-    - script: ci/run_envoy_docker.sh 'ci/upload_gcs_artifact.sh /source/generated/$(CI_TARGET) $(CI_TARGET)'
-      displayName: "Upload $(CI_TARGET) Report to GCS"
-      env:
-        ENVOY_DOCKER_BUILD_DIR: $(Build.StagingDirectory)
-        GCP_SERVICE_ACCOUNT_KEY: $(GcpServiceAccountKey)
-        GCS_ARTIFACT_BUCKET: $(GcsArtifactBucket)
-      condition: always()
+    - checkout: none
+    - bash: |
+        echo "checks complete"
 
 - stage: publish
   dependsOn: ["env", "linux_x64", "linux_arm64"]
@@ -381,50 +368,28 @@ stages:
         artifactSuffix: ".arm64"
         bazelBuildExtraOptions: "--sandbox_base=/tmp/sandbox_base"
 
-  - job: docs
-    displayName: Publish docs to netlify
+  - job: success
     dependsOn: ["docker", "package_x64", "package_arm64"]
-    condition: and(succeeded(), eq(variables['PostSubmit'], true), ne(variables['NoSync'], true))
+    displayName: Success (linux artefacts)
     pool:
       vmImage: "ubuntu-20.04"
+    # This condition ensures that this (required) check passes if all of
+    # the preceding checks either pass or are skipped
+    # adapted from:
+    #   https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions?view=azure-devops#job-to-job-dependencies-within-one-stage
+    condition: |
+      and(
+        in(dependencies.docker.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'),
+        in(dependencies.package_x64.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'),
+        in(dependencies.package_arm64.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'))
     steps:
-    - task: Cache@2
-      inputs:
-        key: "docs | ./WORKSPACE | **/*.bzl"
-        path: $(Build.StagingDirectory)/repository_cache
-      continueOnError: true
-
-    - script: ci/run_envoy_docker.sh 'ci/do_ci.sh docs'
-      workingDirectory: $(Build.SourcesDirectory)
-      env:
-        ENVOY_RBE: "true"
-        BAZEL_BUILD_EXTRA_OPTIONS: "--config=remote-ci --jobs=$(RbeJobs)"
-        AZP_BRANCH: $(Build.SourceBranch)
-        ENVOY_DOCKER_BUILD_DIR: $(Build.StagingDirectory)
-        BAZEL_REMOTE_CACHE: grpcs://remotebuildexecution.googleapis.com
-        BAZEL_REMOTE_INSTANCE: projects/envoy-ci/instances/default_instance
-        GCP_SERVICE_ACCOUNT_KEY: $(GcpServiceAccountKey)
-      displayName: "Generate docs"
-
-    - script: |
-        ci/run_envoy_docker.sh 'ci/upload_gcs_artifact.sh /source/generated/docs docs'
-      displayName: "Upload Docs to GCS"
-      env:
-        ENVOY_DOCKER_BUILD_DIR: $(Build.StagingDirectory)
-        GCP_SERVICE_ACCOUNT_KEY: $(GcpServiceAccountKey)
-        GCS_ARTIFACT_BUCKET: $(GcsArtifactBucket)
-      condition: eq(variables['isMain'], 'true')
-
-    - script: docs/publish.sh
-      displayName: "Publish to GitHub"
-      workingDirectory: $(Build.SourcesDirectory)
-      env:
-        AZP_BRANCH: $(Build.SourceBranch)
-        NETLIFY_TRIGGER_URL: $(NetlifyTriggerURL)
+    - checkout: none
+    - bash: |
+        echo "building publishable assets complete"
 
   - job: github
     displayName: Publish release tag
-    dependsOn: ["docs"]
+    dependsOn: ["success"]
     condition: and(succeeded(), eq(variables['PostSubmit'], true), ne(variables['NoSync'], true), eq(variables['isStableBranch'], 'true'), eq(stageDependencies.env.repo.outputs['state.isDev'], 'false'))
     pool:
       vmImage: "ubuntu-20.04"
