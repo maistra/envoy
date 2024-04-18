@@ -1,6 +1,0 @@
-// NOLINT(namespace-envoy)
-constexpr char TEST_INTERMEDIATE_CA_CERT_256_HASH[] =
-    "fbdcf78576480fe98fcc41a2980aeef7eb27466659dd4f4bea066457f8e351b0";
-constexpr char TEST_INTERMEDIATE_CA_CERT_1_HASH[] = "c0122fbea94c3ebd031b2a5aaa1d1bec1430a756";
-constexpr char TEST_INTERMEDIATE_CA_CERT_SPKI[] = "+KzY5YpZ8HzUNI3QSuYp5eQziyabGaBwEjhZgwFqAT0=";
-constexpr char TEST_INTERMEDIATE_CA_CERT_SERIAL[] = "66e79861f91271dda2eeb3fee32a76840c9c0a95";
