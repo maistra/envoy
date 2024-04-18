@@ -8,11 +8,22 @@ new_features:
     is introduced to disable or enable full scan when no cert matches to SNI, defaults to false.
     New runtime flag ``envoy.reloadable_features.no_full_scan_certs_on_sni_mismatch`` can be used for override the default value.
 
+minor_behavior_changes:
+# *Changes that may cause incompatibilities for some users, but should not for most*
 
 bug_fixes:
 - area: http2
   change: |
     Update nghttp2 to resolve CVE-2024-30255 (https://github.com/envoyproxy/envoy/security/advisories/GHSA-j654-3ccm-vfmm).
+# *Changes expected to improve the state of the world and are unlikely to have negative effects*
+- area: tls
+  change: |
+    Fix a RELEASE_ASSERT when using :ref:`auto_sni <envoy_v3_api_field_config.core.v3.UpstreamHttpProtocolOptions.auto_sni>`
+    if the downstream request ``:authority`` was longer than 255 characters.
+
+
+removed_config_or_runtime:
+# *Normally occurs at the end of the* :ref:`deprecation period <deprecated>`
 
 new_features:
 - area: google_grpc
