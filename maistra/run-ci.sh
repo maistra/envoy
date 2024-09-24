@@ -10,6 +10,8 @@ source "$DIR/common.sh"
 export BUILD_SCM_REVISION="Maistra PR #${PULL_NUMBER:-undefined}"
 export BUILD_SCM_STATUS="SHA=${PULL_PULL_SHA:-undefined}"
 
+# This is a dummy comment just to add a modification
+#
 # Build
 time bazel build \
   ${COMMON_FLAGS} \
