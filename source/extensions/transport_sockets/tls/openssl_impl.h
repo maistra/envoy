@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include "source/common/common/logger.h"
+
 #include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/ssl.h"
 #include "ssl/ssl_local.h"
@@ -38,6 +40,7 @@ namespace Tls {
 
 absl::string_view SSL_extract_client_hello_sni_host_name(const SSL* ssl);
 
+std::string ciphers_for_context(SSL_CTX *ctx);
 int SSL_CTX_set_strict_cipher_list(SSL_CTX *ctx, const char *str);
 
 int SSL_set_ocsp_response(SSL *ssl, const uint8_t *response, size_t response_len);
