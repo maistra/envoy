@@ -4,8 +4,6 @@
 #include <string>
 #include <vector>
 
-#include "source/common/common/logger.h"
-
 #include "bssl_wrapper/bssl_wrapper.h"
 #include "openssl/ssl.h"
 #include "ssl/ssl_local.h"
