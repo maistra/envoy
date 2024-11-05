@@ -234,7 +234,6 @@ envoy_cc_library(
         "openssl_includes_lib",
     ],
     deps = [
-        "//source/common/common:logger_lib",
-#        "//source/common/common:minimal_logger_lib",
+        "//source/common/common:minimal_logger_lib",
     ]
 )
