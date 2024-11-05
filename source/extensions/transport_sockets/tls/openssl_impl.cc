@@ -85,28 +85,6 @@ absl::string_view SSL_extract_client_hello_sni_host_name(const SSL* ssl) {
     return absl::string_view();
 }
 
-std::string ciphers_for_context(SSL_CTX *ctx/*, bool supportedi*/) {
-  // consider using SSL_get1_supported_ciphers
-  // const SSL_METHOD *meth = TLS_server_method();
-  // SSL_CTX *ctx = SSL_CTX_new(meth);
-  // SSL *ssl = SSL_new(ctx);
-  std::ostringstream ciphers_list;
-  STACK_OF(SSL_CIPHER)* ciphers = SSL_CTX_get_ciphers(ctx);
-  char buff[512];
-  for (int i = 0; i < sk_SSL_CIPHER_num(ciphers); i++) {
-    const SSL_CIPHER* cipher = sk_SSL_CIPHER_value(ciphers, i);
-    SSL_CIPHER_description(cipher, buff, sizeof(buff));
-    ciphers_list << buff;
-  }
-  // https://docs.openssl.org/1.1.1/man3/SSL_get_ciphers/#description
-  // Note: SSL_get_ciphers(), SSL_CTX_get_ciphers() and SSL_get_client_ciphers() return a pointer
-  // to an internal cipher stack, which will be freed later on when the SSL or SSL_SESSION object is freed. i
-  // Therefore, the calling code MUST NOT free the return value itself.
-  // sk_SSL_CIPHER_free(ciphers);  // no SSL object used.
-
-  return ciphers_list.str();
-}
-
 template<typename C>
 std::string string_of_collection(const C &c) {
   std::ostringstream list;
