@@ -150,9 +150,6 @@ int SSL_CTX_set_strict_cipher_list(SSL_CTX *ctx, const char *str) {
     token = strtok(nullptr, ":[]|");
   }
 
-//  std::cout << "<= tls 1.2 " << string_of_collection(tls_set) << std::endl; // debug log
-//  std::cout << "== tls 1.3 " << string_of_collection(tls1_3_set) << std::endl; // debug log
-
   // at this point any specific TLS 1.3 context should be removed from the tls_set
   // this allows calling the respective OpenSSL API Set calls as the TLS1_3 call is stricter
   // and can't have any none TLS 1.3 codes.
