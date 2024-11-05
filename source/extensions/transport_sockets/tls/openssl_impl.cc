@@ -18,6 +18,8 @@
 #include "openssl/err.h"
 #include <openssl/safestack.h>
 
+#include "source/common/common/logger.h"
+
 #include <arpa/inet.h>
 
 namespace Envoy {
