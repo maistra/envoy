@@ -5104,7 +5104,13 @@ TEST_P(SslSocketTest, DISABLED_SignatureAlgorithms) {
 }
 
 #if 0
-TEST_P(SslSocketTest, DISABLED_SetSignatureAlgorithms)
+TEST_P(SslSocketTest, DISABLED_SetSignatureAlgorithms) {
+  const std::string server_ctx_yaml = R"EOF(
+  common_tls_context:
+    tls_params:
+      signature_algorithms:
+      - rsa_pss_rsae_sha256
+      - ecdsa_secp256r1_sha256	
     tls_certificates:
       certificate_chain:
         filename: "{{ test_rundir }}/test/extensions/transport_sockets/tls/test_data/unittest_cert.pem"
